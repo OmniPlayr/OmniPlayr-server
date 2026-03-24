@@ -385,7 +385,7 @@ async function saveAccounts() {
         });
     } catch (e) {}
 
-    goToStep(3);
+    goToStep(4);
 }
 
 async function restoreSetupState() {
