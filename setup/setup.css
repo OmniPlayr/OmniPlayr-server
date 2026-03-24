@@ -475,3 +475,87 @@ body {
 .delete-icon:hover {
     filter: brightness(1.2);
 }
+
+.startup-hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px 0;
+}
+
+.startup-logo {
+    width: 72px;
+    height: 70px;
+    filter: drop-shadow(0 0 18px rgba(134,59,255,0.5));
+}
+
+.startup-app-name {
+    font-size: 36px;
+    letter-spacing: -0.5px;
+    margin: 0;
+    background: linear-gradient(135deg, #c084fc, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.startup-tagline {
+    color: var(--clr-text-a30);
+    font-size: 15px;
+    margin: 0;
+}
+
+.startup-buttons {
+    justify-content: center;
+    margin-bottom: 24px;
+}
+
+.question-container {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.question-box {
+    background-color: var(--clr-surface-tonal-a0);
+    border: 1px solid var(--clr-primary-a0);
+    border-radius: 10px;
+    padding: 16px;
+}
+
+.question-text {
+    color: var(--clr-text-a0);
+    font-size: 14px;
+    margin: 0 0 14px 0;
+    line-height: 1.5;
+}
+
+.question-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.question-buttons .button-primary {
+    flex: 1;
+    font-size: 13px;
+    padding: 10px 14px;
+    text-align: center;
+}
+
+.done-checkmark {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #22946e, #47d5a6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    color: #fff;
+    box-shadow: 0 0 24px rgba(34,148,110,0.4);
+}

@@ -15,13 +15,37 @@
         <div class="setup-progress">
             <div class="setup-progress-bar"></div>
         </div>
-        <div class="setup-part active" id="step-1" data-description="Install Dependencies">
-            <h1 class="setup-title">OmniPlayr Setup</h1>
-            <p class="setup-description">Welcome to OmniPlayr, first we need to install some dependencies, please wait. You will be redirected to the next step once the installation has been completed.</p>
+
+        <div class="setup-part active" id="step-1" data-description="Welcome">
+            <div class="startup-hero">
+                <svg class="startup-logo" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g clip-path="url(#clip0_1_2)">
+                <circle cx="512" cy="512" r="512" fill="#6A4BC1"/>
+                <path d="M355.333 794H292.667C275.433 794 260.681 787.864 248.408 775.592C236.136 763.319 230 748.567 230 731.333V512C230 472.833 237.442 436.147 252.325 401.942C267.208 367.736 287.314 337.969 312.642 312.642C337.969 287.314 367.736 267.208 401.942 252.325C436.147 237.442 472.833 230 512 230C551.167 230 587.853 237.442 622.058 252.325C656.264 267.208 686.031 287.314 711.358 312.642C736.686 337.969 756.792 367.736 771.675 401.942C786.558 436.147 794 472.833 794 512V731.333C794 748.567 787.864 763.319 775.592 775.592C763.319 787.864 748.567 794 731.333 794H668.667C651.433 794 636.681 787.864 624.408 775.592C612.136 763.319 606 748.567 606 731.333V606C606 588.767 612.136 574.014 624.408 561.742C636.681 549.469 651.433 543.333 668.667 543.333H731.333V512C731.333 450.9 710.053 399.069 667.492 356.508C624.931 313.947 573.1 292.667 512 292.667C450.9 292.667 399.069 313.947 356.508 356.508C313.947 399.069 292.667 450.9 292.667 512V543.333H355.333C372.567 543.333 387.319 549.469 399.592 561.742C411.864 574.014 418 588.767 418 606V731.333C418 748.567 411.864 763.319 399.592 775.592C387.319 787.864 372.567 794 355.333 794Z" fill="white"/>
+                </g>
+                <defs>
+                <clipPath id="clip0_1_2">
+                <rect width="1024" height="1024" fill="white"/>
+                </clipPath>
+                </defs>
+                </svg>
+                <h1 class="setup-title startup-app-name">OmniPlayr</h1>
+                <p class="startup-tagline">Your self-hosted media player</p>
+            </div>
+            <div class="buttons startup-buttons">
+                <button class="button-primary" onclick="goToStep(1)">Get Started →</button>
+            </div>
+        </div>
+
+        <div class="setup-part" id="step-2" data-description="Install Dependencies">
+            <h1 class="setup-title">Installing…</h1>
             <p class="setup-description">
                 <span id="status-dot" class="status-dot connecting"></span>
                 <span id="stage-label">Connecting…</span>
             </p>
+
+            <div id="question-container" class="question-container" style="display:none;"></div>
+
             <div class="install-progress-wrap">
                 <div class="install-progress-track">
                     <div class="install-progress-bar">
@@ -34,27 +58,38 @@
                 <div id="log-output" class="log-output"></div>
             </div>
         </div>
-        <div class="setup-part" id="step-2" data-description="Overview of all steps">
+
+        <div class="setup-part" id="step-3" data-description="Overview">
             <h1 class="setup-title">OmniPlayr Setup</h1>
-            <p class="setup-description">Welcome to OmniPlayr, we will guide you through the setup process.</p>
+            <p class="setup-description">Welcome to OmniPlayr, we'll guide you through the setup process.</p>
             <p class="setup-text">Steps overview:</p>
-            <div class="steps-overview expanded">
-            </div>
+            <div class="steps-overview expanded"></div>
             <div class="buttons">
-                <button class="button-primary" id="next-button" onclick="goToStep(2)">Lets Get Started!</button>
+                <button class="button-primary" id="next-button" onclick="goToStep(3)">Let's Get Started!</button>
             </div>
         </div>
-        <div class="setup-part" id="step-3" data-description="Create your account">
+
+        <div class="setup-part" id="step-4" data-description="Create your account">
             <h1 class="setup-title">Create your account</h1>
-            <p class="setup-description">You can now create multiple accounts, this makes it easier to manage music across your devices and household.</p>
-            <div class="steps-overview">
-            </div>
+            <p class="setup-description">Create one or more accounts. At least one must be an admin.</p>
+            <div class="steps-overview"></div>
             <div class="accounts-add-list">
-                <p class="setup-text">Create an account</p>
+                <p class="setup-text">Accounts</p>
             </div>
             <div class="buttons">
-                <button class="button-secondary" id="back-button" onclick="goToStep(1)">Back</button>
-                <button class="button-primary" id="next-button" onclick="saveAccounts()">Next</button>
+                <button class="button-secondary" onclick="goToStep(2)">Back</button>
+                <button class="button-primary" onclick="saveAccounts()">Next</button>
+            </div>
+        </div>
+
+        <div class="setup-part" id="step-5" data-description="All done!">
+            <div class="startup-hero">
+                <div class="done-checkmark">✓</div>
+                <h1 class="setup-title">You're all set!</h1>
+                <p class="startup-tagline">OmniPlayr is ready to use.</p>
+            </div>
+            <div class="buttons startup-buttons">
+                <a class="button-primary" href="http://localhost:3000" target="_blank">Open OmniPlayr →</a>
             </div>
         </div>
     </div>

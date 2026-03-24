@@ -1,6 +1,7 @@
 import asyncio, sys
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import asyncio
 import websockets
 import json
@@ -10,12 +11,15 @@ import http.server
 import socketserver
 import webbrowser
 import time
+import subprocess
 
 SETUP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SETUP_DIR)
 
-connected_clients = set()
-log_history = []
+connected_clients: set = set()
+log_history: list = []
+
+pending_questions: dict = {}
 
 async def broadcast(message: dict):
     payload = json.dumps(message)
@@ -38,6 +42,21 @@ async def set_stage(stage: str, label: str):
 async def set_progress(pct: int):
     await broadcast({"type": "progress", "pct": pct})
 
+async def ask(question_id: str, question: str, options: list) -> str:
+    """Send a question to the UI and wait for the user's answer."""
+    loop = asyncio.get_event_loop()
+    fut = loop.create_future()
+    pending_questions[question_id] = fut
+    await broadcast({
+        "type": "question",
+        "id": question_id,
+        "text": question,
+        "options": options,
+    })
+    answer = await fut
+    del pending_questions[question_id]
+    return answer
+
 async def run_cmd(args: list) -> bool:
     proc = await asyncio.create_subprocess_exec(
         *args,
@@ -52,26 +71,54 @@ async def run_cmd(args: list) -> bool:
     await proc.wait()
     return proc.returncode == 0
 
-async def run_install():
-    await asyncio.sleep(1.5)
 
-    await set_stage("pulling", "Pulling Docker images...")
-    await set_progress(5)
-    await log("Pulling required Docker images - this may take a few minutes on first run...", "info")
+def _images_exist() -> bool:
+    """Return True if docker compose images are already built."""
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "images", "--format", "json"],
+            capture_output=True,
+            cwd=PROJECT_DIR,
+            timeout=10,
+        )
+        output = result.stdout.decode().strip()
+        if result.returncode == 0 and output and output != "[]":
+            return True
+        result2 = subprocess.run(
+            ["docker", "compose", "images"],
+            capture_output=True,
+            cwd=PROJECT_DIR,
+            timeout=10,
+        )
+        lines = result2.stdout.decode().strip().splitlines()
+        return len(lines) > 1
+    except Exception:
+        return False
 
-    ok = await run_cmd(["docker", "compose", "pull", "--ignore-pull-failures"])
-    if not ok:
-        await log("docker compose pull returned non-zero - continuing anyway", "warn")
 
-    await set_progress(30)
-    await set_stage("building", "Building service images...")
-    await log("Building frontend and backend images...", "info")
+async def run_install(force_rebuild: bool = False):
+    await asyncio.sleep(1.0)
 
-    ok = await run_cmd(["docker", "compose", "build", "--progress=plain"])
-    if not ok:
-        await log("Build step failed. Check the logs above.", "error")
-        await set_stage("error", "Build failed")
-        return
+    if force_rebuild:
+        await set_stage("pulling", "Pulling Docker images...")
+        await set_progress(5)
+        await log("Pulling required Docker images - this may take a few minutes on first run...", "info")
+        ok = await run_cmd(["docker", "compose", "pull", "--ignore-pull-failures"])
+        if not ok:
+            await log("docker compose pull returned non-zero - continuing anyway", "warn")
+
+        await set_progress(30)
+        await set_stage("building", "Building service images...")
+        await log("Building frontend and backend images...", "info")
+        ok = await run_cmd(["docker", "compose", "build", "--no-cache", "--progress=plain"])
+        if not ok:
+            await log("Build step failed. Check the logs above.", "error")
+            await set_stage("error", "Build failed")
+            return
+    else:
+        await set_stage("building", "Using existing images...")
+        await set_progress(30)
+        await log("Skipping build - using existing Docker images.", "info")
 
     await set_progress(65)
     await set_stage("starting", "Starting services...")
@@ -104,7 +151,6 @@ async def run_install():
 
     await set_progress(80)
     await log("Starting backend...", "info")
-
     ok = await run_cmd(["docker", "compose", "up", "-d", "backend"])
     if not ok:
         await log("Failed to start backend container.", "error")
@@ -113,7 +159,6 @@ async def run_install():
 
     await set_progress(90)
     await log("Starting frontend...", "info")
-
     ok = await run_cmd(["docker", "compose", "up", "-d", "frontend"])
     if not ok:
         await log("Failed to start frontend container.", "error")
@@ -126,12 +171,46 @@ async def run_install():
     await broadcast({"type": "next", "step": 1})
 
 
+async def startup_sequence():
+    """Decide whether to build or skip, then run install."""
+    await asyncio.sleep(1.5)
+
+    images_exist = _images_exist()
+
+    if images_exist:
+        await log("Existing Docker build detected.", "info")
+        answer = await ask(
+            "rebuild_prompt",
+            "An existing build was found. What would you like to do?",
+            [
+                {"value": "start",   "label": "Start existing build"},
+                {"value": "rebuild", "label": "Force rebuild from scratch"},
+            ],
+        )
+        force_rebuild = (answer == "rebuild")
+    else:
+        await log("No existing build found - starting fresh build.", "info")
+        force_rebuild = True
+
+    await run_install(force_rebuild=force_rebuild)
+
+
 async def ws_handler(websocket):
     connected_clients.add(websocket)
     try:
         for msg in log_history:
             await websocket.send(msg)
-        await websocket.wait_closed()
+
+        async for raw_msg in websocket:
+            try:
+                msg = json.loads(raw_msg)
+            except Exception:
+                continue
+            if msg.get("type") == "answer":
+                qid = msg.get("id")
+                value = msg.get("value")
+                if qid in pending_questions and not pending_questions[qid].done():
+                    pending_questions[qid].set_result(value)
     finally:
         connected_clients.discard(websocket)
 
@@ -159,7 +238,7 @@ async def main():
     except Exception:
         pass
 
-    install_task = asyncio.create_task(run_install())
+    install_task = asyncio.create_task(startup_sequence())
 
     async with websockets.serve(ws_handler, "0.0.0.0", 8765):
         await install_task

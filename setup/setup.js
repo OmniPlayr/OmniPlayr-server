@@ -6,10 +6,13 @@ const installProgressLabel = document.querySelector('.install-progress-label');
 const stageLabel = document.getElementById('stage-label');
 const logContainer = document.getElementById('log-output');
 const statusDot = document.getElementById('status-dot');
+const questionContainer = document.getElementById('question-container');
 
 const steps = document.querySelectorAll('.setup-part');
 const stepWidth = 100 / steps.length;
 let currentStep = 0;
+
+const BACKEND = `http://${location.hostname}:8000/api`;
 
 function setTopProgress(stepIndex) {
     topProgressBar.style.width = ((stepIndex + 1) * stepWidth) + '%';
@@ -26,29 +29,39 @@ function goToStep(index) {
     steps[currentStep].classList.add('active');
     setTopProgress(currentStep);
     updateStepOverview(currentStep + 1);
+    saveSetupState(currentStep);
+    if (index === 3) loadExistingAccounts();
+}
+
+function saveSetupState(step) {
+    fetch(`${BACKEND}/setup/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_step: step, completed: false }),
+    }).catch(() => {});
 }
 
 function updateStepOverview(step) {
-    const setuppart = document.querySelector(`.setup-part#step-${step}`);
-    const overview = setuppart.querySelector('.steps-overview');
+    const setupPart = document.querySelector(`.setup-part#step-${step}`);
+    if (!setupPart) return;
+    const overview = setupPart.querySelector('.steps-overview');
+    if (!overview) return;
+
     overview.innerHTML = '';
 
-    const expandOverview = (overview) => {
-        overview.classList.toggle('expanded-after');
+    const expanded = overview.classList.contains('expanded');
+    if (!expanded) {
+        overview.addEventListener('click', () => {
+            overview.classList.toggle('expanded-after');
+        }, { once: false });
     }
-
-    overview.replaceWith(overview.cloneNode(true));
-    const newOverview = setuppart.querySelector('.steps-overview');
-
-    const expanded = newOverview.classList.contains('expanded');
-    if (!expanded) newOverview.addEventListener('click', () => expandOverview(newOverview));
 
     steps.forEach((lstep, i) => {
         const stepOverview = document.createElement('div');
         stepOverview.className = 'step-overview';
         stepOverview.setAttribute('data-step', i + 1);
-        stepOverview.classList.add('step-overview-' + (i + 1 < step ? 'done' : i + 1 === step ? 'doing' : 'todo'));
-        newOverview.appendChild(stepOverview);
+        const stateClass = i + 1 < step ? 'done' : i + 1 === step ? 'doing' : 'todo';
+        stepOverview.classList.add('step-overview-' + stateClass);
 
         const stepDescription = lstep.getAttribute('data-description');
         const span = document.createElement('span');
@@ -56,11 +69,12 @@ function updateStepOverview(step) {
 
         const img = document.createElement('img');
         img.src = `assets/icons/${i + 1 < step ? 'check' : i + 1 === step ? 'circle-doing-now' : 'circle'}.svg`;
-        img.alt = i + 1 < step ? 'done' : i + 1 === step ? 'doing' : 'todo';
+        img.alt = stateClass;
         img.className = 'overview-icon';
         stepOverview.appendChild(img);
         stepOverview.appendChild(span);
-    })
+        overview.appendChild(stepOverview);
+    });
 }
 
 function setStage(stage, label) {
@@ -81,19 +95,51 @@ function escHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+let ws;
+
+function showQuestion(id, text, options) {
+    questionContainer.innerHTML = '';
+    questionContainer.style.display = 'flex';
+
+    const box = document.createElement('div');
+    box.className = 'question-box';
+
+    const q = document.createElement('p');
+    q.className = 'question-text';
+    q.textContent = text;
+    box.appendChild(q);
+
+    const btns = document.createElement('div');
+    btns.className = 'question-buttons';
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'button-primary';
+        btn.textContent = opt.label;
+        btn.addEventListener('click', () => {
+            questionContainer.style.display = 'none';
+            ws.send(JSON.stringify({ type: 'answer', id, value: opt.value }));
+        });
+        btns.appendChild(btn);
+    });
+
+    box.appendChild(btns);
+    questionContainer.appendChild(box);
+}
+
 setTopProgress(0);
 
 function connect() {
-    const ws = new WebSocket('ws://' + location.hostname + ':8765');
+    ws = new WebSocket('ws://' + location.hostname + ':8765');
 
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === 'log') appendLog(msg.text, msg.level);
         if (msg.type === 'progress') setInstallProgress(msg.pct);
         if (msg.type === 'stage') setStage(msg.stage, msg.label);
+        if (msg.type === 'question') showQuestion(msg.id, msg.text, msg.options);
         if (msg.type === 'next') {
-            appendLog('Installation complete, continuing setup...', 'success');
-            goToStep(msg.step);
+            appendLog('Installation complete, continuing setup…', 'success');
+            goToStep(msg.step + 1);
         }
         if (msg.type === 'redirect') {
             window.location.href = msg.url;
@@ -101,56 +147,131 @@ function connect() {
     };
 
     ws.onclose = () => setTimeout(connect, 2000);
-    ws.onerror = () => { stageLabel.textContent = 'Waiting for server...'; };
+    ws.onerror = () => {
+        stageLabel.textContent = 'Waiting for server…';
+    };
 }
 
 connect();
 
 const accountsContainer = document.querySelector('.accounts-add-list');
+const persistedAccounts = new Map();
 
-function createAccountItem() {
+async function loadExistingAccounts() {
+    try {
+        const res = await fetch(`${BACKEND}/accounts/`);
+        if (!res.ok) return;
+        const accounts = await res.json();
+
+        for (const [id, el] of persistedAccounts) {
+            if (!accounts.find(a => a.id === id)) {
+                el.remove();
+                persistedAccounts.delete(id);
+            }
+        }
+
+        for (const acc of accounts) {
+            if (!persistedAccounts.has(acc.id)) {
+                const item = createAccountItem(acc);
+                persistedAccounts.set(acc.id, item);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load existing accounts (backend may not be up yet):', e);
+    }
+}
+
+function createAccountItem(existing = null) {
     const accountItem = document.createElement('div');
     accountItem.className = 'account-item';
+
+    const avatarSrc = existing?.avatar_b64 || 'assets/icons/profile.svg';
+
     accountItem.innerHTML = `
         <div class="account-upload">
-            <img src="assets/icons/profile.svg" draggable="false" alt="Account" class="account-icon">
+            <img src="${escHtml(avatarSrc)}" draggable="false" alt="Account" class="account-icon">
             <img src="assets/icons/upload.svg" draggable="false" alt="Upload" class="upload-icon">
             <input type="file" accept="image/*" class="account-upload-input">
         </div>
         <div class="account-options">
-            <input type="text" placeholder="Account Name" class="account-name">
+            <input type="text" placeholder="Account Name" class="account-name" value="${existing ? escHtml(existing.name) : ''}">
             <select class="account-type">
-                <option disabled selected value="">Account Role</option>
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
+                <option disabled ${!existing ? 'selected' : ''} value="">Account Role</option>
+                <option value="user" ${existing?.role === 'user' ? 'selected' : ''}>User</option>
+                <option value="admin" ${existing?.role === 'admin' ? 'selected' : ''}>Admin</option>
             </select>
         </div>
         <img src="assets/icons/delete.svg" draggable="false" alt="Delete" class="delete-icon">
     `;
 
-    const deleteBtn = accountItem.querySelector('.delete-icon');
-    deleteBtn.addEventListener('click', () => accountItem.remove());
+    if (existing) accountItem.dataset.backendId = existing.id;
+
+    accountItem.querySelector('.delete-icon').addEventListener('click', async () => {
+        const bid = accountItem.dataset.backendId;
+        if (bid) {
+            try {
+                await fetch(`${BACKEND}/accounts/${bid}`, { method: 'DELETE' });
+                persistedAccounts.delete(Number(bid));
+            } catch (e) {
+                console.warn('Delete failed', e);
+            }
+        }
+        accountItem.remove();
+    });
 
     const uploadInput = accountItem.querySelector('.account-upload-input');
     const accountIcon = accountItem.querySelector('.account-icon');
     const uploadOverlay = accountItem.querySelector('.upload-icon');
+
     uploadOverlay.addEventListener('click', () => uploadInput.click());
+
     uploadInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
+
         const reader = new FileReader();
-        reader.onload = (ev) => accountIcon.src = ev.target.result;
+        reader.onload = async (ev) => {
+            accountIcon.src = ev.target.result;
+            const bid = accountItem.dataset.backendId;
+            if (bid) await patchAccount(bid, { avatar_b64: ev.target.result });
+        };
         reader.readAsDataURL(file);
     });
 
+    const nameInput = accountItem.querySelector('.account-name');
+    const typeInput = accountItem.querySelector('.account-type');
+
+    nameInput.addEventListener('blur', async () => {
+        const bid = accountItem.dataset.backendId;
+        if (bid) await patchAccount(bid, { name: nameInput.value.trim() });
+    });
+
+    typeInput.addEventListener('change', async () => {
+        const bid = accountItem.dataset.backendId;
+        if (bid) await patchAccount(bid, { role: typeInput.value });
+    });
+
     accountsContainer.insertBefore(accountItem, addAccountBtn);
+    return accountItem;
+}
+
+async function patchAccount(id, fields) {
+    try {
+        await fetch(`${BACKEND}/accounts/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fields),
+        });
+    } catch (e) {
+        console.warn('Patch failed', e);
+    }
 }
 
 const addAccountBtn = document.createElement('button');
 addAccountBtn.textContent = 'Add Account';
 addAccountBtn.className = 'button-tertiary';
 addAccountBtn.style.marginTop = '10px';
-addAccountBtn.addEventListener('click', createAccountItem);
+addAccountBtn.addEventListener('click', () => createAccountItem());
 accountsContainer.appendChild(addAccountBtn);
 
 function showTooltip(input, message) {
@@ -158,22 +279,23 @@ function showTooltip(input, message) {
     tooltip.className = 'input-tooltip';
     tooltip.textContent = message;
     document.body.appendChild(tooltip);
+
     const rect = input.getBoundingClientRect();
     tooltip.style.position = 'absolute';
     tooltip.style.left = rect.left + window.scrollX + 'px';
-    tooltip.style.top = rect.top + window.scrollY - 25 + 'px';
-    tooltip.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    tooltip.style.top = rect.top + window.scrollY - 28 + 'px';
+    tooltip.style.backgroundColor = 'rgba(0,0,0,0.85)';
     tooltip.style.color = '#fff';
-    tooltip.style.padding = '3px 6px';
-    tooltip.style.borderRadius = '4px';
+    tooltip.style.padding = '4px 8px';
+    tooltip.style.borderRadius = '5px';
     tooltip.style.fontSize = '12px';
     tooltip.style.zIndex = '999';
-    setTimeout(() => tooltip.remove(), 2000);
+
+    setTimeout(() => tooltip.remove(), 2200);
 }
 
-function saveAccounts() {
+async function saveAccounts() {
     const accountItems = accountsContainer.querySelectorAll('.account-item');
-    const accountsData = [];
     let valid = true;
 
     if (accountItems.length === 0) {
@@ -182,11 +304,13 @@ function saveAccounts() {
     }
 
     let hasAdmin = false;
+    const upsertPromises = [];
 
     accountItems.forEach(item => {
         const nameInput = item.querySelector('.account-name');
         const typeInput = item.querySelector('.account-type');
-        const img = item.querySelector('.account-icon').src;
+        const avatarSrc = item.querySelector('.account-icon').src;
+
         let hasError = false;
 
         if (!nameInput.value.trim()) {
@@ -194,24 +318,89 @@ function saveAccounts() {
             hasError = true;
         }
 
-        if (!typeInput.value || typeInput.value === "") {
+        if (!typeInput.value || typeInput.value === '') {
             showTooltip(typeInput, 'Role is required');
             hasError = true;
         }
 
-        if (!hasError) {
-            accountsData.push({ name: nameInput.value.trim(), type: typeInput.value, img });
-            if (typeInput.value === 'admin') hasAdmin = true;
+        if (hasError) {
+            valid = false;
+            return;
         }
-        if (hasError) valid = false;
+
+        if (typeInput.value === 'admin') hasAdmin = true;
+
+        const bid = item.dataset.backendId;
+        const avatar_b64 = avatarSrc.startsWith('data:') ? avatarSrc : null;
+
+        if (bid) {
+            upsertPromises.push(
+                fetch(`${BACKEND}/accounts/${bid}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 }),
+                }).then(async r => {
+                    if (r.ok) {
+                        const updated = await r.json();
+                        item.dataset.backendId = updated.id;
+                        persistedAccounts.set(updated.id, item);
+                    }
+                })
+            );
+        } else {
+            upsertPromises.push(
+                fetch(`${BACKEND}/accounts/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 }),
+                }).then(async r => {
+                    if (r.ok) {
+                        const created = await r.json();
+                        item.dataset.backendId = created.id;
+                        persistedAccounts.set(created.id, item);
+                    }
+                })
+            );
+        }
     });
 
     if (!hasAdmin) {
-        showTooltip(addAccountBtn, 'At least one admin is required');
+        showTooltip(addAccountBtn, 'At least one admin account is required');
         valid = false;
     }
 
-    if (valid) goToStep(3);
+    if (!valid) return;
+
+    try {
+        await Promise.all(upsertPromises);
+    } catch (e) {
+        console.warn('Some account saves failed:', e);
+    }
+
+    try {
+        await fetch(`${BACKEND}/setup/state`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_step: 3, completed: true }),
+        });
+    } catch (e) {}
+
+    goToStep(3);
 }
 
-createAccountItem();
+async function restoreSetupState() {
+    try {
+        const res = await fetch(`${BACKEND}/setup/state`);
+        if (!res.ok) return;
+
+        const state = await res.json();
+
+        if (state && state.current_step > 0 && !state.completed) {
+            if (state.current_step >= 2) {
+                goToStep(state.current_step);
+            }
+        }
+    } catch (e) {}
+}
+
+setTimeout(restoreSetupState, 3000);
