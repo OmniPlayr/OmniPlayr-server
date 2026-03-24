@@ -181,6 +181,8 @@ function saveAccounts() {
         return;
     }
 
+    let hasAdmin = false;
+
     accountItems.forEach(item => {
         const nameInput = item.querySelector('.account-name');
         const typeInput = item.querySelector('.account-type');
@@ -197,9 +199,17 @@ function saveAccounts() {
             hasError = true;
         }
 
-        if (!hasError) accountsData.push({ name: nameInput.value.trim(), type: typeInput.value, img });
+        if (!hasError) {
+            accountsData.push({ name: nameInput.value.trim(), type: typeInput.value, img });
+            if (typeInput.value === 'admin') hasAdmin = true;
+        }
         if (hasError) valid = false;
     });
+
+    if (!hasAdmin) {
+        showTooltip(addAccountBtn, 'At least one admin is required');
+        valid = false;
+    }
 
     if (valid) goToStep(3);
 }
