@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+
+  frontend:
+    build: ./frontend
+    container_name: omniplayr_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: omniplayr_backend
+    volumes:
+      - ./db:/db
+    environment:
+      - DATABASE_URL=postgres://postgres:password@db:5432/omniplayr
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: omniplayr_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: omniplayr
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped

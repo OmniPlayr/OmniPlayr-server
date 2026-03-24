@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniPlayr Setup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+    <div id="particles-js"></div>
+
+    <div class="setup-content">
+        <div class="setup-progress">
+            <div class="setup-progress-bar"></div>
+        </div>
+        <div class="setup-part active" id="step-1" data-description="Install Dependencies">
+            <h1 class="setup-title">OmniPlayr Setup</h1>
+            <p class="setup-description">Welcome to OmniPlayr, first we need to install some dependencies, please wait. You will be redirected to the next step once the installation has been completed.</p>
+            <p class="setup-description">
+                <span id="status-dot" class="status-dot connecting"></span>
+                <span id="stage-label">Connecting…</span>
+            </p>
+            <div class="install-progress-wrap">
+                <div class="install-progress-track">
+                    <div class="install-progress-bar">
+                        <span class="install-progress-label">0%</span>
+                    </div>
+                </div>
+                <span class="install-progress-label">0%</span>
+            </div>
+            <div class="log-panel">
+                <div id="log-output" class="log-output"></div>
+            </div>
+        </div>
+        <div class="setup-part" id="step-2" data-description="Overview of all steps">
+            <h1 class="setup-title">OmniPlayr Setup</h1>
+            <p class="setup-description">Welcome to OmniPlayr, we will guide you through the setup process.</p>
+            <p class="setup-text">Steps overview:</p>
+            <div class="steps-overview expanded">
+            </div>
+            <div class="buttons">
+                <button class="button-primary" id="next-button" onclick="goToStep(2)">Lets Get Started!</button>
+            </div>
+        </div>
+        <div class="setup-part" id="step-3" data-description="Create your account">
+            <h1 class="setup-title">Create your account</h1>
+            <p class="setup-description">You can now create multiple accounts, this makes it easier to manage music across your devices and household.</p>
+            <div class="steps-overview">
+            </div>
+            <div class="accounts-add-list">
+                <p class="setup-text">Create an account</p>
+            </div>
+            <div class="buttons">
+                <button class="button-secondary" id="back-button" onclick="goToStep(1)">Back</button>
+                <button class="button-primary" id="next-button" onclick="saveAccounts()">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/particles.js"></script>
+    <script src="setup.js"></script>
+</body>
+</html>

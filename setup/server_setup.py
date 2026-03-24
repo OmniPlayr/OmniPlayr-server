@@ -1,0 +1,169 @@
+import asyncio, sys
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+import asyncio
+import websockets
+import json
+import os
+import threading
+import http.server
+import socketserver
+import webbrowser
+import time
+
+SETUP_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(SETUP_DIR)
+
+connected_clients = set()
+log_history = []
+
+async def broadcast(message: dict):
+    payload = json.dumps(message)
+    log_history.append(payload)
+    dead = set()
+    for ws in connected_clients:
+        try:
+            await ws.send(payload)
+        except Exception:
+            dead.add(ws)
+    connected_clients.difference_update(dead)
+
+async def log(text: str, level: str = "info"):
+    print(f"[{level.upper()}] {text}", flush=True)
+    await broadcast({"type": "log", "level": level, "text": text})
+
+async def set_stage(stage: str, label: str):
+    await broadcast({"type": "stage", "stage": stage, "label": label})
+
+async def set_progress(pct: int):
+    await broadcast({"type": "progress", "pct": pct})
+
+async def run_cmd(args: list) -> bool:
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=PROJECT_DIR,
+    )
+    async for raw in proc.stdout:
+        line = raw.decode("utf-8", errors="replace").rstrip()
+        if line:
+            await log(line)
+    await proc.wait()
+    return proc.returncode == 0
+
+async def run_install():
+    await asyncio.sleep(1.5)
+
+    await set_stage("pulling", "Pulling Docker images...")
+    await set_progress(5)
+    await log("Pulling required Docker images - this may take a few minutes on first run...", "info")
+
+    ok = await run_cmd(["docker", "compose", "pull", "--ignore-pull-failures"])
+    if not ok:
+        await log("docker compose pull returned non-zero - continuing anyway", "warn")
+
+    await set_progress(30)
+    await set_stage("building", "Building service images...")
+    await log("Building frontend and backend images...", "info")
+
+    ok = await run_cmd(["docker", "compose", "build", "--progress=plain"])
+    if not ok:
+        await log("Build step failed. Check the logs above.", "error")
+        await set_stage("error", "Build failed")
+        return
+
+    await set_progress(65)
+    await set_stage("starting", "Starting services...")
+    await log("Starting database...", "info")
+
+    ok = await run_cmd(["docker", "compose", "up", "-d", "db"])
+    if not ok:
+        await log("Failed to start database container.", "error")
+        await set_stage("error", "DB start failed")
+        return
+
+    await log("Waiting for Postgres to be ready...", "info")
+    for attempt in range(20):
+        check = await asyncio.create_subprocess_exec(
+            "docker", "compose", "exec", "-T", "db", "pg_isready", "-U", "postgres",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            cwd=PROJECT_DIR,
+        )
+        await check.wait()
+        if check.returncode == 0:
+            await log("Database is ready.", "success")
+            break
+        await log(f"Postgres not ready yet (attempt {attempt + 1}/20)...", "info")
+        await asyncio.sleep(2)
+    else:
+        await log("Postgres did not become ready in time.", "error")
+        await set_stage("error", "DB not ready")
+        return
+
+    await set_progress(80)
+    await log("Starting backend...", "info")
+
+    ok = await run_cmd(["docker", "compose", "up", "-d", "backend"])
+    if not ok:
+        await log("Failed to start backend container.", "error")
+        await set_stage("error", "Backend start failed")
+        return
+
+    await set_progress(90)
+    await log("Starting frontend...", "info")
+
+    ok = await run_cmd(["docker", "compose", "up", "-d", "frontend"])
+    if not ok:
+        await log("Failed to start frontend container.", "error")
+        await set_stage("error", "Frontend start failed")
+        return
+
+    await set_progress(100)
+    await set_stage("done", "Setup complete")
+    await log("All services are up. OmniPlayr is ready!", "success")
+    await broadcast({"type": "next", "step": 1})
+
+
+async def ws_handler(websocket):
+    connected_clients.add(websocket)
+    try:
+        for msg in log_history:
+            await websocket.send(msg)
+        await websocket.wait_closed()
+    finally:
+        connected_clients.discard(websocket)
+
+
+class StaticHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=SETUP_DIR, **kwargs)
+
+    def log_message(self, *args):
+        pass
+
+
+def serve_http():
+    with socketserver.TCPServer(("0.0.0.0", 8080), StaticHandler) as httpd:
+        httpd.serve_forever()
+
+
+async def main():
+    threading.Thread(target=serve_http, daemon=True).start()
+    print("Setup UI available at http://localhost:8080", flush=True)
+
+    time.sleep(0.5)
+    try:
+        webbrowser.open("http://localhost:8080")
+    except Exception:
+        pass
+
+    install_task = asyncio.create_task(run_install())
+
+    async with websockets.serve(ws_handler, "0.0.0.0", 8765):
+        await install_task
+        await asyncio.Event().wait()
+
+
+asyncio.run(main())
