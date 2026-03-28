@@ -77,3 +77,15 @@ button[data-type="secondary"] {
     --color-hov: var(--clr-text-a0);
     --border-hov: var(--clr-surface-a50);
 }
+
+/* Revert for JSPT, this is needed, because else it looks crazy weird */
+*:not(.toast-container, .toast-container *, .popup-container, .popup-container *) {
+    box-sizing: border-box;
+}
+
+.toast-container *,
+.popup-container * {
+    box-sizing: content-box;
+    margin: revert;
+    padding: revert;
+}
