@@ -5,11 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.helpers.db import init_db
 from api.router import router
-
+from api.helpers.config import load_configs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # This loads the config files
+    load_configs()
     yield
 
 
@@ -23,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# This sets the /api prefix for in the url, so that we can use /api/...
 app.include_router(router, prefix="/api")
 
 if __name__ == "__main__":

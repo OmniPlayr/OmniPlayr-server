@@ -1,0 +1,23 @@
+.login__screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--clr-popup-a0);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid var(--clr-popup-a30);
+}
+
+.login__button {
+    width: max-content;
+    align-self: end;
+}
+
+.login__subtitle {
+    color: var(--clr-text-a40);
+}

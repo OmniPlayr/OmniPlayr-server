@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet" href="setup.css">
+    <link rel="icon" type="image/svg+xml" href="/assets/favicons/downloading.svg" />
 </head>
 <body>
     <div id="particles-js"></div>
@@ -49,7 +50,6 @@
             <div class="install-progress-wrap">
                 <div class="install-progress-track">
                     <div class="install-progress-bar">
-                        <span class="install-progress-label">0%</span>
                     </div>
                 </div>
                 <span class="install-progress-label">0%</span>
@@ -69,7 +69,26 @@
             </div>
         </div>
 
-        <div class="setup-part" id="step-4" data-description="Create your account">
+        <div class="setup-part" id="step-4" data-description="Set a password">
+            <h1 class="setup-title">Set a password</h1>
+            <p class="setup-description">To make sure no one else can access your server, it is recommended that you set a password.</p>
+            <div class="steps-overview"></div>
+            <div class="account-password-wrap">
+                <p class="setup-text">Set a server password</p>
+                <input type="password" id="password-input" placeholder="Server Password" class="account-password" value="">
+            </div>
+            <div class="disclaimer">
+                <img class="disclaimer-icon" src="assets/icons/warning.svg" alt="warning">
+                <p class="disclaimer-text">During setup, restarting or reloading will use your previous password. Change it by resetting the setup or after the setup has completed.</p>
+            </div>
+            <div class="buttons">
+                <button class="button-secondary" onclick="goToStep(2)">Back</button>
+                <button class="button-secondary" onclick="goToStep(4)">Skip</button>
+                <button class="button-primary" id="save-password-btn" disabled onclick="savePassword()">Next</button>
+            </div>
+        </div>
+
+        <div class="setup-part" id="step-5" data-description="Create your account">
             <h1 class="setup-title">Create your account</h1>
             <p class="setup-description">Create one or more accounts. At least one must be an admin.</p>
             <div class="steps-overview"></div>
@@ -77,12 +96,12 @@
                 <p class="setup-text">Accounts</p>
             </div>
             <div class="buttons">
-                <button class="button-secondary" onclick="goToStep(2)">Back</button>
+                <button class="button-secondary" onclick="goToStep(3)">Back</button>
                 <button class="button-primary" onclick="saveAccounts()">Next</button>
             </div>
         </div>
 
-        <div class="setup-part" id="step-5" data-description="All done!">
+        <div class="setup-part" id="step-6" data-description="All done!">
             <div class="startup-hero">
                 <div class="done-checkmark">✓</div>
                 <h1 class="setup-title">You're all set!</h1>

@@ -8,9 +8,14 @@ const logContainer = document.getElementById('log-output');
 const statusDot = document.getElementById('status-dot');
 const questionContainer = document.getElementById('question-container');
 
+const passwordInput = document.getElementById('password-input');
+const savePasswordBtn = document.getElementById('save-password-btn');
+
 const steps = document.querySelectorAll('.setup-part');
 const stepWidth = 100 / steps.length;
 let currentStep = 0;
+
+let gotSetupStateFromHttp = false;
 
 const BACKEND = `http://${location.hostname}:8000/api`;
 
@@ -30,14 +35,22 @@ function goToStep(index) {
     setTopProgress(currentStep);
     updateStepOverview(currentStep + 1);
     saveSetupState(currentStep);
-    if (index === 3) loadExistingAccounts();
+    if (index === 4) loadExistingAccounts();
+
+    if (index > 1) {
+        const favicon = document.querySelector('link[rel="icon"]');
+        favicon.href = '/assets/favicons/setup.svg';
+    } else {
+        const favicon = document.querySelector('link[rel="icon"]');
+        favicon.href = '/assets/favicons/downloading.svg';
+    }
 }
 
 function saveSetupState(step) {
     fetch(`${BACKEND}/setup/state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_step: step, completed: false }),
+        body: JSON.stringify({ current_step: step, completed: true }),
     }).catch(() => {});
 }
 
@@ -98,6 +111,9 @@ function escHtml(s) {
 let ws;
 
 function showQuestion(id, text, options) {
+    goToStep(1);
+    gotSetupStateFromHttp = false;
+
     questionContainer.innerHTML = '';
     questionContainer.style.display = 'flex';
 
@@ -130,6 +146,8 @@ setTopProgress(0);
 
 function connect() {
     ws = new WebSocket('ws://' + location.hostname + ':8765');
+    const favicon = document.querySelector('link[rel="icon"]');
+    favicon.href = '/assets/favicons/downloading.svg';
 
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
@@ -139,7 +157,7 @@ function connect() {
         if (msg.type === 'question') showQuestion(msg.id, msg.text, msg.options);
         if (msg.type === 'next') {
             appendLog('Installation complete, continuing setup…', 'success');
-            goToStep(msg.step + 1);
+            if (!gotSetupStateFromHttp) goToStep(msg.step + 1);
         }
         if (msg.type === 'redirect') {
             window.location.href = msg.url;
@@ -294,6 +312,21 @@ function showTooltip(input, message) {
     setTimeout(() => tooltip.remove(), 2200);
 }
 
+async function savePassword() {
+    const password = passwordInput.value.trim();
+    if (!password) return showTooltip(passwordInput, 'Password is required');
+
+    if (password.length < 8) return showTooltip(passwordInput, 'Password must be at least 8 characters long');
+
+    try {
+        await fetch(`${BACKEND}/server/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+    } catch (e) {
+        console.warn('Save password failed', e);
+    }
+
+    goToStep(4);
+}
+
 async function saveAccounts() {
     const accountItems = accountsContainer.querySelectorAll('.account-item');
     let valid = true;
@@ -377,15 +410,7 @@ async function saveAccounts() {
         console.warn('Some account saves failed:', e);
     }
 
-    try {
-        await fetch(`${BACKEND}/setup/state`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ current_step: 3, completed: true }),
-        });
-    } catch (e) {}
-
-    goToStep(4);
+    goToStep(5);
 }
 
 async function restoreSetupState() {
@@ -394,13 +419,23 @@ async function restoreSetupState() {
         if (!res.ok) return;
 
         const state = await res.json();
-
-        if (state && state.current_step > 0 && !state.completed) {
-            if (state.current_step >= 2) {
-                goToStep(state.current_step);
-            }
-        }
+        gotSetupStateFromHttp = true;
+        goToStep(state.current_step);
     } catch (e) {}
 }
 
-setTimeout(restoreSetupState, 3000);
+(async () => await restoreSetupState())();
+
+passwordInput.addEventListener('input', validatePassword);
+
+function validatePassword() {
+    const password = passwordInput.value.trim();
+    
+    if (password && password.length >= 8) {
+        savePasswordBtn.disabled = false;
+    } else if (password) {
+        showTooltip(passwordInput, 'Password must be at least 8 characters long');
+    } else {
+        savePasswordBtn.disabled = true;
+    }
+}

@@ -1,0 +1,55 @@
+:root {
+    --clr-dark-a0: #000000;
+    --clr-light-a0: #ffffff;
+
+    --clr-primary-a0: #6a4bc1;
+    --clr-primary-a10: #7c5ec8;
+    --clr-primary-a20: #8e71d0;
+    --clr-primary-a30: #9f84d7;
+    --clr-primary-a40: #af98de;
+    --clr-primary-a50: #c0ace5;
+
+    --clr-surface-a0: #101010;
+    --clr-surface-a10: #181818;
+    --clr-surface-a20: #202020;
+    --clr-surface-a30: #282828;
+    --clr-surface-a40: #303030;
+    --clr-surface-a50: #383838;
+
+    --clr-popup-a0: #1e1e1e;
+    --clr-popup-a10: #252525;
+    --clr-popup-a20: #2c2c2c;
+    --clr-popup-a30: #333333;
+    --clr-popup-a40: #3a3a3a;
+    --clr-popup-a50: #414141;
+
+    --clr-surface-tonal-a0: #1a1720;
+    --clr-surface-tonal-a10: #2f2c35;
+    --clr-surface-tonal-a20: #45434b;
+    --clr-surface-tonal-a30: #5d5b62;
+    --clr-surface-tonal-a40: #76747a;
+    --clr-surface-tonal-a50: #908e93;
+
+    --clr-text-a0: #dfdfdf;
+    --clr-text-a10: #e0e0e0;
+    --clr-text-a20: #c4c4c4;
+    --clr-text-a30: #B2B2B2;
+    --clr-text-a40: #8c8c8c;
+    --clr-text-a50: #707070;
+
+    --clr-success-a0: #22946e;
+    --clr-success-a10: #47d5a6;
+    --clr-success-a20: #9ae8ce;
+
+    --clr-warning-a0: #a87a2a;
+    --clr-warning-a10: #d7ac61;
+    --clr-warning-a20: #ecd7b2;
+
+    --clr-danger-a0: #9c2121;
+    --clr-danger-a10: #d94a4a;
+    --clr-danger-a20: #eb9e9e;
+
+    --clr-info-a0: #21498a;
+    --clr-info-a10: #4077d1;
+    --clr-info-a20: #92b2e5;
+}

@@ -1,0 +1,3 @@
+[auth]
+access_token_lifetime = "str # liveupdate:true"
+refresh_token_lifetime = "str # liveupdate:true"
