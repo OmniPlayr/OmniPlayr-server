@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+
+from api.helpers.server import verify_auth
 
 from api.helpers.account import (
     list_accounts,
@@ -10,7 +12,6 @@ from api.helpers.account import (
 )
 
 router = APIRouter()
-
 
 class AccountCreate(BaseModel):
     name: str
@@ -25,12 +26,16 @@ class AccountUpdate(BaseModel):
 
 
 @router.get("/")
-def get_accounts():
+def get_accounts(auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     return list_accounts()
 
 
 @router.get("/{account_id}")
-def get_one_account(account_id: int):
+def get_one_account(account_id: int, auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     account = get_account(account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -38,7 +43,9 @@ def get_one_account(account_id: int):
 
 
 @router.post("/", status_code=201)
-def create_new_account(body: AccountCreate):
+def create_new_account(body: AccountCreate, auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     if not body.name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
     if body.role not in ("user", "admin"):
@@ -47,7 +54,9 @@ def create_new_account(body: AccountCreate):
 
 
 @router.patch("/{account_id}")
-def update_existing_account(account_id: int, body: AccountUpdate):
+def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     existing = get_account(account_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -58,6 +67,8 @@ def update_existing_account(account_id: int, body: AccountUpdate):
 
 
 @router.delete("/{account_id}", status_code=204)
-def delete_existing_account(account_id: int):
+def delete_existing_account(account_id: int, auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     if not delete_account(account_id):
         raise HTTPException(status_code=404, detail="Account not found")

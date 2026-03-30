@@ -17,6 +17,8 @@ let currentStep = 0;
 
 let gotSetupStateFromHttp = false;
 
+let access_token = null;
+
 const BACKEND = `http://${location.hostname}:8000/api`;
 
 function setTopProgress(stepIndex) {
@@ -177,7 +179,7 @@ const persistedAccounts = new Map();
 
 async function loadExistingAccounts() {
     try {
-        const res = await fetch(`${BACKEND}/accounts/`);
+        const res = await fetch(`${BACKEND}/accounts/`, { method: 'GET', headers: { 'Authorization': `Bearer ${access_token}` } });
         if (!res.ok) return;
         const accounts = await res.json();
 
@@ -228,7 +230,12 @@ function createAccountItem(existing = null) {
         const bid = accountItem.dataset.backendId;
         if (bid) {
             try {
-                await fetch(`${BACKEND}/accounts/${bid}`, { method: 'DELETE' });
+                await fetch(`${BACKEND}/accounts/${bid}`, { 
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${access_token}`
+                    }
+                 });
                 persistedAccounts.delete(Number(bid));
             } catch (e) {
                 console.warn('Delete failed', e);
@@ -277,7 +284,10 @@ async function patchAccount(id, fields) {
     try {
         await fetch(`${BACKEND}/accounts/${id}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${access_token}`
+            },
             body: JSON.stringify(fields),
         });
     } catch (e) {
@@ -319,12 +329,37 @@ async function savePassword() {
     if (password.length < 8) return showTooltip(passwordInput, 'Password must be at least 8 characters long');
 
     try {
-        await fetch(`${BACKEND}/server/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+        const pass_response = await fetch(`${BACKEND}/server/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+        const pass_data = await pass_response.json();
+
+        if (pass_data.detail == null || pass_data.detail == undefined) {
+            access_token = pass_data.access_token;
+
+            goToStep(4);
+        } else {
+            showTooltip(passwordInput, pass_data.detail);
+        }
     } catch (e) {
         console.warn('Save password failed', e);
     }
+}
 
-    goToStep(4);
+async function skipPassword() {
+    const response = await fetch('http://localhost:8000/api/server/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    });
+
+    const data = await response.json();
+    if (data.status === 'success') {
+        access_token = data.access_token;
+        goToStep(4);
+    } else {
+        showTooltip(passwordInput, data.detail);
+    }
 }
 
 async function saveAccounts() {
@@ -370,7 +405,10 @@ async function saveAccounts() {
             upsertPromises.push(
                 fetch(`${BACKEND}/accounts/${bid}`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${access_token}`
+                     },
                     body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 }),
                 }).then(async r => {
                     if (r.ok) {
@@ -384,8 +422,11 @@ async function saveAccounts() {
             upsertPromises.push(
                 fetch(`${BACKEND}/accounts/`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 }),
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${access_token}`
+                     },
+                    body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 })
                 }).then(async r => {
                     if (r.ok) {
                         const created = await r.json();

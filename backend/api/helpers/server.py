@@ -2,6 +2,9 @@ import secrets
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from api.helpers.config import get_config
+from api.helpers.db import get_conn
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 def parse_interval(interval_str: str) -> relativedelta:
     number, unit = interval_str.split()
@@ -16,8 +19,26 @@ def parse_interval(interval_str: str) -> relativedelta:
         return relativedelta(years=number)
     else:
         raise ValueError(f"Unknown interval unit: {unit}")
+    
+security = HTTPBearer()
+    
+def verify_auth(creds: HTTPAuthorizationCredentials = Depends(security)):
+    access_token = creds.credentials
 
-async def create_access_token(password_protected: bool, cur: object) -> dict:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM access_tokens WHERE access_token = %s AND access_token_expires > NOW()",
+                (access_token,)
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid access token"
+                )
+            return True
+
+async def create_access_token(password_protected: bool, cur: object, only_access_token: bool = False) -> dict:
     access_token = secrets.token_hex(32) # This returns 64 chars for some random reason, so because we want 64, we have to enter 32 :(
     refresh_token = secrets.token_hex(32)
     
@@ -33,6 +54,14 @@ async def create_access_token(password_protected: bool, cur: object) -> dict:
     (access_token, refresh_token, access_token_expires, refresh_token_expires, password_protected)
     VALUES (%s, %s, %s, %s, %s)
     """, (access_token, refresh_token, access_expires, refresh_expires, password_protected))
+    
+    if only_access_token:
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "access_token_expires": access_expires,
+            "refresh_token_expires": refresh_expires,
+        }
     
     return {
         "status": "success",

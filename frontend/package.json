@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@iarna/toml": "^2.2.5",
     "@wokki20/jspt": "^2.1.0",
     "normalize.css": "^8.0.1",
     "react": "^19.2.4",

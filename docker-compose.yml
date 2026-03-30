@@ -8,6 +8,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - ./frontend/src/config:/app/src/config
     container_name: omniplayr_frontend
     ports:
       - "3000:3000"
