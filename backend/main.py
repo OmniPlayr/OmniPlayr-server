@@ -6,12 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.helpers.db import init_db
 from api.router import router
 from api.helpers.config import load_configs
+from api.helpers.plugins import load_plugins
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     # This loads the config files
     load_configs()
+    
+    # This loads the plugins
+    load_plugins()
     yield
 
 
