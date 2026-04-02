@@ -38,6 +38,9 @@ out/
 .output/
 .cache/
 
+# Music
+music/
+
 # Database
 db/
 *.sql
