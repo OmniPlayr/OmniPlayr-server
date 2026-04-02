@@ -5,7 +5,8 @@ import 'normalize.css';
 import './styles/index.css'
 import './styles/themes/dark.css'
 import Login from './login.tsx'
-import OmniPlayr from './OmniPlayr.tsx';
+import AccountSelect from './AccountSelect.tsx';
+import Dashboard from './Dashboard.tsx';
 
 function isTokenValid(): boolean {
   const access_expiry = localStorage.getItem('access_token_expires');
@@ -19,12 +20,25 @@ function isTokenValid(): boolean {
   return false;
 }
 
+const account_id = sessionStorage.getItem("account_id") || null;
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={isTokenValid() ? <OmniPlayr /> : <Navigate to="/login" />} />
+        <Route
+          path="/"
+          element={
+            isTokenValid()
+              ? account_id
+                ? <Dashboard />
+                : <AccountSelect />
+              : <Navigate to="/login" />
+          }
+        />
         <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={isTokenValid() ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   )

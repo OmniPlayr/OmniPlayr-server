@@ -2,20 +2,14 @@ import './styles/Login.css'
 import { makeToast } from '@wokki20/jspt';
 import '@wokki20/jspt/dist/jspt.css';
 import { useNavigate } from 'react-router-dom'
+import api from './modules/api';
 
 function Login() {
 	const navigate = useNavigate()
 
 	async function handleSubmit() {
 		const password = (document.querySelector('.login__input') as HTMLInputElement).value;
-		const response = await fetch('http://localhost:8000/api/server/token', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({ password })
-		});
-		const data = await response.json();
+		const data = await api('login', { password });
 		if (data.status === 'success') {
 			localStorage.setItem('access_token', data.access_token);
 			localStorage.setItem('refresh_token', data.refresh_token);

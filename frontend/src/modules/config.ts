@@ -1,37 +1,31 @@
-import * as fs from "fs";
-import * as path from "path";
-import * as toml from "@iarna/toml";
-
-const CONFIG_DIR = "config";
-const CONFIG_TYPES_DIR = "config_types";
+import toml from "toml";
 
 type TomlValue = string | number | boolean | TomlValue[] | { [key: string]: TomlValue };
 type TomlObject = { [key: string]: TomlValue };
 
 let _loadedConfigs: Record<string, TomlObject> = {};
-const _watchers: Map<string, fs.FSWatcher> = new Map();
 
 function convertType(value: TomlValue, typeStr: string): TomlValue {
     const t = typeStr.toLowerCase().trim();
     switch (t) {
-        case "str":
+        case "string": case "str":
             return String(value);
-        case "int": {
+        case "int": case "integer": {
             const n = Number(value);
             if (!Number.isInteger(n)) throw new Error(`Cannot convert '${value}' to int`);
             return n;
         }
         case "float":
             return Number(value);
-        case "bool":
+        case "bool": case "boolean":
             if (typeof value === "boolean") return value;
             if (value === "true" || value === "1") return true;
             if (value === "false" || value === "0") return false;
             throw new Error(`Cannot convert '${value}' to bool`);
-        case "list":
+        case "list": case "array":
             if (!Array.isArray(value)) throw new Error(`Expected list, got ${typeof value}`);
             return value;
-        case "dict":
+        case "dict": case "object":
             if (typeof value !== "object" || Array.isArray(value) || value === null)
                 throw new Error(`Expected dict, got ${typeof value}`);
             return value;
@@ -59,47 +53,27 @@ function validateAgainstTypes(configData: TomlObject, typeData: TomlObject, keyP
     }
 }
 
-function loadConfigFile(cfgPath: string): void {
-    const stem = path.basename(cfgPath, ".toml");
-    const raw = fs.readFileSync(cfgPath, "utf-8");
-    const configData = toml.parse(raw) as TomlObject;
-
-    const typePath = path.join(CONFIG_TYPES_DIR, path.basename(cfgPath));
-    if (fs.existsSync(typePath)) {
-        const typeRaw = fs.readFileSync(typePath, "utf-8");
-        const typeData = toml.parse(typeRaw) as TomlObject;
-        validateAgainstTypes(configData, typeData);
-    }
-
-    _loadedConfigs[stem] = configData;
-}
-
-function watchConfigFile(cfgPath: string): void {
-    if (_watchers.has(cfgPath)) return;
-
-    const watcher = fs.watch(cfgPath, () => {
-        try {
-            loadConfigFile(cfgPath);
-        } catch (err) {
-            console.error(`[config] Failed to reload '${cfgPath}':`, err);
-        }
-    });
-
-    _watchers.set(cfgPath, watcher);
+function stemFromPath(path: string): string {
+    return path.split("/").pop()!.replace(/\.toml$/, "");
 }
 
 export function loadConfigs(): void {
-    for (const watcher of _watchers.values()) watcher.close();
-    _watchers.clear();
     _loadedConfigs = {};
 
-    if (!fs.existsSync(CONFIG_DIR)) return;
+    const configs = import.meta.glob("/src/config/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
+    const types = import.meta.glob("/src/config_types/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 
-    for (const file of fs.readdirSync(CONFIG_DIR)) {
-        if (!file.endsWith(".toml")) continue;
-        const cfgPath = path.join(CONFIG_DIR, file);
-        loadConfigFile(cfgPath);
-        watchConfigFile(cfgPath);
+    for (const [cfgPath, raw] of Object.entries(configs)) {
+        const stem = stemFromPath(cfgPath);
+        const configData = toml.parse(raw) as TomlObject;
+
+        const typePath = `/src/config_types/${stem}.toml`;
+        if (typePath in types) {
+            const typeData = toml.parse(types[typePath]) as TomlObject;
+            validateAgainstTypes(configData, typeData);
+        }
+
+        _loadedConfigs[stem] = configData;
     }
 }
 
@@ -125,7 +99,10 @@ export function getConfig<T = TomlValue>(keyPath: string, defaultValue?: T): T |
     return defaultValue;
 }
 
-export function stopWatching(): void {
-    for (const watcher of _watchers.values()) watcher.close();
-    _watchers.clear();
+loadConfigs();
+
+if (import.meta.hot) {
+    import.meta.hot.accept(() => {
+        loadConfigs();
+    });
 }

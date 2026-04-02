@@ -10,12 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@iarna/toml": "^2.2.5",
     "@wokki20/jspt": "^2.1.0",
     "normalize.css": "^8.0.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.2"
+    "react-router-dom": "^7.13.2",
+    "toml": "^3.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

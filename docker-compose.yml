@@ -6,8 +6,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
       - ./frontend/src/config:/app/src/config
     container_name: omniplayr_frontend
     ports:

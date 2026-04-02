@@ -3,7 +3,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
+RUN npm install
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npm install && npm run dev -- --host --port 3000 --force"]
+CMD ["npm", "run", "dev", "--", "--host", "--port", "3000", "--force"]
