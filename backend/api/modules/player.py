@@ -45,7 +45,8 @@ def stream_media(source_type: str, song_id: str, request: Request):
         raise HTTPException(status_code=404, detail=f"No plugin registered for source type '{source_type}'")
 
     try:
-        stream = plugin.get_stream(song_id)
+        file_size    = plugin.get_file_size(song_id)
+        content_type = plugin.get_content_type(song_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -53,8 +54,6 @@ def stream_media(source_type: str, song_id: str, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    content_type = plugin.get_content_type(song_id)
-    file_size = plugin.get_file_size(song_id)
     range_header = request.headers.get("range")
 
     if range_header and file_size is not None:
@@ -67,19 +66,33 @@ def stream_media(source_type: str, song_id: str, request: Request):
             length = end - start + 1
 
             def _ranged_stream():
+                stream = plugin.get_stream(song_id)
+                bytes_seen = 0
                 bytes_sent = 0
+
                 for chunk in stream:
-                    if bytes_sent + len(chunk) <= start:
-                        bytes_sent += len(chunk)
+                    chunk_len = len(chunk)
+
+                    if bytes_seen + chunk_len <= start:
+                        bytes_seen += chunk_len
                         continue
-                    chunk_start = max(0, start - bytes_sent)
-                    chunk_data = chunk[chunk_start:]
-                    already_sent = max(0, bytes_sent - start)
-                    remaining = length - already_sent
+
+                    chunk_start = max(0, start - bytes_seen)
+                    data = chunk[chunk_start:]
+
+                    remaining = length - bytes_sent
                     if remaining <= 0:
                         break
-                    yield chunk_data[:remaining]
-                    bytes_sent += len(chunk)
+
+                    if len(data) > remaining:
+                        data = data[:remaining]
+
+                    yield data
+                    bytes_sent += len(data)
+                    bytes_seen += chunk_len
+
+                    if bytes_sent >= length:
+                        break
 
             return StreamingResponse(
                 _ranged_stream(),
@@ -94,6 +107,15 @@ def stream_media(source_type: str, song_id: str, request: Request):
             )
         except Exception:
             pass
+
+    try:
+        stream = plugin.get_stream(song_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     headers = {
         "Accept-Ranges": "bytes",

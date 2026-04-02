@@ -3,6 +3,8 @@ from pathlib import Path
 import importlib.util
 import sys
 import json
+import subprocess
+import toml
 from typing import Callable, Any
 
 from fastapi import APIRouter
@@ -10,6 +12,39 @@ from fastapi import APIRouter
 _registry: dict[str, "PluginBase"] = {}
 _plugin_router = APIRouter()
 
+_plugin_configs: dict[str, dict] = {}
+
+def _load_plugin_config(plugin_key: str) -> dict:
+    if plugin_key in _plugin_configs:
+        return _plugin_configs[plugin_key]
+
+    plugin_dir = Path("plugins") / plugin_key
+    config_file = plugin_dir / "config.toml"
+
+    if not config_file.exists():
+        _plugin_configs[plugin_key] = {}
+        return {}
+
+    data = toml.load(config_file)
+    _plugin_configs[plugin_key] = data
+    return data
+
+
+def get_plugin_config(plugin_key: str, key_path: str, default=None):
+    config = _load_plugin_config(plugin_key)
+    parts = key_path.split(".")
+    val = config
+    try:
+        for part in parts:
+            val = val[part]
+        return val
+    except (KeyError, TypeError):
+        return default
+
+
+def reload_plugin_config(plugin_key: str):
+    _plugin_configs.pop(plugin_key, None)
+    return _load_plugin_config(plugin_key)
 
 class PluginBase:
     source_type: str = ""
@@ -62,6 +97,35 @@ def get_plugin_router() -> APIRouter:
     return _plugin_router
 
 
+def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
+    pkg_file = plugin_dir / "package.json"
+    if not pkg_file.exists():
+        return
+
+    try:
+        with open(pkg_file) as f:
+            pkg = json.load(f)
+    except Exception as e:
+        print(f"[WARN] Could not read {pkg_file}: {e}", flush=True)
+        return
+
+    python_deps: dict = pkg.get("pythonDependencies", {})
+    if not python_deps:
+        return
+
+    specs = [f"{name}{ver}" if ver not in ("*", "^*", "") else name
+             for name, ver in python_deps.items()]
+
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--quiet", *specs],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Failed to install deps for '{plugin_key}': {e}", flush=True)
+
+
 def load_plugins():
     config_path = Path("config.json")
     if not config_path.exists():
@@ -78,6 +142,8 @@ def load_plugins():
         init_file = plugin_dir / "__init__.py"
         if not init_file.exists():
             continue
+
+        _install_plugin_dependencies(plugin_key, plugin_dir)
 
         module_name = f"plugins.{plugin_key.replace('@', '_').replace('-', '_')}"
 

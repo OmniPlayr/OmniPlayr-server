@@ -9,5 +9,9 @@
         "url": "https://github.com/wokki20/OmniPlayr.git"
     },
     "dependencies": {},
-    "devDependencies": {}
+    "devDependencies": {},
+    "pythonDependencies": {
+        "mutagen": ">=1.47",
+        "Pillow": ">=10.0"
+    }
 }

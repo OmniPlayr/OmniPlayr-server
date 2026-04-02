@@ -1,6 +1,5 @@
 from api.helpers.db import get_conn
 
-
 def list_accounts():
     with get_conn() as conn:
         with conn.cursor() as cur:

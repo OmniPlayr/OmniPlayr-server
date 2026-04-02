@@ -1,7 +1,11 @@
-import os
 from pathlib import Path
+from api.helpers.omniplayr import get_plugin_config
 
-MUSIC_DIR = Path(os.getenv("MP3_MUSIC_DIR", "/music"))
+PLUGIN_KEY = "mp3@built-in"
+
+_cfg_dir = get_plugin_config(PLUGIN_KEY, "storage.mp3_music_dir")
+if _cfg_dir:
+    MUSIC_DIR = Path(_cfg_dir)
 
 EXTENSION_CONTENT_TYPES = {
     ".mp3": "audio/mpeg",
