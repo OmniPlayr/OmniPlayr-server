@@ -94,3 +94,6 @@ coverage.xml
 *.bak
 *.tmp
 *.temp
+
+# Plugins
+backend/plugins/
