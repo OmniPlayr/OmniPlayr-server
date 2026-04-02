@@ -24,10 +24,9 @@ services:
     volumes:
       - ./db:/db
       - ./backend/config:/app/config
-      - ./music:/music
+      - ./user_storage:/user_storage
     environment:
       - DATABASE_URL=postgres://postgres:password@db:5432/omniplayr
-      - MP3_MUSIC_DIR=/music
     ports:
       - "8000:8000"
     depends_on:

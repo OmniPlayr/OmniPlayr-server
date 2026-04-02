@@ -1,57 +1,36 @@
-import os
-from pathlib import Path
-from api.helpers.plugins import PluginBase, register
-
-MUSIC_DIR = Path(os.getenv("MP3_MUSIC_DIR", "/music"))
-
-EXTENSION_CONTENT_TYPES = {
-    ".mp3": "audio/mpeg",
-    ".flac": "audio/flac",
-    ".wav": "audio/wav",
-    ".ogg": "audio/ogg",
-    ".m4a": "audio/mp4",
-    ".aac": "audio/aac",
-    ".opus": "audio/opus",
-}
+from api.helpers.omniplayr import PluginBase, register, api
+from .paths import resolve_path, EXTENSION_CONTENT_TYPES
+from .metadata import get_content_type, get_file_size, get_metadata
+from .streaming import get_stream
 
 
 class Mp3Plugin(PluginBase):
     source_type = "mp3"
 
-    def _resolve_path(self, song_id: str) -> Path:
-        decoded = song_id.replace("%2F", "/").replace("%5C", "")
-        path = (MUSIC_DIR / decoded).resolve()
-        if not str(path).startswith(str(MUSIC_DIR.resolve())):
-            raise PermissionError("Path traversal detected")
-        return path
-
     def get_content_type(self, song_id: str) -> str:
-        try:
-            path = self._resolve_path(song_id)
-            return EXTENSION_CONTENT_TYPES.get(path.suffix.lower(), "audio/mpeg")
-        except Exception:
-            return "audio/mpeg"
+        return get_content_type(song_id)
 
     def get_file_size(self, song_id: str) -> int | None:
-        try:
-            return self._resolve_path(song_id).stat().st_size
-        except Exception:
-            return None
+        return get_file_size(song_id)
+
+    def get_metadata(self, song_id: str) -> dict:
+        return get_metadata(song_id)
 
     def get_stream(self, song_id: str):
-        path = self._resolve_path(song_id)
-        if not path.exists() or not path.is_file():
-            raise FileNotFoundError(f"File not found: {path}")
+        return get_stream(song_id)
 
-        def _iter(chunk_size: int = 65536):
-            with open(path, "rb") as f:
-                while True:
-                    chunk = f.read(chunk_size)
-                    if not chunk:
-                        break
-                    yield chunk
 
-        return _iter()
+@api.get("/mp3/browse")
+def browse_music():
+    from .paths import MUSIC_DIR
+    if not MUSIC_DIR.exists():
+        return {"files": []}
+    files = [
+        str(f.relative_to(MUSIC_DIR))
+        for f in MUSIC_DIR.rglob("*")
+        if f.is_file() and f.suffix.lower() in EXTENSION_CONTENT_TYPES
+    ]
+    return {"files": files}
 
 
 def setup():
