@@ -117,11 +117,15 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
              for name, ver in python_deps.items()]
 
     try:
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "--quiet", *specs],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", *specs],
+            capture_output=True,
+            text=True,
         )
+        if result.returncode != 0:
+            print(f"[ERROR] pip failed for '{plugin_key}':\n{result.stderr}", flush=True)
+        else:
+            print(f"[OK] installed deps for '{plugin_key}'", flush=True)
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Failed to install deps for '{plugin_key}': {e}", flush=True)
 

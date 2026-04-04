@@ -1,0 +1,12 @@
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 10px;
+}
+
+.dashboard-hor {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+}

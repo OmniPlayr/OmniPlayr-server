@@ -4,6 +4,7 @@ import api from "./modules/api";
 import "./styles/AccountSelect.css";
 import defaultPfp from "./assets/images/default-pfp-dark.svg";
 import Dashboard from "./Dashboard";
+import { storeAccount } from "./modules/account";
 
 async function loadAccounts() {
     return await api("get_accounts");
@@ -26,7 +27,7 @@ function AccountSelect() {
 
     const loadAccount = (id: string) => {
         setSelected(id);
-        sessionStorage.setItem("account_id", id);
+        storeAccount(id);
         const accountItem = document.querySelector(`.account-select-option[data-id="${id}"]`) as HTMLElement;
         accountItem?.parentElement?.classList.add("active");
         accountItem?.classList.add("loading");

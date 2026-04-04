@@ -4,7 +4,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.dev # Use Dockerfile.dev for development
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html
@@ -16,7 +16,7 @@ services:
       - backend
     restart: unless-stopped
     environment:
-      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_USEPOLLING=true # Use polling for file changes, useful for development
 
   backend:
     build: ./backend

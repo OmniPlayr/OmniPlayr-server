@@ -1,0 +1,73 @@
+.player {
+    width: 100vw;
+    height: 80px;
+    background-color: var(--clr-surface-a0);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+}
+
+.player-controls {
+    display: flex;
+    flex-direction: column;
+}
+
+.player-control-options {
+    display: flex;
+    flex-direction: row;
+    gap: 25px;
+    justify-content: center;
+    align-items: center;
+}
+
+.control-option-icon {
+    cursor: pointer;
+    color: var(--clr-text-a30);
+    stroke-width: 2.5px;
+}
+
+.play-option {
+    background-color: var(--clr-text-a0);
+    border-radius: 50%;
+    padding: 7px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.play-icon {
+    color: var(--clr-surface-a0);
+    fill: var(--clr-surface-a0);
+}
+
+.player-progress-bar {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+}
+
+.progress-bar {
+    width: 500px;
+    height: 5px;
+    background-color: var(--clr-popup-a0);
+    border-radius: 5px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.progress-time {
+    flex: 1;
+    text-align: center;
+}
+
+.player-options {
+    display: flex;
+    justify-content: flex-end;
+}

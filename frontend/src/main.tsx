@@ -7,45 +7,51 @@ import './styles/themes/dark.css'
 import Login from './login.tsx'
 import AccountSelect from './AccountSelect.tsx';
 import Dashboard from './Dashboard.tsx';
+import { getAccount } from './modules/account.ts';
 
 function isTokenValid(): boolean {
-  const access_expiry = localStorage.getItem('access_token_expires');
-  const access_token = localStorage.getItem('access_token');
+	const access_expiry = localStorage.getItem('access_token_expires');
+	const access_token = localStorage.getItem('access_token');
 
-  if (access_expiry && access_token) {
-    const expiryTime = new Date(access_expiry).getTime();
-    const now = Date.now();
-    return now < expiryTime;
-  }
-  return false;
+	if (access_expiry && access_token) {
+		const expiryTime = new Date(access_expiry).getTime();
+		const now = Date.now();
+		return now < expiryTime;
+	}
+	return false;
 }
 
-const account_id = sessionStorage.getItem("account_id") || null;
+const account_id = getAccount() || null;
 
 function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            isTokenValid()
-              ? account_id
-                ? <Dashboard />
-                : <AccountSelect />
-              : <Navigate to="/login" />
-          }
-        />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={isTokenValid() ? <Dashboard /> : <Navigate to="/login" />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </BrowserRouter>
-  )
+	return (
+		<BrowserRouter>
+			<Routes>
+				<Route
+					path="/"
+					element={
+					isTokenValid()
+						? account_id
+						? <Dashboard />
+						: <AccountSelect />
+						: <Navigate to="/login" />
+					}
+				/>
+				<Route path="/login" element={<Login />} />
+				<Route path="/dashboard" element={
+					isTokenValid()
+						? account_id
+						? <Dashboard /> 
+						: <AccountSelect />
+						: <Navigate to="/login" />} />
+				<Route path="*" element={<Navigate to="/" />} />
+			</Routes>
+		</BrowserRouter>
+	)
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+	<StrictMode>
+		<App />
+	</StrictMode>,
 )

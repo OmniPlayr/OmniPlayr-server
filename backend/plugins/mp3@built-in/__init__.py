@@ -1,4 +1,6 @@
+from fastapi import Depends, HTTPException
 from api.helpers.omniplayr import PluginBase, register, api
+from api.helpers.server import verify_auth
 from .paths import resolve_path, EXTENSION_CONTENT_TYPES
 from .metadata import get_content_type, get_file_size, get_metadata
 from .streaming import get_stream
@@ -21,7 +23,9 @@ class Mp3Plugin(PluginBase):
 
 
 @api.get("/mp3/browse")
-def browse_music():
+def browse_music(auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     from .paths import MUSIC_DIR
     if not MUSIC_DIR.exists():
         return {"files": []}

@@ -1,0 +1,97 @@
+import './styles/Sidebar.css';
+import defaultPfp from "./assets/images/default-pfp-dark.svg";
+import { Plus, Settings, House, ChevronDown } from 'lucide-react';
+import { Tooltip } from 'react-tooltip';
+import { isDev } from './modules/dev';
+import api from './modules/api';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from "react-router-dom";
+import { storeAccount } from './modules/account';
+
+async function loadAccounts() {
+    return await api("get_accounts");
+}
+
+function openAccountSelect() {
+    const accountSelect = document.querySelector(".account-select__dash") as HTMLElement;
+    accountSelect.classList.toggle("open");
+
+    const accountSelectOptions = document.querySelector(".user-switch-account") as HTMLElement;
+    accountSelectOptions.classList.toggle("active");
+}
+function Sidebar({ account }: any) {
+    const [accounts, setAccounts] = useState<any[]>([]);
+    const [accounts_loaded, setAccountsLoaded] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    function loadAccount(id: string) {
+        storeAccount(id);
+        setSearchParams({ account_id: id });
+    }
+
+
+    useEffect(() => {
+        loadAccounts().then(fetched => {
+            setAccounts(fetched);
+            setTimeout(() => setAccountsLoaded(true), 50);
+        });
+    }, []);
+
+    return (
+        <>
+            <div className="sidebar">
+                <div className="sidebar-header">
+                    <p className="sidebar-title">Your Library</p>
+                    <Tooltip anchorSelect=".sidebar-add" place='top'>Import or create a playlist</Tooltip>
+                    <div className="sidebar-add">
+                        <Plus className="add-icon" />
+                        <p className="add-text">Create</p>
+                    </div>
+                </div>
+                <div className="sidebar-library-list">
+
+                </div>
+                <div className="sidebar-footer">
+                    <div className="sidebar-tabs">
+                        <div className="sidebar-tab active">
+                            <House className="tab-icon" />
+                            <p className="tab-text">Home</p>
+                        </div>
+                        <div className="sidebar-tab">
+                            <Settings className="tab-icon" />
+                            <p className="tab-text">Settings</p>
+                        </div>
+                    </div>
+                    <div className="sidebar-user">
+                        <img draggable="false" className="user-avatar" src={account?.avatar_b64 || defaultPfp} alt={account?.name} />
+                        <div className="user-info">
+                            <p className="user-name">{account?.name}</p>
+                            <p className="user-role">{account?.role}</p>
+                        </div>
+                        {accounts_loaded && accounts.length > 1 &&
+                            <>
+                                <div className="user-switch-account" onClick={openAccountSelect}>
+                                    <div className="account-select__dash">
+                                        {accounts.map((acc: any) => (
+                                            <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loadAccount(acc.id)}>
+                                                <img draggable="false" className="user-avatar" src={acc.avatar_b64 || defaultPfp} alt={acc.name} />
+                                                <div className="user-info">
+                                                    <p className="user-name">{acc.name}</p>
+                                                    <p className="user-role">{acc.role}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <ChevronDown className="user-switch-account-icon" />
+                                </div>
+                            </>
+                        }
+                    </div>
+                    {isDev() && <p className="sidebar-dev">Dev Mode</p>}
+                </div>
+            </div>
+        </>
+    )
+}
+
+export default Sidebar

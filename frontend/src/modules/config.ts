@@ -34,6 +34,16 @@ function convertType(value: TomlValue, typeStr: string): TomlValue {
     }
 }
 
+function parseTypeString(typeStr: string): { baseType: string; allowedValues?: TomlValue[] } {
+    const cleaned = typeStr.split("#")[0].trim();
+    const match = cleaned.match(/^(\S+)\s*<in\s*(\[.*?\])>/);
+    if (match) {
+        const allowedValues = JSON.parse(match[2].replace(/'/g, '"')) as TomlValue[];
+        return { baseType: match[1], allowedValues };
+    }
+    return { baseType: cleaned };
+}
+
 function validateAgainstTypes(configData: TomlObject, typeData: TomlObject, keyPath = ""): void {
     for (const key of Object.keys(typeData)) {
         const fullKey = keyPath ? `${keyPath}.${key}` : key;
@@ -47,8 +57,12 @@ function validateAgainstTypes(configData: TomlObject, typeData: TomlObject, keyP
                 throw new Error(`Expected dict for '${fullKey}'`);
             validateAgainstTypes(val as TomlObject, typeVal as TomlObject, fullKey);
         } else if (typeof typeVal === "string") {
-            const cleanType = typeVal.split("#")[0].trim();
-            configData[key] = convertType(val, cleanType);
+            const { baseType, allowedValues } = parseTypeString(typeVal);
+            const converted = convertType(val, baseType);
+            if (allowedValues !== undefined && !allowedValues.includes(converted)) {
+                throw new Error(`Invalid value '${converted}' for '${fullKey}'. Must be one of: ${allowedValues.join(", ")}`);
+            }
+            configData[key] = converted;
         }
     }
 }

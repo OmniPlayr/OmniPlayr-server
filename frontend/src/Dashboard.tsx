@@ -1,36 +1,36 @@
 import api from "./modules/api"
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import Sidebar from "./Sidebar";
+import "./styles/Dashboard.css";
+import Player from "./Player";
+import { getAccount } from "./modules/account";
 
-async function loadCurrentAccount() {
-  const urlParams = new URLSearchParams(window.location.search);
-  let accountId = sessionStorage.getItem("account_id");
-  
-  if (!accountId || accountId === "null") {
-    accountId = urlParams.get("account_id");
-  }
-
-  if (!accountId) {
-    throw new Error("No account ID specified");
-  }
-
-  return await api("get_account", undefined, { id: accountId });
+async function loadAccountById(accountId: string) {
+    return await api("get_account", undefined, { id: accountId });
 }
 
 function Dashboard() {
-  const [account, setAccount] = useState<any>([]);
-  const [loaded, setLoaded] = useState(false);
+    const [account, setAccount] = useState<any>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => {
-      loadCurrentAccount().then(fetched => {
-          setAccount(fetched);
-          setTimeout(() => setLoaded(true), 50);
-      });
-  }, []);
-  return (
-    <>
-      <h1>Yo, {account?.name}</h1>
-    </>
-  )
+    useEffect(() => {
+        let accountId = getAccount() || searchParams.get("account_id");
+        if (!accountId) return;
+
+        loadAccountById(accountId).then(fetched => setAccount(fetched));
+		setSearchParams({});
+    }, [searchParams]);
+
+    return (
+        <div className="dashboard">
+			<div className="dashboard-hor">
+            	<Sidebar account={account} />
+
+			</div>
+			<Player />
+        </div>
+    )
 }
 
-export default Dashboard
+export default Dashboard;

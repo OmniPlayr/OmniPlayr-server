@@ -17,6 +17,7 @@ try:
 except ImportError:
     _MUTAGEN_OK = False
 
+print(f"[DEBUG] mutagen available: {_MUTAGEN_OK}", flush=True)
 
 def get_content_type(song_id: str) -> str:
     try:
@@ -93,10 +94,7 @@ def _extract_tag(audio, *keys: str) -> str | None:
 
 
 def get_metadata(song_id: str) -> dict:
-    try:
-        path = resolve_path(song_id)
-    except Exception:
-        return {}
+    path = resolve_path(song_id)
 
     base: dict = {
         "filename": path.name,

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.helpers.db import init_db
 from api.router import router
 from api.helpers.config import load_configs
-from api.helpers.plugins import load_plugins
+from api.helpers.omniplayr import load_plugins, get_plugin_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,6 +16,9 @@ async def lifespan(app: FastAPI):
     
     # This loads the plugins
     load_plugins()
+
+    # This sets the /api/plugin prefix for plugins
+    app.include_router(get_plugin_router(), prefix="/api/plugin")
     yield
 
 

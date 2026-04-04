@@ -9,7 +9,7 @@ function Login() {
 
 	async function handleSubmit() {
 		const password = (document.querySelector('.login__input') as HTMLInputElement).value;
-		const data = await api('login', { password });
+		const data = await api('login', { password }, undefined, false);
 		if (data.status === 'success') {
 			localStorage.setItem('access_token', data.access_token);
 			localStorage.setItem('refresh_token', data.refresh_token);
@@ -19,7 +19,7 @@ function Login() {
 				message: 'Logged in successfully!',
 				style: 'default',
 				icon_left: 'check',
-				icon_left_type: 'google_material_rounded',
+				icon_left_type: 'lucide_icon',
 				duration: 5000
 			})
 			navigate('/')
@@ -27,9 +27,9 @@ function Login() {
 			makeToast({
 				message: data.detail,
 				style: 'default-error',
-				icon_left: 'error',
-				icon_left_type: 'google_material_rounded',
-				duration: -1
+				icon_left: 'circle-x',
+				icon_left_type: 'lucide_icon',
+				duration: 5000
 			})
 		}
 	}

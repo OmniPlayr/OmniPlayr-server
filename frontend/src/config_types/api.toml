@@ -1,2 +1,5 @@
 [api]
 apiUrl = "string"
+
+[accounts]
+accountStore = "string <in ['sessionStorage', 'localStorage']>"

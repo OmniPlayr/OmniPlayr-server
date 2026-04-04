@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import StreamingResponse
 from api.helpers.omniplayr import get_plugin
+from api.helpers.server import verify_auth
 
 router = APIRouter()
 
@@ -10,7 +11,9 @@ def _build_stream_url(request: Request, source_type: str, song_id: str) -> str:
 
 
 @router.get("/media/{source_type}:{song_id:path}")
-def get_media_info(source_type: str, song_id: str, request: Request):
+def get_media_info(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     plugin = get_plugin(source_type)
     if plugin is None:
         raise HTTPException(status_code=404, detail=f"No plugin registered for source type '{source_type}'")
@@ -34,12 +37,13 @@ def get_media_info(source_type: str, song_id: str, request: Request):
         "stream_url": stream_url,
         "content_type": content_type,
         "file_size": file_size,
-        **metadata,
+        "metadata": metadata,
     }
 
-
 @router.get("/stream/{source_type}:{song_id:path}")
-def stream_media(source_type: str, song_id: str, request: Request):
+def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth)):
+    if not auth:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     plugin = get_plugin(source_type)
     if plugin is None:
         raise HTTPException(status_code=404, detail=f"No plugin registered for source type '{source_type}'")

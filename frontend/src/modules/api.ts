@@ -47,7 +47,7 @@ function replaceUrlParams(url: string, params?: object) {
     });
 }
 
-async function api(id: string, data?: object, params?: object): Promise<any> {
+async function api(id: string, data?: object, params?: object, throwErrors = true): Promise<any> {
     const endpoint = apiEndpoints.find(e => e.id === id);
     if (!endpoint) throw new Error(`API endpoint "${id}" not found`);
 
@@ -65,7 +65,7 @@ async function api(id: string, data?: object, params?: object): Promise<any> {
     const authentication = endpoint.authentication;
     if (authentication === 'access_token') {
         token = localStorage.getItem('access_token');
-        if (!token) throw new Error('Access token not found');
+        if (!token && throwErrors) throw new Error('Access token not found');
     }
 
     const response = await fetch(url, {
@@ -77,7 +77,7 @@ async function api(id: string, data?: object, params?: object): Promise<any> {
         body: data ? JSON.stringify(data) : undefined
     });
 
-    if (!response.ok)
+    if (!response.ok && throwErrors)
         throw new Error(`Request failed: ${response.status} ${response.statusText}`);
 
     return response.json();
