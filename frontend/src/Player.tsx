@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import './styles/Player.css';
 import { Shuffle, SkipBack, SkipForward, Play, Pause, Loader, Repeat, Music, Volume, Volume2, VolumeX, Volume1 } from 'lucide-react';
 import { player, type TrackMetadata } from './modules/player';
+import { usePlugins } from './modules/usePlugins';
 
 function formatTime(seconds: number): string {
     if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
@@ -37,6 +38,8 @@ function Player() {
     const volumeDragFrac = useRef(player.volume);
 
     const prevVolume = useRef(player.volume > 0 ? player.volume : 1);
+
+    usePlugins();
 
     useEffect(() => {
         return player.subscribe(() => {
@@ -120,7 +123,7 @@ function Player() {
     };
 
     return (
-        <div className="player">
+        <div className="player" data-component="Player">
             <div className="player-song-info">
                 {metadata?.album_art ? (
                     <img className="player-album-art" src={metadata.album_art} alt="Album art" draggable={false} />

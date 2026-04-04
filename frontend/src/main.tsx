@@ -8,17 +8,18 @@ import Login from './login.tsx'
 import AccountSelect from './AccountSelect.tsx';
 import Dashboard from './Dashboard.tsx';
 import { getAccount } from './modules/account.ts';
+import { getRoutes } from './modules/plugins';
+
+import.meta.glob('./plugins/*/index.{ts,tsx}', { eager: true });
 
 function isTokenValid(): boolean {
-	const access_expiry = localStorage.getItem('access_token_expires');
-	const access_token = localStorage.getItem('access_token');
-
-	if (access_expiry && access_token) {
-		const expiryTime = new Date(access_expiry).getTime();
-		const now = Date.now();
-		return now < expiryTime;
-	}
-	return false;
+    const access_expiry = localStorage.getItem('access_token_expires');
+    const access_token = localStorage.getItem('access_token');
+    if (access_expiry && access_token) {
+        const expiryTime = new Date(access_expiry).getTime();
+        return Date.now() < expiryTime;
+    }
+    return false;
 }
 
 const account_id = getAccount() || null;
@@ -44,6 +45,11 @@ function App() {
 						? <Dashboard /> 
 						: <AccountSelect />
 						: <Navigate to="/login" />} />
+
+                {getRoutes().map(({ path, component: Component }) => (
+                    <Route key={path} path={path} element={<Component />} />
+                ))}
+
 				<Route path="*" element={<Navigate to="/" />} />
 			</Routes>
 		</BrowserRouter>

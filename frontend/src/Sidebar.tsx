@@ -7,6 +7,7 @@ import api from './modules/api';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from "react-router-dom";
 import { storeAccount } from './modules/account';
+import { usePlugins } from './modules/usePlugins';
 
 async function loadAccounts() {
     return await api("get_accounts");
@@ -23,6 +24,7 @@ function Sidebar({ account }: any) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
+    usePlugins();
 
     function loadAccount(id: string) {
         storeAccount(id);
@@ -39,7 +41,7 @@ function Sidebar({ account }: any) {
 
     return (
         <>
-            <div className="sidebar">
+            <div className="sidebar" data-component="Sidebar">
                 <div className="sidebar-header">
                     <p className="sidebar-title">Your Library</p>
                     <Tooltip anchorSelect=".sidebar-add" place='top'>Import or create a playlist</Tooltip>

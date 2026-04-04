@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import "./styles/Dashboard.css";
 import Player from "./Player";
 import { getAccount } from "./modules/account";
+import { usePlugins } from './modules/usePlugins';
 
 async function loadAccountById(accountId: string) {
     return await api("get_account", undefined, { id: accountId });
@@ -13,6 +14,7 @@ async function loadAccountById(accountId: string) {
 function Dashboard() {
     const [account, setAccount] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
+    usePlugins();
 
     useEffect(() => {
         let accountId = getAccount() || searchParams.get("account_id");
@@ -23,10 +25,12 @@ function Dashboard() {
     }, [searchParams]);
 
     return (
-        <div className="dashboard">
+        <div className="dashboard" data-component="Dashboard">
 			<div className="dashboard-hor">
             	<Sidebar account={account} />
-
+                <div className="dashboard-main">
+                    
+                </div>
 			</div>
 			<Player />
         </div>
