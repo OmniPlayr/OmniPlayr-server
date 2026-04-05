@@ -1,5 +1,5 @@
-import { StrictMode } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { StrictMode, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'
 import 'normalize.css';
 import './styles/index.css'
@@ -9,6 +9,7 @@ import AccountSelect from './AccountSelect.tsx';
 import Dashboard from './Dashboard.tsx';
 import { getAccount } from './modules/account.ts';
 import { getRoutes } from './modules/plugins';
+import { setNavigate } from './modules/navigate';
 
 import.meta.glob('./plugins/*/index.{ts,tsx}', { eager: true });
 
@@ -20,6 +21,12 @@ function isTokenValid(): boolean {
         return Date.now() < expiryTime;
     }
     return false;
+}
+
+function NavigateSetter() {
+    const nav = useNavigate();
+    useEffect(() => { setNavigate(nav); }, [nav]);
+    return null;
 }
 
 const account_id = getAccount() || null;
@@ -52,6 +59,7 @@ function App() {
 
 				<Route path="*" element={<Navigate to="/" />} />
 			</Routes>
+			<NavigateSetter />
 		</BrowserRouter>
 	)
 }

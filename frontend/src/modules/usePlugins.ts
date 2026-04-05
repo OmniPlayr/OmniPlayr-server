@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { applyDOMHooks } from './plugins';
+import { startDOMHookObserver, stopDOMHookObserver } from './plugins';
 
 export function usePlugins() {
     useEffect(() => {
-        applyDOMHooks();
-    });
+        startDOMHookObserver();
+        return () => stopDOMHookObserver();
+    }, []);
 }

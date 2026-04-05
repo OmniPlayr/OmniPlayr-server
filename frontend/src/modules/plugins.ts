@@ -124,7 +124,7 @@ export function modify(pluginId: string, selector: string, fn: DOMHook) {
     domHooks.get(selector)!.push(fn);
 }
 
-export function applyDOMHooks() {
+function applyDOMHooks() {
     for (const [selector, hooks] of domHooks) {
         const dotIndex = selector.indexOf('.');
         const file = selector.slice(0, dotIndex);
@@ -132,6 +132,24 @@ export function applyDOMHooks() {
         const els = document.querySelectorAll(
             `[data-component="${file}"] .${cls}, [data-component="${file}"].${cls}`
         );
-        els.forEach(el => hooks.forEach(fn => fn(el)));
+        els.forEach(el => {
+            if (el.hasAttribute('data-hooks-applied')) return;
+            el.setAttribute('data-hooks-applied', '');
+            hooks.forEach(fn => fn(el));
+        });
     }
+}
+
+let observer: MutationObserver | null = null;
+
+export function startDOMHookObserver() {
+    if (observer) return;
+    applyDOMHooks();
+    observer = new MutationObserver(applyDOMHooks);
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
+export function stopDOMHookObserver() {
+    observer?.disconnect();
+    observer = null;
 }

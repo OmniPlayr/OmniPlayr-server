@@ -103,3 +103,14 @@ button[data-type="secondary"] {
     margin: revert;
     padding: revert;
 }
+
+/* Custom stling for JSPT */
+.popup {
+    background-color: var(--clr-popup-a0) !important;
+    border: 1px solid var(--clr-popup-a20) !important;
+    color: var(--clr-text-a0) !important;
+}
+
+.popup-header {
+    border-bottom: 1px solid var(--clr-popup-a20) !important;
+}
