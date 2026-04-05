@@ -18,6 +18,30 @@ function VolumeIcon({ volume, onClick }: { volume: number; onClick?: () => void 
     return <Volume2 className="option-icon" onClick={onClick} />;
 }
 
+function AlbumArt({ metadata }: { metadata: TrackMetadata | {} | null }) {
+    const [valid, setValid] = useState(true)
+    
+    const src = (metadata as TrackMetadata)?.album_art ?? undefined
+
+    if (!src || !valid) {
+        return (
+            <div className="player-album-art-placeholder">
+                <Music size={22} />
+            </div>
+        )
+    }
+
+    return (
+        <img
+            className="player-album-art"
+            src={src}
+            alt="Album art"
+            draggable={false}
+            onError={() => setValid(false)}
+        />
+    )
+}
+
 function Player() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -125,13 +149,7 @@ function Player() {
     return (
         <div className="player" data-component="Player">
             <div className="player-song-info">
-                {metadata?.album_art ? (
-                    <img className="player-album-art" src={metadata.album_art} alt="Album art" draggable={false} />
-                ) : (
-                    <div className="player-album-art-placeholder">
-                        <Music size={22} />
-                    </div>
-                )}
+                <AlbumArt metadata={metadata} />
                 {(metadata?.title || metadata?.artist) && (
                     <div className="player-track-info">
                         {metadata?.title && (

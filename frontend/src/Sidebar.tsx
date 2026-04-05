@@ -10,7 +10,7 @@ import { storeAccount } from './modules/account';
 import { usePlugins } from './modules/usePlugins';
 
 async function loadAccounts() {
-    return await api("get_accounts");
+    return await api("get_accounts") as any[];
 }
 
 function openAccountSelect() {

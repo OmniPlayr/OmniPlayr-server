@@ -25,14 +25,14 @@ class AccountUpdate(BaseModel):
     avatar_b64: str | None = None
 
 
-@router.get("/")
+@router.get("/", name="get_accounts")
 def get_accounts(auth=Depends(verify_auth)):
     if not auth:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return list_accounts()
 
 
-@router.get("/{account_id}")
+@router.get("/{account_id}", name="get_account")
 def get_one_account(account_id: int, auth=Depends(verify_auth)):
     if not auth:
         raise HTTPException(status_code=401, detail="Unauthorized")

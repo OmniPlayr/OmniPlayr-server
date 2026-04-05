@@ -113,8 +113,28 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
     if not python_deps:
         return
 
-    specs = [f"{name}{ver}" if ver not in ("*", "^*", "") else name
-             for name, ver in python_deps.items()]
+    def _to_pip_spec(name: str, ver: str) -> str:
+        if ver in ("*", "^*", ""):
+            return name
+        if ver.startswith("^"):
+            v = ver[1:]
+            parts = v.split(".")
+            try:
+                major = int(parts[0])
+                return f"{name}>={v},<{major + 1}.0.0"
+            except (ValueError, IndexError):
+                return f"{name}>={v}"
+        if ver.startswith("~"):
+            v = ver[1:]
+            parts = v.split(".")
+            try:
+                minor = int(parts[1]) if len(parts) > 1 else 0
+                return f"{name}>={v},<{parts[0]}.{minor + 1}.0"
+            except (ValueError, IndexError):
+                return f"{name}>={v}"
+        return f"{name}{ver}"
+
+    specs = [_to_pip_spec(name, ver) for name, ver in python_deps.items()]
 
     try:
         result = subprocess.run(
@@ -162,7 +182,16 @@ def load_plugins():
         mod = importlib.util.module_from_spec(spec)
         mod.__package__ = module_name
         sys.modules[module_name] = mod
-        spec.loader.exec_module(mod)
+
+        try:
+            spec.loader.exec_module(mod)
+        except Exception as e:
+            print(f"[ERROR] Failed to load plugin '{plugin_key}': {e}", flush=True)
+            sys.modules.pop(module_name, None)
+            continue
 
         if hasattr(mod, "setup"):
-            mod.setup()
+            try:
+                mod.setup()
+            except Exception as e:
+                print(f"[ERROR] Plugin '{plugin_key}' setup() failed: {e}", flush=True)

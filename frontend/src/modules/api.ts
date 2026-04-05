@@ -1,86 +1,78 @@
 import { getConfig } from "./config";
 
-const apiEndpoints = [
-    {
-        id: 'login',
-        url: '/api/server/token',
-        method: 'POST',
-        authentication: 'none',
-        data: {
-            password: 'string'
-        }
-    },
-    {
-        id: 'get_accounts',
-        url: '/api/accounts/',
-        method: 'GET',
-        authentication: 'access_token'
-    },
-    {
-        id: 'get_account',
-        url: '/api/accounts/{id}',
-        method: 'GET',
-        authentication: 'access_token',
-        urlParams: {
-            id: 'number'
-        }
-    }
-];
-
-function validateData(expected: object, received: object): void {
-    const missingKeys = Object.keys(expected).filter(key => !(key in received));
-    if (missingKeys.length > 0)
-        throw new Error(`Missing required fields: ${missingKeys.join(', ')}`);
-
-    const wrongTypes = Object.entries(expected).filter(([key, type]) =>
-        typeof received[key as keyof typeof received] !== type
-    );
-    if (wrongTypes.length > 0)
-        throw new Error(`Invalid field types: ${wrongTypes.map(([key, type]) => `${key} (expected ${type})`).join(', ')}`);
+interface RouteInfo {
+    path: string;
+    methods: string[];
+    name: string;
 }
 
-function replaceUrlParams(url: string, params?: object) {
+let _routeCache: RouteInfo[] | null = null;
+
+async function fetchRoutes(): Promise<RouteInfo[]> {
+    if (_routeCache) return _routeCache;
+    const baseUrl = getConfig<string>("api.apiUrl") ?? "";
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(`${baseUrl}/api/endpoints/`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Failed to fetch endpoints: ${res.status}`);
+    _routeCache = await res.json();
+    return _routeCache!;
+}
+
+export function invalidateRouteCache() {
+    _routeCache = null;
+}
+
+function replaceUrlParams(url: string, params?: object): string {
     if (!params) return url;
     return url.replace(/\{(\w+)\}/g, (_, key) => {
         if (!(key in params)) throw new Error(`Missing URL parameter: ${key}`);
-        return encodeURIComponent((params as any)[key]);
+        return encodeURIComponent(String((params as Record<string, unknown>)[key]));
     });
 }
 
-async function api(id: string, data?: object, params?: object, throwErrors = true): Promise<any> {
-    const endpoint = apiEndpoints.find(e => e.id === id);
-    if (!endpoint) throw new Error(`API endpoint "${id}" not found`);
+async function api(
+    idOrPath: string,
+    data?: object,
+    params?: object,
+    throwErrors = true
+): Promise<unknown> {
+    const baseUrl = getConfig<string>("api.apiUrl") ?? "";
+    const token = localStorage.getItem("access_token");
 
-    if (endpoint.data) {
-        if (!data) throw new Error(`Endpoint "${id}" requires a data payload`);
-        validateData(endpoint.data, data);
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    if (idOrPath.startsWith("/")) {
+        const url = `${baseUrl}/api${replaceUrlParams(idOrPath, params)}`;
+        const res = await fetch(url, {
+            method: data ? "POST" : "GET",
+            headers,
+            body: data ? JSON.stringify(data) : undefined,
+        });
+        if (!res.ok && throwErrors)
+            throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+        return res.json();
     }
 
-    const baseUrl = getConfig('api.apiUrl');
-    const urlWithParams = replaceUrlParams(endpoint.url, params);
-    const url = `${baseUrl}${urlWithParams}`;
+    const routes = await fetchRoutes();
+    const route = routes.find((r) => r.name === idOrPath);
+    if (!route) throw new Error(`No route found with name "${idOrPath}"`);
 
-    let token = null;
+    const method = route.methods[0];
+    const url = `${baseUrl}${replaceUrlParams(route.path, params)}`;
 
-    const authentication = endpoint.authentication;
-    if (authentication === 'access_token') {
-        token = localStorage.getItem('access_token');
-        if (!token && throwErrors) throw new Error('Access token not found');
-    }
-
-    const response = await fetch(url, {
-        method: endpoint.method,
-        headers: { 
-            'Content-Type': 'application/json',
-            ...(authentication === 'access_token' && { 'Authorization': `Bearer ${token}` })
-        },
-        body: data ? JSON.stringify(data) : undefined
+    const res = await fetch(url, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
     });
-
-    if (!response.ok && throwErrors)
-        throw new Error(`Request failed: ${response.status} ${response.statusText}`);
-
-    return response.json();
+    if (!res.ok && throwErrors)
+        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+    return res.json();
 }
 
 export default api;

@@ -8,7 +8,7 @@ import { getAccount } from "./modules/account";
 import { usePlugins } from './modules/usePlugins';
 
 async function loadAccountById(accountId: string) {
-    return await api("get_account", undefined, { id: accountId });
+    return await api("get_account", undefined, { account_id: accountId }) as any;
 }
 
 function Dashboard() {

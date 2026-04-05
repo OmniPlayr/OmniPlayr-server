@@ -1,6 +1,7 @@
 {
     "version": "2026.4.1",
     "plugins": {
-        "mp3@built-in": "^*"
+        "mp3@built-in": "^*",
+        "artists@built-in": "^*"
     }
 }

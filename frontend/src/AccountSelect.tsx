@@ -7,7 +7,7 @@ import Dashboard from "./Dashboard";
 import { storeAccount } from "./modules/account";
 
 async function loadAccounts() {
-    return await api("get_accounts");
+    return await api("get_accounts") as any[];
 }
 
 function AccountSelect() {
