@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, type Path } from "react-router-dom";
 import api from "./modules/api";
 import "./styles/AccountSelect.css";
 import defaultPfp from "./assets/images/default-pfp-dark.svg";

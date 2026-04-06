@@ -114,3 +114,45 @@ button[data-type="secondary"] {
 .popup-header {
     border-bottom: 1px solid var(--clr-popup-a20) !important;
 }
+
+/* Dashboard Styling */
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 10px;
+}
+
+.dashboard-hor {
+    display: flex;
+    flex-direction: row;
+    height: calc(100% - 80px);
+}
+
+.dashboard-main {
+    width: 100%;
+    margin-left: 10px;
+    padding: 10px;
+    border-radius: 16px;
+    overflow-y: auto;
+    height: 100%;
+    background-color: var(--clr-popup-a0);
+    border: 1px solid var(--clr-popup-a30);
+    scrollbar-gutter: stable;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s ease;
+}
+.dashboard-main:hover {
+    scrollbar-color: var(--clr-popup-a40) transparent;
+}
+.dashboard-main::-webkit-scrollbar-track {
+    background: transparent;
+}
+.dashboard-main::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+.dashboard-main:hover::-webkit-scrollbar-thumb {
+    background-color: var(--clr-popup-a40);
+}

@@ -104,5 +104,5 @@ export function playSong(songId: string, sourceType: string) {
     return player.playSong(songId, sourceType);
 }
 
-playSong('test3.mp3', 'mp3');
+playSong('test.mp3', 'mp3');
 player.setVolume(0);

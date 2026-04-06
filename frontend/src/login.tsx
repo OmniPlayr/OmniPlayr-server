@@ -9,7 +9,7 @@ function Login() {
 
 	async function handleSubmit() {
 		const password = (document.querySelector('.login__input') as HTMLInputElement).value;
-		const data = await api('login', { password }, undefined, false) as any;
+		const data = await api('/server/token', { password }, undefined, false) as any;
 		if (data.status === 'success') {
 			localStorage.setItem('access_token', data.access_token);
 			localStorage.setItem('refresh_token', data.refresh_token);

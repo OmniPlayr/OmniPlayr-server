@@ -135,7 +135,22 @@ function applyDOMHooks() {
         els.forEach(el => {
             if (el.hasAttribute('data-hooks-applied')) return;
             el.setAttribute('data-hooks-applied', '');
-            hooks.forEach(fn => fn(el));
+
+            const wrapper = document.createElement('span');
+            wrapper.className = '__plugin-hook-wrapper';
+            wrapper.textContent = el.textContent;
+
+            const reactContent = document.createElement('span');
+            (reactContent as HTMLElement).style.display = 'none';
+            (el as HTMLElement).style.display = 'contents';
+
+            while (el.childNodes.length > 0) {
+                reactContent.appendChild(el.childNodes[0]);
+            }
+            el.appendChild(reactContent);
+            el.appendChild(wrapper);
+
+            hooks.forEach(fn => fn(wrapper));
         });
     }
 }
@@ -145,7 +160,20 @@ let observer: MutationObserver | null = null;
 export function startDOMHookObserver() {
     if (observer) return;
     applyDOMHooks();
-    observer = new MutationObserver(applyDOMHooks);
+    observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            mutation.removedNodes.forEach(node => {
+                if (!(node instanceof Element)) return;
+                node.querySelectorAll('[data-hooks-applied]').forEach(el => {
+                    el.removeAttribute('data-hooks-applied');
+                });
+                if (node.hasAttribute('data-hooks-applied')) {
+                    node.removeAttribute('data-hooks-applied');
+                }
+            });
+        }
+        applyDOMHooks();
+    });
     observer.observe(document.body, { childList: true, subtree: true });
 }
 

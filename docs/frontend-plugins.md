@@ -9,9 +9,9 @@ Frontend plugins live in `frontend/src/plugins/` and are loaded automatically at
 ```
 frontend/src/plugins/
 └── my-plugin@author/
-    ├── index.ts         # Required — entry point
-    ├── package.json     # Required — metadata and validation
-    ├── config.toml      # Optional — plugin-specific config
+    ├── index.ts         # Required - entry point
+    ├── package.json     # Required - metadata and validation
+    ├── config.toml      # Optional - plugin-specific config
     └── MyView.tsx       # Your components (any name, any structure)
 ```
 
@@ -27,7 +27,7 @@ The plugin directory is picked up automatically by Vite's glob import in `main.t
 import.meta.glob('./plugins/*/index.{ts,tsx}', { eager: true });
 ```
 
-No manual registration in any config file is needed — just create the folder.
+No manual registration in any config file is needed - just create the folder.
 
 ---
 
@@ -79,31 +79,105 @@ registerPluginUI('my-plugin@author', {
 | `view` | `ComponentType` | Yes | The main view rendered when this plugin is active |
 | `sourceType` | `string` | No | Matches the `source_type` from the backend plugin. Used by the player to route stream requests |
 
-The label shown in the UI is taken from `package.json`'s `name` field automatically — you do not set it here.
+The label shown in the UI is taken from `package.json`'s `name` field automatically - you do not set it here.
 
 ---
 
 ## Registering Routes
 
-Use `registerRoute` to add pages that sit outside the main dashboard layout.
+Use `registerRoute` to add pages that sit outside the main dashboard layout. Call it from your `index.ts`.
 
 ```ts
 import { registerRoute } from '../../modules/plugins';
 import MyPage from './MyPage';
 
 registerRoute({
-    path: '/my-plugin/page',
+    path: '/my-plugin/:param',
     component: MyPage,
 });
 ```
 
-Routes registered here are injected into the React Router tree in `main.tsx` alongside the built-in routes. There is no automatic namespacing — include your plugin key in the path yourself to avoid clashes.
+Routes registered here are injected into the React Router tree in `main.tsx` alongside the built-in routes. There is no automatic namespacing - include your plugin key in the path yourself to avoid clashes.
+
+URL parameters (`:param`) are read inside the page component with `useParams` from `react-router-dom`.
+
+### Page Component Pattern
+
+Pages typically follow this structure: read the route param, fetch data, handle a loading state, handle a not-found state, then render.
+
+```tsx
+import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import api from '../../modules/api';
+
+export default function MyPage() {
+    const { param } = useParams<{ param: string }>();
+    const [data, setData] = useState<any>(null);
+    const [notFound, setNotFound] = useState(false);
+
+    useEffect(() => {
+        if (!param) return;
+        setData(null);
+        setNotFound(false);
+        api(`/plugin/my-plugin/${param}`).then((res: any) => {
+            if (!res || !res.name) {
+                setNotFound(true);
+            } else {
+                setData(res);
+            }
+        });
+    }, [param]);
+
+    if (notFound) return <div>Not found.</div>;
+    if (!data) return null;
+
+    return (
+        <div>
+            <h1>{data.name}</h1>
+        </div>
+    );
+}
+```
+
+Returning `null` while `data` is `null` and `notFound` is `false` is the loading state - the page renders nothing until the fetch resolves.
+
+### Passing Context to a Page
+
+When navigating to a plugin page you may want to pass extra context that isn't part of the URL (for example, a currently playing song or album to help the backend resolve the right result). Use `sessionStorage` for this - write before navigating, read and immediately remove on the page side.
+
+**On the navigation side:**
+
+```ts
+sessionStorage.setItem('my-plugin-nav-context', JSON.stringify({ song: 'Some Song', album: 'Some Album' }));
+navigate(`/my-plugin/${encodeURIComponent(name)}`);
+```
+
+**On the page side:**
+
+```tsx
+useEffect(() => {
+    if (!param) return;
+    setData(null);
+    setNotFound(false);
+    const ctx = JSON.parse(sessionStorage.getItem('my-plugin-nav-context') || '{}');
+    sessionStorage.removeItem('my-plugin-nav-context');
+    api(`/plugin/my-plugin/${param}?song=${ctx.song ?? ''}&album=${ctx.album ?? ''}`).then((res: any) => {
+        if (!res || !res.name) {
+            setNotFound(true);
+        } else {
+            setData(res);
+        }
+    });
+}, [param]);
+```
+
+Remove the item immediately after reading so it does not bleed into subsequent navigations.
 
 ---
 
 ## Plugin Config
 
-Store config in `plugins/<your-key>/config.toml`. This is the only config file your plugin should read. Do not use `getConfig` from `src/modules/config.ts` — that is reserved for the core application.
+Store config in `plugins/<your-key>/config.toml`. This is the only config file your plugin should read. Do not use `getConfig` from `src/modules/config.ts` - that is reserved for the core application.
 
 ```toml
 [display]
@@ -142,7 +216,7 @@ import { reloadPluginConfig } from '../../modules/plugin_config';
 reloadPluginConfig('my-plugin@author');
 ```
 
-Note that in a production build the TOML files are bundled by Vite, so `reloadPluginConfig` re-parses from the same bundled string — it does not read from disk at runtime.
+Note that in a production build the TOML files are bundled by Vite, so `reloadPluginConfig` re-parses from the same bundled string - it does not read from disk at runtime.
 
 ---
 
@@ -175,7 +249,7 @@ useEffect(() => {
 }, []);
 ```
 
-There is no namespace enforcement on event names — use your plugin key as a prefix for events you own (e.g. `my-plugin@author:event-name`) to avoid collisions with other plugins.
+There is no namespace enforcement on event names - use your plugin key as a prefix for events you own (e.g. `my-plugin@author:event-name`) to avoid collisions with other plugins.
 
 ---
 
@@ -195,7 +269,7 @@ The selector format is `ComponentName.css-class`. The first part is matched agai
 
 Hooks are applied every time `applyDOMHooks()` runs, which happens after every React render in any component that calls `usePlugins()`. Keep hook functions idempotent.
 
-A plugin whose `package.json` failed validation cannot register DOM hooks — `modify` will print a console error and return early.
+A plugin whose `package.json` failed validation cannot register DOM hooks - `modify` will print a console error and return early.
 
 ---
 
@@ -220,7 +294,8 @@ frontend/src/plugins/my-plugin@author/
 ├── index.ts
 ├── package.json
 ├── config.toml
-└── MyView.tsx
+├── MyView.tsx
+└── MyPage.tsx
 ```
 
 **package.json**
@@ -257,7 +332,7 @@ registerPluginUI(PLUGIN_ID, {
 });
 
 registerRoute({
-    path: '/my-plugin/browse',
+    path: '/my-plugin/:param',
     component: MyPage,
 });
 
@@ -269,6 +344,7 @@ on('player:track-changed', (track) => {
 
 **MyView.tsx**
 ```tsx
+import { useNavigate } from 'react-router-dom';
 import { playSong } from '../../modules/player';
 import { getPluginConfig } from '../../modules/plugin_config';
 
@@ -276,13 +352,64 @@ const PLUGIN_ID = 'my-plugin@author';
 
 export default function MyView() {
     const label = getPluginConfig<string>(PLUGIN_ID, 'display.label', 'My Files');
+    const navigate = useNavigate();
+
+    function openArtist(name: string, song: string) {
+        sessionStorage.setItem('my-plugin-nav-context', JSON.stringify({ song }));
+        navigate(`/my-plugin/${encodeURIComponent(name)}`);
+    }
 
     return (
         <div>
             <h2>{label}</h2>
-            <button onClick={() => playSong('example.mp3', 'my-plugin')}>
-                Play
-            </button>
+            <button onClick={() => playSong('example.mp3', 'my-plugin')}>Play</button>
+            <button onClick={() => openArtist('Some Artist', 'Some Song')}>View Artist</button>
+        </div>
+    );
+}
+```
+
+**MyPage.tsx**
+```tsx
+import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import api from '../../modules/api';
+
+function NotFound() {
+    return (
+        <div>
+            <h1>Not Found</h1>
+            <button onClick={() => window.location.href = '/'}>Go Home</button>
+        </div>
+    );
+}
+
+export default function MyPage() {
+    const { param } = useParams<{ param: string }>();
+    const [data, setData] = useState<any>(null);
+    const [notFound, setNotFound] = useState(false);
+
+    useEffect(() => {
+        if (!param) return;
+        setData(null);
+        setNotFound(false);
+        const ctx = JSON.parse(sessionStorage.getItem('my-plugin-nav-context') || '{}');
+        sessionStorage.removeItem('my-plugin-nav-context');
+        api(`/plugin/my-plugin/${param}?song=${ctx.song ?? ''}`).then((res: any) => {
+            if (!res || !res.name) {
+                setNotFound(true);
+            } else {
+                setData(res);
+            }
+        });
+    }, [param]);
+
+    if (notFound) return <NotFound />;
+    if (!data) return null;
+
+    return (
+        <div>
+            <h1>{data.name}</h1>
         </div>
     );
 }

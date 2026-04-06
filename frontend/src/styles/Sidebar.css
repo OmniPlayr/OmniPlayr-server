@@ -6,6 +6,7 @@
     border-radius: var(--br-dash-component);
     display: flex;
     flex-direction: column;
+    border: 1px solid var(--clr-popup-a30);
 }
 
 .sidebar-header {
@@ -146,6 +147,7 @@
     color: var(--clr-text-a30);
     font-size: 12px;
     padding-top: 5px;
+    user-select: none;
 }
 
 .user-switch-account {
