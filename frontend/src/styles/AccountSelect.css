@@ -1,3 +1,4 @@
+/* Account Selection Styles */
 .account-select {
     display: flex;
     flex-wrap: wrap;
@@ -58,18 +59,6 @@
     background-color: var(--clr-surface-a10);
 }
 
-.account-select-option.loading {
-    animation: load-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    position: relative;
-    z-index: 10001;
-}
-
-@keyframes load-in {
-    0% { transform: translateY(0) scale(1); opacity: 1; }
-    15% { opacity: 1; }
-    100% { transform: translateY(0) scale(100); opacity: 0; }
-}
-
 .account-select-option span {
     font-size: 20px;
 }
@@ -81,29 +70,18 @@
     object-fit: cover;
 }
 
-.cloned-page-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 9999;
+/* Fade to next page (Zooming in did not end up working correctly and good, was a fun thing to try though) */
+.account-select.fading-out {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+    transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-.cloned-page-content {
-    width: 100vw;
-    height: 100vh;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0);
-    animation: load-in-page 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    transform-origin: center;
-    background-color: var(--clr-surface-a0); 
+.dashboard {
+    animation: fade-in 0.5s ease forwards;
 }
 
-@keyframes load-in-page {
-    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; background-color: var(--clr-surface-a0); }
-    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; background-color: var(--clr-surface-a0); }
+@keyframes fade-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
 }

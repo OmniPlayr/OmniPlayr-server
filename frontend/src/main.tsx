@@ -38,24 +38,26 @@ function NavigateSetter() {
     return null;
 }
 
-const account_id = getAccount() || null;
-const authenticated = isTokenValid() && !!account_id;
-
 function AppShell() {
     const location = useLocation();
-    const isAuth = isTokenValid();
-    const showShell = isAuth && !!account_id && location.pathname !== '/login';
+    const [isAuth] = useState(() => isTokenValid());
+    const [accountId, setAccountId] = useState<string | null>(getAccount);
+    const showShell = isAuth && !!accountId && location.pathname !== '/login';
     const [account, setAccount] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
     usePlugins();
 
     useEffect(() => {
-        let accountId = getAccount() || searchParams.get("account_id");
-        if (!accountId) return;
-        loadAccountById(accountId).then(fetched => setAccount(fetched));
+        const id = searchParams.get("account_id");
+        if (!id) return;
+        setAccountId(id);
         setSearchParams({});
     }, [searchParams]);
 
+    useEffect(() => {
+        if (!accountId) return;
+        loadAccountById(accountId).then(fetched => setAccount(fetched));
+    }, [accountId]);
 
     return (
         <>
@@ -82,7 +84,7 @@ function AppShell() {
                     <Route path="/" element={
                         !isTokenValid()
                             ? <Navigate to="/login" />
-                            : <AccountSelect />
+                            : <AccountSelect onAccountSelected={setAccountId} />
                     } />
                     <Route path="*" element={<Navigate to="/login" />} />
                 </Routes>
@@ -105,3 +107,5 @@ createRoot(document.getElementById('root')!).render(
         <App />
     </StrictMode>,
 )
+
+export default AppShell
