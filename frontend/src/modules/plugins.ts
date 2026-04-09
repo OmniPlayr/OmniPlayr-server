@@ -13,7 +13,7 @@ export interface PluginRoute {
     component: ComponentType;
 }
 
-export interface FrontendPlugin {
+export interface PluginTab {
     id: string;
     label: string;
     icon: ComponentType;
@@ -24,7 +24,7 @@ export interface FrontendPlugin {
 type Listener = (payload: any) => void;
 type DOMHook = (el: Element) => void;
 
-const pluginRegistry = new Map<string, FrontendPlugin>();
+const tabRegistry: PluginTab[] = [];
 const eventBus = new Map<string, Set<Listener>>();
 const domHooks = new Map<string, DOMHook[]>();
 const routeRegistry: PluginRoute[] = [];
@@ -81,20 +81,24 @@ for (const [path, mod] of Object.entries(configs)) {
     }
 }
 
-export function registerPluginUI(id: string, ui: { icon: ComponentType; view: ComponentType; sourceType?: string }) {
+export function registerTab(
+    id: string,
+    tab: { icon: ComponentType; view: ComponentType; sourceType?: string; label?: string }
+) {
     if (!validatedPlugins.has(id)) {
         console.error(`[plugins] blocked: "${id}" has no valid package.json`);
         return;
     }
-    pluginRegistry.set(id, { id, label: configs[`../plugins/${id}/package.json`]?.default.name ?? id, ...ui });
+    const label = tab.label ?? configs[`../plugins/${id}/package.json`]?.default.name ?? id;
+    tabRegistry.push({ id, label, ...tab });
 }
 
-export function getPlugins(): FrontendPlugin[] {
-    return [...pluginRegistry.values()];
+export function getTabs(): PluginTab[] {
+    return [...tabRegistry];
 }
 
-export function getPlugin(id: string): FrontendPlugin | undefined {
-    return pluginRegistry.get(id);
+export function getTab(id: string): PluginTab | undefined {
+    return tabRegistry.find(t => t.id === id);
 }
 
 export function registerRoute(route: PluginRoute) {

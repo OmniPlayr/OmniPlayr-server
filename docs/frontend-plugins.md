@@ -55,16 +55,16 @@ If validation fails, a console error is printed and the plugin is excluded from 
 
 ---
 
-## Registering UI
+## Adding a Sidebar Tab
 
-Use `registerPluginUI` from `src/modules/plugins.ts` to add your plugin to the sidebar or any future plugin slot. Call it from your `index.ts`.
+Use `registerTab` from `src/modules/plugins.ts` to add your plugin as a tab in the sidebar. Call it from your `index.ts`.
 
 ```ts
-import { registerPluginUI } from '../../modules/plugins';
+import { registerTab } from '../../modules/plugins';
 import { Music } from 'lucide-react';
 import MyView from './MyView';
 
-registerPluginUI('my-plugin@author', {
+registerTab('my-plugin@author', {
     icon: Music,
     view: MyView,
     sourceType: 'my-plugin',
@@ -75,11 +75,13 @@ registerPluginUI('my-plugin@author', {
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `icon` | `ComponentType` | Yes | Lucide icon or any React component, used in the sidebar |
-| `view` | `ComponentType` | Yes | The main view rendered when this plugin is active |
+| `icon` | `ComponentType` | Yes | Lucide icon or any React component, shown in the sidebar tab |
+| `view` | `ComponentType` | Yes | The main view rendered in the dashboard content area when this tab is active |
 | `sourceType` | `string` | No | Matches the `source_type` from the backend plugin. Used by the player to route stream requests |
 
-The label shown in the UI is taken from `package.json`'s `name` field automatically - you do not set it here.
+The tab label shown in the sidebar is taken from `package.json`'s `name` field automatically — you do not set it here.
+
+When the user clicks the tab, the dashboard swaps out its content area to render your `view` component. Clicking Home switches back to the default dashboard.
 
 ---
 
@@ -100,6 +102,8 @@ registerRoute({
 Routes registered here are injected into the React Router tree in `main.tsx` alongside the built-in routes. There is no automatic namespacing - include your plugin key in the path yourself to avoid clashes.
 
 URL parameters (`:param`) are read inside the page component with `useParams` from `react-router-dom`.
+
+Note that registered routes are only reachable when no sidebar tab is active (i.e. the user is on the Home tab). If you need to navigate to a route from within your tab view, call `onTabChange(null)` first via the event bus or navigate directly — the router will take over once the tab view is unmounted.
 
 ### Page Component Pattern
 
@@ -143,7 +147,7 @@ Returning `null` while `data` is `null` and `notFound` is `false` is the loading
 
 ### Passing Context to a Page
 
-When navigating to a plugin page you may want to pass extra context that isn't part of the URL (for example, a currently playing song or album to help the backend resolve the right result). Use `sessionStorage` for this - write before navigating, read and immediately remove on the page side.
+When navigating to a plugin page you may want to pass extra context that isn't part of the URL. Use `sessionStorage` for this - write before navigating, read and immediately remove on the page side.
 
 **On the navigation side:**
 
@@ -208,15 +212,13 @@ getPluginConfig<T>(pluginId: string, keyPath: string, defaultValue?: T): T | und
 
 Key paths use dot notation to traverse nested TOML tables, identical to how the backend's `get_plugin_config` works. If the plugin has no `config.toml`, or the key does not exist, `defaultValue` is returned.
 
-The config is parsed once at module load time. If you need to force a re-parse (for example, after a hot-reload in development), call:
+The config is parsed once at module load time. If you need to force a re-parse, call:
 
 ```ts
 import { reloadPluginConfig } from '../../modules/plugin_config';
 
 reloadPluginConfig('my-plugin@author');
 ```
-
-Note that in a production build the TOML files are bundled by Vite, so `reloadPluginConfig` re-parses from the same bundled string - it does not read from disk at runtime.
 
 ---
 
@@ -275,7 +277,7 @@ A plugin whose `package.json` failed validation cannot register DOM hooks - `mod
 
 ## Playing Media
 
-If your plugin has a corresponding backend plugin that serves a stream, set `sourceType` when registering your UI. Then use the core player module to trigger playback:
+If your plugin has a corresponding backend plugin that serves a stream, set `sourceType` when registering your tab. Then use the core player module to trigger playback:
 
 ```ts
 import { playSong } from '../../modules/player';
@@ -294,8 +296,7 @@ frontend/src/plugins/my-plugin@author/
 ├── index.ts
 ├── package.json
 ├── config.toml
-├── MyView.tsx
-└── MyPage.tsx
+└── MyView.tsx
 ```
 
 **package.json**
@@ -317,7 +318,7 @@ label = "My Files"
 
 **index.ts**
 ```ts
-import { registerPluginUI, registerRoute, on } from '../../modules/plugins';
+import { registerTab, registerRoute, on } from '../../modules/plugins';
 import { getPluginConfig } from '../../modules/plugin_config';
 import { Folder } from 'lucide-react';
 import MyView from './MyView';
@@ -325,7 +326,7 @@ import MyPage from './MyPage';
 
 const PLUGIN_ID = 'my-plugin@author';
 
-registerPluginUI(PLUGIN_ID, {
+registerTab(PLUGIN_ID, {
     icon: Folder,
     view: MyView,
     sourceType: 'my-plugin',
@@ -364,52 +365,6 @@ export default function MyView() {
             <h2>{label}</h2>
             <button onClick={() => playSong('example.mp3', 'my-plugin')}>Play</button>
             <button onClick={() => openArtist('Some Artist', 'Some Song')}>View Artist</button>
-        </div>
-    );
-}
-```
-
-**MyPage.tsx**
-```tsx
-import { useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import api from '../../modules/api';
-
-function NotFound() {
-    return (
-        <div>
-            <h1>Not Found</h1>
-            <button onClick={() => window.location.href = '/'}>Go Home</button>
-        </div>
-    );
-}
-
-export default function MyPage() {
-    const { param } = useParams<{ param: string }>();
-    const [data, setData] = useState<any>(null);
-    const [notFound, setNotFound] = useState(false);
-
-    useEffect(() => {
-        if (!param) return;
-        setData(null);
-        setNotFound(false);
-        const ctx = JSON.parse(sessionStorage.getItem('my-plugin-nav-context') || '{}');
-        sessionStorage.removeItem('my-plugin-nav-context');
-        api(`/plugin/my-plugin/${param}?song=${ctx.song ?? ''}`).then((res: any) => {
-            if (!res || !res.name) {
-                setNotFound(true);
-            } else {
-                setData(res);
-            }
-        });
-    }, [param]);
-
-    if (notFound) return <NotFound />;
-    if (!data) return null;
-
-    return (
-        <div>
-            <h1>{data.name}</h1>
         </div>
     );
 }

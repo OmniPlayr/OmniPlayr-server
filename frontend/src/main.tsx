@@ -10,7 +10,7 @@ import Dashboard from './Dashboard.tsx';
 import Player from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
 import { getAccount } from './modules/account.ts';
-import { getRoutes } from './modules/plugins';
+import { getRoutes, getTab } from './modules/plugins';
 import { usePlugins } from './modules/usePlugins';
 import { setNavigate } from './modules/navigate';
 import { useSearchParams } from "react-router-dom";
@@ -46,6 +46,7 @@ function AppShell() {
     const showShell = isAuth && !!accountId && location.pathname !== '/login';
     const [account, setAccount] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
+    const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
     // For tracking dashboard history:
     const [navHistory, setNavHistory] = useState<string[]>([location.pathname]);
@@ -96,6 +97,10 @@ function AppShell() {
         loadAccountById(accountId).then(fetched => setAccount(fetched));
     }, [accountId]);
 
+
+    const activeTab = activeTabId ? getTab(activeTabId) : null;
+    const ActiveTabView = activeTab?.view ?? null;
+
     return (
         <>
             {showShell ? (
@@ -107,16 +112,24 @@ function AppShell() {
                         onForward={goForward}
                     />
                     <div className="dashboard-hor">
-                        <Sidebar account={account} />
+                        <Sidebar
+                            account={account}
+                            activeTabId={activeTabId}
+                            onTabChange={setActiveTabId}
+                        />
                         <div className="dashboard-main">
-                            <Routes>
-                                <Route path="/" element={<Dashboard />} />
-                                <Route path="/dashboard" element={<Dashboard />} />
-                                {getRoutes().map(({ path, component: Component }) => (
-                                    <Route key={path} path={path} element={<Component />} />
-                                ))}
-                                <Route path="*" element={<Navigate to="/" />} />
-                            </Routes>
+                            {ActiveTabView ? (
+                                <ActiveTabView />
+                            ) : (
+                                <Routes>
+                                    <Route path="/" element={<Dashboard />} />
+                                    <Route path="/dashboard" element={<Dashboard />} />
+                                    {getRoutes().map(({ path, component: Component }) => (
+                                        <Route key={path} path={path} element={<Component />} />
+                                    ))}
+                                    <Route path="*" element={<Navigate to="/" />} />
+                                </Routes>
+                            )}
                         </div>
                     </div>
                     <Player />

@@ -25,34 +25,6 @@
     font-weight: 600;
 }
 
-.sidebar-add {
-    display: flex;
-    flex: row;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    padding: 5px;
-    background-color: var(--clr-popup-a20);
-    border-radius: 10px;
-    transition: background-color 0.2s ease-in-out;
-}
-
-.sidebar-add:hover {
-    background-color: var(--clr-popup-a30);
-}
-
-.add-text {
-    color: var(--clr-text-a0);
-    margin-right: 5px;
-    font-weight: 600;
-}
-
-.add-icon {
-    color: var(--clr-text-a30);
-    font-size: 24px;
-}
-
 .sidebar-footer {
     margin-top: auto;
     display: flex;

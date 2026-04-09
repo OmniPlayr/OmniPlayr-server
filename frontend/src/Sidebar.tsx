@@ -1,13 +1,13 @@
 import './styles/Sidebar.css';
 import defaultPfp from "./assets/images/default-pfp-dark.svg";
 import { Plus, Settings, House, ChevronDown } from 'lucide-react';
-import { Tooltip } from 'react-tooltip';
 import { isDev } from './modules/dev';
 import api from './modules/api';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from "react-router-dom";
 import { storeAccount } from './modules/account';
 import { usePlugins } from './modules/usePlugins';
+import { getTabs, type PluginTab } from './modules/plugins';
 
 async function loadAccounts() {
     return await api("get_accounts") as any[];
@@ -20,17 +20,24 @@ function openAccountSelect() {
     const accountSelectOptions = document.querySelector(".user-switch-account") as HTMLElement;
     accountSelectOptions.classList.toggle("active");
 }
-function Sidebar({ account }: any) {
+
+interface SidebarProps {
+    account: any;
+    activeTabId: string | null;
+    onTabChange: (tabId: string | null) => void;
+}
+
+function Sidebar({ account, activeTabId, onTabChange }: SidebarProps) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [, setSearchParams] = useSearchParams();
+    const [tabs, setTabs] = useState<PluginTab[]>([]);
     usePlugins();
 
     function loadAccount(id: string) {
         storeAccount(id);
         setSearchParams({ account_id: id });
     }
-
 
     useEffect(() => {
         loadAccounts().then(fetched => {
@@ -39,27 +46,42 @@ function Sidebar({ account }: any) {
         });
     }, []);
 
+    useEffect(() => {
+        setTabs(getTabs());
+    }, []);
+
     return (
         <>
             <div className="sidebar" data-component="Sidebar">
                 <div className="sidebar-header">
-                    <p className="sidebar-title">Your Library</p>
-                    <Tooltip anchorSelect=".sidebar-add" place='top'>Import or create a playlist</Tooltip>
-                    <div className="sidebar-add">
-                        <Plus className="add-icon" />
-                        <p className="add-text">Create</p>
-                    </div>
+                    <p className="sidebar-title">OmniPlayr</p>
                 </div>
                 <div className="sidebar-library-list">
 
                 </div>
                 <div className="sidebar-footer">
                     <div className="sidebar-tabs">
-                        <div className="sidebar-tab active">
+                        <div
+                            className={`sidebar-tab${activeTabId === null ? ' active' : ''}`}
+                            onClick={() => onTabChange(null)}
+                        >
                             <House className="tab-icon" />
                             <p className="tab-text">Home</p>
                         </div>
-                        <div className="sidebar-tab">
+                        {tabs.map(tab => {
+                            const Icon: any = tab.icon;
+                            return (
+                                <div
+                                    key={tab.id}
+                                    className={`sidebar-tab${activeTabId === tab.id ? ' active' : ''}`}
+                                    onClick={() => onTabChange(tab.id)}
+                                >
+                                    <Icon className="tab-icon" />
+                                    <p className="tab-text">{tab.label}</p>
+                                </div>
+                            );
+                        })}
+                        <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => onTabChange("__settings")}>
                             <Settings className="tab-icon" />
                             <p className="tab-text">Settings</p>
                         </div>
