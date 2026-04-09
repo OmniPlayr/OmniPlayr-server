@@ -1,0 +1,6 @@
+[version.frontend]
+year = "int"
+month = "int"
+bugfix = "int"
+branch = "string"
+safeVersion = "string"

@@ -12,6 +12,8 @@ services:
     container_name: omniplayr_frontend
     ports:
       - "8223:8223"
+      - "8323:8223"
+      - "8523:8223"
     depends_on:
       - backend
     restart: unless-stopped
@@ -29,6 +31,8 @@ services:
       - DATABASE_URL=postgres://postgres:password@db:5432/omniplayr
     ports:
       - "8224:8224"
+      - "8324:8224"
+      - "8524:8224"
     depends_on:
       - db
     restart: unless-stopped

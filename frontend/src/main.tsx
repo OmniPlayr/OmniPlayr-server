@@ -53,6 +53,9 @@ function AppShell() {
     const navigate = useNavigate();
 
     useEffect(() => {
+        // This just checks if the user is authenticated and logged into an account, if not the shell wont load anyway, so this is a nice way to check that in my opinion.
+        if (!showShell) return;
+
         setNavHistory(prev => {
             const current = prev.slice(0, historyIndex + 1);
             if (current[current.length - 1] === location.pathname) return prev;
@@ -60,7 +63,7 @@ function AppShell() {
             setHistoryIndex(next.length - 1);
             return next;
         });
-    }, [location.pathname]);
+    }, [location.pathname, showShell]);
 
     const goBack = () => {
         if (historyIndex > 0) {
@@ -78,6 +81,7 @@ function AppShell() {
         }
     };
 
+    // Load plugins
     usePlugins();
 
     useEffect(() => {
