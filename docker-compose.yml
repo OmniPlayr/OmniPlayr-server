@@ -11,7 +11,7 @@ services:
       - ./frontend/src/config:/app/src/config
     container_name: omniplayr_frontend
     ports:
-      - "3000:3000"
+      - "8223:8223"
     depends_on:
       - backend
     restart: unless-stopped
@@ -28,7 +28,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:password@db:5432/omniplayr
     ports:
-      - "8000:8000"
+      - "8224:8224"
     depends_on:
       - db
     restart: unless-stopped

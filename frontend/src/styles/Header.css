@@ -1,0 +1,32 @@
+.header {
+    height: max-content;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    height: 40px;
+}
+
+.header-page-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+}
+
+.page-control {
+    cursor: not-allowed;
+    color: var(--clr-text-a50);
+    width: 30px;
+    height: 30px;
+    transition: color 0.2s ease-in-out;
+}
+
+.page-control.allowed {
+    cursor: pointer;
+    color: var(--clr-text-a30);
+}
+
+.page-control.allowed:hover {
+    color: var(--clr-text-a0);
+}

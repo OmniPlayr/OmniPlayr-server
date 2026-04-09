@@ -56,7 +56,7 @@ The setup script installs dependencies and launches the setup wizard. Follow the
 Once ready, open your browser:
 
 ```
-http://localhost:3000
+http://localhost:8223
 ```
 
 ### Manual Docker Start

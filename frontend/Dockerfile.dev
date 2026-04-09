@@ -5,6 +5,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-EXPOSE 3000
+EXPOSE 8223
 
-CMD ["npm", "run", "dev", "--", "--host", "--port", "3000", "--force"]
+CMD ["npm", "run", "dev", "--", "--host", "--port", "8223", "--force"]

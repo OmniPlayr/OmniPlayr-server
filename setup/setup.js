@@ -19,7 +19,7 @@ let gotSetupStateFromHttp = false;
 
 let access_token = null;
 
-const BACKEND = `http://${location.hostname}:8000/api`;
+const BACKEND = `http://${location.hostname}:8224/api`;
 
 function setTopProgress(stepIndex) {
     topProgressBar.style.width = ((stepIndex + 1) * stepWidth) + '%';
@@ -345,7 +345,7 @@ async function savePassword() {
 }
 
 async function skipPassword() {
-    const response = await fetch('http://localhost:8000/api/server/token', {
+    const response = await fetch(BACKEND + '/server/token', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
