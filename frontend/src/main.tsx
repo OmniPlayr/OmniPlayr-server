@@ -10,7 +10,7 @@ import Dashboard from './Dashboard.tsx';
 import Player from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
 import { getAccount } from './modules/account.ts';
-import { getRoutes, getTab } from './modules/plugins';
+import { getRoutes, getTab, getTabByUrl } from './modules/plugins';
 import { usePlugins } from './modules/usePlugins';
 import { setNavigate } from './modules/navigate';
 import { useSearchParams } from "react-router-dom";
@@ -39,19 +39,29 @@ function NavigateSetter() {
     return null;
 }
 
+function resolveActiveTabFromPath(pathname: string): string | null {
+    if (pathname === '/settings') return '__settings';
+    const tab = getTabByUrl(pathname);
+    if (tab) return tab.id;
+    return null;
+}
+
 function AppShell() {
     const location = useLocation();
+    const navigate = useNavigate();
     const [isAuth] = useState(() => isTokenValid());
     const [accountId, setAccountId] = useState<string | null>(getAccount);
     const showShell = isAuth && !!accountId && location.pathname !== '/login';
     const [account, setAccount] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
-    const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+    const [activeTabId, setActiveTabId] = useState<string | null>(() =>
+        resolveActiveTabFromPath(location.pathname)
+    );
 
     // For tracking dashboard history:
     const [navHistory, setNavHistory] = useState<string[]>([location.pathname]);
     const [historyIndex, setHistoryIndex] = useState(0);
-    const navigate = useNavigate();
 
     useEffect(() => {
         // This just checks if the user is authenticated and logged into an account, if not the shell wont load anyway, so this is a nice way to check that in my opinion.
@@ -64,6 +74,12 @@ function AppShell() {
             setHistoryIndex(next.length - 1);
             return next;
         });
+    }, [location.pathname, showShell]);
+
+    useEffect(() => {
+        if (!showShell) return;
+        const resolved = resolveActiveTabFromPath(location.pathname);
+        setActiveTabId(resolved);
     }, [location.pathname, showShell]);
 
     const goBack = () => {
@@ -85,6 +101,23 @@ function AppShell() {
     // Load plugins
     usePlugins();
 
+    const handleTabChange = (tabId: string | null) => {
+        if (tabId === null) {
+            navigate('/');
+            return;
+        }
+        if (tabId === '__settings') {
+            navigate('/settings');
+            return;
+        }
+        const tab = getTab(tabId);
+        if (tab?.url) {
+            navigate(tab.url);
+            return;
+        }
+        setActiveTabId(tabId);
+    };
+
     useEffect(() => {
         const id = searchParams.get("account_id");
         if (!id) return;
@@ -97,8 +130,8 @@ function AppShell() {
         loadAccountById(accountId).then(fetched => setAccount(fetched));
     }, [accountId]);
 
-
-    const activeTab = activeTabId ? getTab(activeTabId) : null;
+    const resolvedTabId = resolveActiveTabFromPath(location.pathname) ?? activeTabId;
+    const activeTab = resolvedTabId ? getTab(resolvedTabId) : null;
     const ActiveTabView = activeTab?.view ?? null;
 
     return (
@@ -114,8 +147,8 @@ function AppShell() {
                     <div className="dashboard-hor">
                         <Sidebar
                             account={account}
-                            activeTabId={activeTabId}
-                            onTabChange={setActiveTabId}
+                            activeTabId={resolvedTabId}
+                            onTabChange={handleTabChange}
                         />
                         <div className="dashboard-main">
                             {ActiveTabView ? (

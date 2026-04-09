@@ -19,6 +19,7 @@ export interface PluginTab {
     icon: ComponentType;
     view: ComponentType;
     sourceType?: string;
+    url?: string;
 }
 
 type Listener = (payload: any) => void;
@@ -29,6 +30,7 @@ const eventBus = new Map<string, Set<Listener>>();
 const domHooks = new Map<string, DOMHook[]>();
 const routeRegistry: PluginRoute[] = [];
 const validatedPlugins = new Set<string>();
+const registeredUrls = new Set<string>(['/settings']);
 
 const configs = import.meta.glob('../plugins/*/package.json', { eager: true }) as Record<string, { default: PluginConfig }>;
 
@@ -83,12 +85,23 @@ for (const [path, mod] of Object.entries(configs)) {
 
 export function registerTab(
     id: string,
-    tab: { icon: ComponentType; view: ComponentType; sourceType?: string; label?: string }
+    tab: { icon: ComponentType; view: ComponentType; sourceType?: string; label?: string; url?: string }
 ) {
     if (!validatedPlugins.has(id)) {
         console.error(`[plugins] blocked: "${id}" has no valid package.json`);
         return;
     }
+
+    if (tab.url !== undefined) {
+        const normalised = tab.url.startsWith('/') ? tab.url : '/' + tab.url;
+        if (registeredUrls.has(normalised)) {
+            console.error(`[plugins] blocked: "${id}" tried to register url "${normalised}" which is already taken`);
+            return;
+        }
+        registeredUrls.add(normalised);
+        tab = { ...tab, url: normalised };
+    }
+
     const label = tab.label ?? configs[`../plugins/${id}/package.json`]?.default.name ?? id;
     tabRegistry.push({ id, label, ...tab });
 }
@@ -99,6 +112,10 @@ export function getTabs(): PluginTab[] {
 
 export function getTab(id: string): PluginTab | undefined {
     return tabRegistry.find(t => t.id === id);
+}
+
+export function getTabByUrl(url: string): PluginTab | undefined {
+    return tabRegistry.find(t => t.url === url);
 }
 
 export function registerRoute(route: PluginRoute) {
