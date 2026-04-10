@@ -31,6 +31,4 @@ config.month = currentMonth;
 config.bugfix = bugfix;
 config.branch = branch;
 
-delete config.plugins;
-
 fs.writeFileSync(configFilePath, JSON.stringify(config, null, 4));
