@@ -1,7 +1,8 @@
 {
     "version": "2026.4.1",
-    "plugins": {
-        "mp3@built-in": "^*",
-        "artists@built-in": "^*"
-    }
+    "safeVersion": "2026.4.1-dev",
+    "year": 2026,
+    "month": 4,
+    "bugfix": 1,
+    "branch": "dev"
 }
