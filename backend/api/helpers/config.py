@@ -6,7 +6,7 @@ import threading
 # You can change things in the config, and they will be safely requested over here
 CONFIG_DIR = Path("config")
 
-# These are the types for each config, for example one needs to be a string, you define that in here
+# These are the types for each config, for example one needs to be a string, you define that in here.
 CONFIG_TYPES_DIR = Path("config_types")
 
 _loaded_configs = {}
