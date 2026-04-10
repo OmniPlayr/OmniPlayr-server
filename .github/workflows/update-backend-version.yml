@@ -1,0 +1,42 @@
+name: Update Backend Version
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'backend/**'
+      - '!backend/config.json'
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Update Backend Version
+        run: node .github/scripts/update-backend-version.js
+        env:
+          GITHUB_REF: ${{ github.ref }}
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if git diff --quiet backend/config.json; then
+            echo "No changes to version file"
+          else
+            git add backend/config.json
+            git commit -m "chore: update backend version"
+            git push
+          fi
