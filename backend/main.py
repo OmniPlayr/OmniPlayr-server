@@ -7,6 +7,7 @@ from api.helpers.db import init_db
 from api.router import router
 from api.helpers.config import load_configs
 from api.helpers.omniplayr import load_plugins, get_plugin_router
+from api.helpers.config_watcher import start_config_watcher
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +20,9 @@ async def lifespan(app: FastAPI):
 
     # This sets the /api/plugin prefix for plugins
     app.include_router(get_plugin_router(), prefix="/api/plugin")
+
+    # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
+    start_config_watcher()
     yield
 
 

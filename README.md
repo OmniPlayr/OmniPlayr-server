@@ -1,8 +1,8 @@
 # OmniPlayr 🎵
 
-> A self-hosted, extensible media platform - unify audio and video streaming from multiple sources.  
+> A self-hosted, extensible media platform - unify audio streaming from multiple sources.
 
-OmniPlayr is a **self-hosted, plugin-based media platform** that lets you stream and manage media from different sources through a single, consistent API. The backend and plugin system are fully functional, and the project is designed for developers to add new plugins and extend the platform.
+OmniPlayr is a **self-hosted, plugin-based audio platform** that lets you stream and manage audio from different sources through a single, consistent API. The backend and plugin system are fully functional, and the project is designed for developers to add new plugins and extend the platform.
 
 ---
 
@@ -14,16 +14,16 @@ This project is under active development. While the **streaming backend and plug
 
 ## ✅ Features
 
-- 🔌 **Plugin architecture** - easily add new audio or video sources
-- 🎧 **Unified streaming API** - clients can access media without knowing the source plugin
+- 🔌 **Plugin architecture** - easily add new audio sources
+- 🎧 **Unified streaming API** - clients can access audio without knowing the source plugin
 - 📦 **Self-hosted** - deploy with Docker or Python
-- 🌐 **Web UI coming soon** - control your media from any device
+- 🌐 **Web UI coming soon** - control your audio from any device
 
 ---
 
 ## 🛠 Plugin Support
 
-Each media source is implemented as a plugin. The **MP3 plugin is fully functional**, and more sources can be added easily.
+Each audio source is implemented as a plugin. The **MP3 plugin is fully functional**, and more sources can be added easily.
 
 | Plugin | Status |
 |---|---|
@@ -32,7 +32,6 @@ Each media source is implemented as a plugin. The **MP3 plugin is fully function
 | YouTube Music | 🔜 Planned |
 | Amazon Music | 🔜 Planned |
 | SoundCloud | 🔜 Planned |
-| Video sources | 🔜 Planned |
 
 ---
 
@@ -86,9 +85,9 @@ OmniPlayr/
 
 OmniPlayr is designed to be **developer-friendly**. You can:
 
-- Create new **plugins** for any audio or video source  
-- Add features to the **backend**  
-- Build or improve the **web UI**  
+- Create new **plugins** for any audio source
+- Add features to the **backend**
+- Build or improve the **web UI**
 
 Pull requests and issues are welcome. If you want to discuss a new plugin or feature, open an issue first.
 
