@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { createRoot } from 'react-dom/client'
 import 'normalize.css';
 import './styles/index.css'
+import './styles/themes/light.css'
 import './styles/themes/dark.css'
 import Login from './login.tsx'
 import AccountSelect from './AccountSelect.tsx';
@@ -19,6 +20,9 @@ import Header from './Header.tsx';
 import Settings from './Settings.tsx';
 
 import.meta.glob('./plugins/*/index.{ts,tsx}', { eager: true });
+
+const savedTheme = localStorage.getItem('theme') ?? 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
 
 function isTokenValid(): boolean {
     const access_expiry = localStorage.getItem('access_token_expires');
@@ -41,7 +45,7 @@ function NavigateSetter() {
 }
 
 function resolveActiveTabFromPath(pathname: string): string | null {
-    if (pathname === '/settings') return '__settings';
+    if (pathname.startsWith('/settings')) return '__settings';
     const tab = getTabByUrl(pathname);
     if (tab) return tab.id;
     return null;
@@ -192,7 +196,7 @@ function AppShell() {
                             ) : (
                                 <Routes>
                                     <Route path="/" element={<Dashboard />} />
-                                    <Route path="/settings" element={<Settings />} />
+                                    <Route path="/settings/*" element={<Settings account={account} />} />
                                     <Route path="/dashboard" element={<Dashboard />} />
                                     {getRoutes().map(({ path, component: Component }) => (
                                         <Route key={path} path={path} element={<Component />} />

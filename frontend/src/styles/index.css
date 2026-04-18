@@ -53,21 +53,21 @@ button {
     cursor: pointer;
     border: 1px solid var(--clr-primary-a20);
     background-color: var(--bg, var(--clr-primary-a0));
-    color: var(--color, var(--clr-text-a0));
+    color: var(--color, var(--clr-text-light-a0));
     border-color: var(--border, var(--clr-primary-a20));
     transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 button:hover {
     background-color: var(--bg-hov, var(--clr-primary-a10));
-    color: var(--color-hov, var(--clr-text-a0));
+    color: var(--color-hov, var(--clr-text-light-a0));
     border-color: var(--border-hov, var(--clr-primary-a30));
 }
 button[data-type="primary"] {
     --bg: var(--clr-primary-a0);
-    --color: var(--clr-text-a0);
+    --color: var(--clr-text-light-a0);
     --border: var(--clr-primary-a20);
     --bg-hov: var(--clr-primary-a10);
-    --color-hov: var(--clr-text-a0);
+    --color-hov: var(--clr-text-light-a0);
     --border-hov: var(--clr-primary-a30);
 }
 button[data-type="secondary"] {

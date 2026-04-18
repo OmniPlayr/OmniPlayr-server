@@ -1,4 +1,4 @@
-:root {
+:root[data-theme="dark"] {
     --clr-dark-a0: #000000;
     --clr-light-a0: #ffffff;
 
@@ -36,6 +36,13 @@
     --clr-text-a30: #B2B2B2;
     --clr-text-a40: #8c8c8c;
     --clr-text-a50: #707070;
+
+    --clr-text-light-a0: #fff;
+    --clr-text-light-a10: #e0e0e0;
+    --clr-text-light-a20: #c4c4c4;
+    --clr-text-light-a30: #B2B2B2;
+    --clr-text-light-a40: #8c8c8c;
+    --clr-text-light-a50: #707070;
 
     --clr-success-a0: #22946e;
     --clr-success-a10: #47d5a6;

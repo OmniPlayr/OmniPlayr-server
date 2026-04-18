@@ -129,7 +129,7 @@ function Player() {
     }, []);
 
     useEffect(() => {
-        const onMouseMove = (e: MouseEvent) => {
+        const onPointerMove = (e: PointerEvent) => {
             if (isDragging.current && progressBarRef.current) {
                 const rect = progressBarRef.current.getBoundingClientRect();
                 const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -137,6 +137,7 @@ function Player() {
                 setDisplayProgress(frac);
                 setDisplayTime(frac * duration);
             }
+
             if (isVolumeDragging.current && volumeSliderRef.current) {
                 const rect = volumeSliderRef.current.getBoundingClientRect();
                 const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -146,7 +147,7 @@ function Player() {
             }
         };
 
-        const onMouseUp = () => {
+        const onPointerUp = () => {
             if (isDragging.current) {
                 isDragging.current = false;
                 player.seek(dragFraction.current);
@@ -154,15 +155,16 @@ function Player() {
             isVolumeDragging.current = false;
         };
 
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+
         return () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
         };
     }, [duration]);
 
-    const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const handleProgressMouseDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!progressBarRef.current) return;
         const rect = progressBarRef.current.getBoundingClientRect();
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));

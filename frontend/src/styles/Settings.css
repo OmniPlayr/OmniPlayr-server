@@ -1,0 +1,110 @@
+.settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.settings-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.settings-tab {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    align-items: center;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background-color 0.2s ease-in-out, border 0.2s ease-in-out;
+    color: var(--clr-text-a0);
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+}
+
+.settings-tab:hover {
+    background-color: var(--clr-popup-a20);
+}
+
+.settings-option-icon {
+    width: 50px;
+    height: 50px;
+    padding: 10px;
+    border-radius: 50%;
+    background-color: var(--clr-popup-a40);
+    overflow: visible;
+    flex-shrink: 0;
+}
+
+#plugins .settings-option-icon {
+    background-color: var(--clr-primary-a0);
+}
+
+#accounts .settings-option-icon {
+    background-color: var(--clr-success-a0);
+}
+
+#system .settings-option-icon {
+    background-color: var(--clr-warning-a0);
+}
+
+#appearance .settings-option-icon {
+    background-color: var(--clr-danger-a0);
+}
+
+#theme .settings-option-icon {
+    background-color: var(--clr-info-a10);
+}
+
+#colors .settings-option-icon {
+    background-color: var(--clr-warning-a10);
+}
+
+#logs .settings-option-icon {
+    background-color: var(--clr-danger-a10);
+}
+
+#power-options .settings-option-icon {
+    background-color: var(--clr-success-a0);
+}
+
+#config .settings-option-icon {
+    background-color: var(--clr-warning-a0);
+}
+
+#profile .settings-option-icon {
+    background-color: var(--clr-info-a0);
+}
+
+#other-people .settings-option-icon {
+    background-color: var(--clr-primary-a10);
+}
+
+.settings-tab-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.settings-tab-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.settings-tab-description {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.settings-back {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+    
+}
