@@ -1,11 +1,18 @@
 .header {
-    height: max-content;
+    height: 40px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     padding-bottom: 10px;
-    height: 40px;
+    flex-shrink: 0;
+}
+
+.header-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
 }
 
 .header-page-controls {
@@ -29,4 +36,36 @@
 
 .page-control.allowed:hover {
     color: var(--clr-text-a0);
+}
+
+.header-menu-btn {
+    display: none;
+    cursor: pointer;
+    color: var(--clr-text-a30);
+    width: 26px;
+    height: 26px;
+    transition: color 0.2s ease-in-out;
+    flex-shrink: 0;
+}
+
+.header-menu-btn:hover {
+    color: var(--clr-text-a0);
+}
+
+@media (max-width: 768px) {
+    .header {
+        height: 34px;
+        padding-bottom: 6px;
+    }
+
+    .page-control {
+        width: 24px;
+        height: 24px;
+    }
+
+    .header-menu-btn {
+        display: block;
+    }
+
+    
 }

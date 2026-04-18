@@ -47,6 +47,17 @@ function resolveActiveTabFromPath(pathname: string): string | null {
     return null;
 }
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
+    return isMobile;
+}
+
 function AppShell() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -55,12 +66,13 @@ function AppShell() {
     const showShell = isAuth && !!accountId && location.pathname !== '/login';
     const [account, setAccount] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
+    const isMobile = useIsMobile();
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const [activeTabId, setActiveTabId] = useState<string | null>(() =>
         resolveActiveTabFromPath(location.pathname)
     );
 
-    // For tracking dashboard history:
     const [navHistory, setNavHistory] = useState<string[]>([location.pathname]);
     const [historyIndex, setHistoryIndex] = useState(0);
 
@@ -83,6 +95,16 @@ function AppShell() {
         setActiveTabId(resolved);
     }, [location.pathname, showShell]);
 
+    // Close sidebar when navigating on mobile
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [location.pathname]);
+
+    // Close sidebar when switching to desktop
+    useEffect(() => {
+        if (!isMobile) setSidebarOpen(false);
+    }, [isMobile]);
+
     const goBack = () => {
         if (historyIndex > 0) {
             const newIndex = historyIndex - 1;
@@ -99,7 +121,6 @@ function AppShell() {
         }
     };
 
-    // Load plugins
     usePlugins();
 
     const handleTabChange = (tabId: string | null) => {
@@ -144,13 +165,27 @@ function AppShell() {
                         canGoForward={historyIndex < navHistory.length - 1}
                         onBack={goBack}
                         onForward={goForward}
+                        onMenuToggle={() => setSidebarOpen(prev => !prev)}
+                        isMobile={isMobile}
+                        sidebarOpen={sidebarOpen}
                     />
                     <div className="dashboard-hor">
-                        <Sidebar
-                            account={account}
-                            activeTabId={resolvedTabId}
-                            onTabChange={handleTabChange}
-                        />
+                        {!isMobile && (
+                            <Sidebar
+                                account={account}
+                                activeTabId={resolvedTabId}
+                                onTabChange={handleTabChange}
+                            />
+                        )}
+                        {isMobile && (
+                            <Sidebar
+                                account={account}
+                                activeTabId={resolvedTabId}
+                                onTabChange={handleTabChange}
+                                isOpen={sidebarOpen}
+                                onClose={() => setSidebarOpen(false)}
+                            />
+                        )}
                         <div className="dashboard-main">
                             {ActiveTabView ? (
                                 <ActiveTabView />

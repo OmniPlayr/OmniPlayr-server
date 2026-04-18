@@ -63,14 +63,14 @@ body {
     padding: 0;
     overflow: hidden;
     background-color: var(--clr-surface-a0);
-    height: 100vh;
+    height: 100dvh;
     color: var(--clr-text-a0);
     font-family: 'Inter', sans-serif;
     user-select: none;
 }
 
 #particles-js {
-    height: 100vh;
+    height: 100dvh;
     width: 100vw;
     position: absolute;
     top: 0;

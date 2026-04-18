@@ -1,5 +1,6 @@
 .sidebar {
     width: 300px;
+    min-width: 300px;
     height: 100%;
     background-color: var(--clr-popup-a0);
     padding: var(--pd-dash-component);
@@ -47,22 +48,30 @@
     height: 50px;
     border-radius: 12px;
     object-fit: cover;
+    flex-shrink: 0;
 }
 
 .user-info {
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .user-name {
     color: var(--clr-text-a0);
     font-size: 16px;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .user-role {
     color: var(--clr-text-a30);
     font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar-library-list {
@@ -201,4 +210,49 @@
 .account-select__dash .sidebar-user:hover {
     background-color: var(--clr-popup-a20);
     border: 1px solid var(--clr-popup-a40);
+}
+
+.sidebar-overlay {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .sidebar-overlay {
+        display: block;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 99;
+        animation: overlay-in 0.2s ease forwards;
+        height: calc(100dvh - 34px - 10px);
+        width: calc(100dvw - 10px);
+    }
+
+    @keyframes overlay-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        min-width: unset;
+        height: calc(100% - 34px - 10px);
+        margin-top: calc(34px + 10px);
+        z-index: 100;
+        border-radius: 0 var(--br-dash-component) var(--br-dash-component) 0;
+        transform: translateX(-100%);
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        border-left: none;
+        z-index: 10000;
+    }
+
+    .sidebar--open {
+        transform: translateX(0);
+    }
 }

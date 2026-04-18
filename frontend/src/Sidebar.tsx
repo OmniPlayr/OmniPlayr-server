@@ -25,9 +25,11 @@ interface SidebarProps {
     account: any;
     activeTabId: string | null;
     onTabChange: (tabId: string | null) => void;
+    isOpen?: boolean;
+    onClose?: () => void;
 }
 
-function Sidebar({ account, activeTabId, onTabChange }: SidebarProps) {
+function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose }: SidebarProps) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
     const [, setSearchParams] = useSearchParams();
@@ -50,9 +52,15 @@ function Sidebar({ account, activeTabId, onTabChange }: SidebarProps) {
         setTabs(getTabs());
     }, []);
 
+    function handleTabChange(tabId: string | null) {
+        onTabChange(tabId);
+        onClose?.();
+    }
+
     return (
         <>
-            <div className="sidebar" data-component="Sidebar">
+            {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
+            <div className={`sidebar${isOpen ? " sidebar--open" : ""}`} data-component="Sidebar">
                 <div className="sidebar-header">
                     <p className="sidebar-title">OmniPlayr</p>
                 </div>
@@ -63,7 +71,7 @@ function Sidebar({ account, activeTabId, onTabChange }: SidebarProps) {
                     <div className="sidebar-tabs">
                         <div
                             className={`sidebar-tab${activeTabId === null ? ' active' : ''}`}
-                            onClick={() => onTabChange(null)}
+                            onClick={() => handleTabChange(null)}
                         >
                             <House className="tab-icon" />
                             <p className="tab-text">Home</p>
@@ -74,14 +82,14 @@ function Sidebar({ account, activeTabId, onTabChange }: SidebarProps) {
                                 <div
                                     key={tab.id}
                                     className={`sidebar-tab${activeTabId === tab.id ? ' active' : ''}`}
-                                    onClick={() => onTabChange(tab.id)}
+                                    onClick={() => handleTabChange(tab.id)}
                                 >
                                     <Icon className="tab-icon" />
                                     <p className="tab-text">{tab.label}</p>
                                 </div>
                             );
                         })}
-                        <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => onTabChange("__settings")}>
+                        <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => handleTabChange("__settings")}>
                             <Settings className="tab-icon" />
                             <p className="tab-text">Settings</p>
                         </div>

@@ -201,6 +201,13 @@ function Player() {
         ? `linear-gradient(to right, ${baseColor} 0px, ${baseColor} 72px, transparent 260px)`
         : undefined;
 
+    const artGradient2 = baseColor
+        ? {
+            backgroundImage: `linear-gradient(to right, ${baseColor} 0px, ${baseColor} 72px, transparent 260px)`,
+            WebkitMaskImage: `linear-gradient(to top, black 0px, black 70%, transparent 100%)`
+        }
+        : undefined;
+
     return (
         <div
             className="player"
@@ -209,6 +216,7 @@ function Player() {
             data-source-type={player.currentSourceType}
             style={artGradient ? { backgroundImage: artGradient } : undefined}
         >
+            <div className='player-song-gradient' style={artGradient ? { ...artGradient2 } : undefined}></div>
             <div className="player-song-info">
                 <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
                 {(metadata?.title || metadata?.artist) && (
