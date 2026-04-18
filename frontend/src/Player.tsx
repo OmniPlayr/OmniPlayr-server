@@ -160,6 +160,7 @@ function Player() {
                         </span>
                     </div>
                 )}
+                <div className='player-empty-slot'></div>
             </div>
 
             <div className="player-controls">

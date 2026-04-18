@@ -24,10 +24,11 @@ export interface PluginTab {
 
 type Listener = (payload: any) => void;
 type DOMHook = (el: Element) => void;
+type DOMHookEntry = { fn: DOMHook; pluginId: string };
 
 const tabRegistry: PluginTab[] = [];
 const eventBus = new Map<string, Set<Listener>>();
-const domHooks = new Map<string, DOMHook[]>();
+const domHooks = new Map<string, DOMHookEntry[]>();
 const routeRegistry: PluginRoute[] = [];
 const validatedPlugins = new Set<string>();
 const registeredUrls = new Set<string>(['/settings']);
@@ -81,6 +82,86 @@ for (const [path, mod] of Object.entries(configs)) {
         validatedPlugins.add(folder);
         console.log(`[plugins] loaded: ${config.id} v${config.version} by ${config.author}`);
     }
+}
+
+let stylesInjected = false;
+
+function injectPluginStyles() {
+    if (stylesInjected) return;
+    stylesInjected = true;
+    const style = document.createElement('style');
+    style.id = '__plugin-styles';
+    style.textContent = `
+        [data-plugin-hooked] > :not(.__plugin-hook-wrapper):not([data-plugin-hooked]) {
+            display: none !important;
+        }
+        #__plugin-error-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            pointer-events: none;
+        }
+        .__plugin-error-banner {
+            background: #c0392b;
+            color: #fff;
+            padding: 9px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: monospace;
+            font-size: 12px;
+            gap: 12px;
+            pointer-events: all;
+        }
+        .__plugin-error-close {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            padding: 0;
+            flex-shrink: 0;
+            opacity: 0.8;
+        }
+        .__plugin-error-close:hover {
+            opacity: 1;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function getErrorContainer(): HTMLElement {
+    let container = document.querySelector<HTMLElement>('#__plugin-error-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = '__plugin-error-container';
+        document.body.appendChild(container);
+    }
+    return container;
+}
+
+function showPluginError(pluginId: string, context: string, error: unknown) {
+    injectPluginStyles();
+    const message = error instanceof Error ? error.message : String(error);
+    const banner = document.createElement('div');
+    banner.className = '__plugin-error-banner';
+    const text = document.createElement('span');
+    text.textContent = `Plugin error [${pluginId}] — ${context}: ${message}`;
+    const close = document.createElement('button');
+    close.className = '__plugin-error-close';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Dismiss');
+    close.onclick = () => banner.remove();
+    banner.appendChild(text);
+    banner.appendChild(close);
+    getErrorContainer().appendChild(banner);
+    console.error(`[plugins] ${pluginId} — ${context}:`, error);
 }
 
 export function registerTab(
@@ -142,10 +223,11 @@ export function modify(pluginId: string, selector: string, fn: DOMHook) {
         return;
     }
     if (!domHooks.has(selector)) domHooks.set(selector, []);
-    domHooks.get(selector)!.push(fn);
+    domHooks.get(selector)!.push({ fn, pluginId });
 }
 
 function applyDOMHooks() {
+    injectPluginStyles();
     for (const [selector, hooks] of domHooks) {
         const dotIndex = selector.indexOf('.');
         const file = selector.slice(0, dotIndex);
@@ -156,22 +238,13 @@ function applyDOMHooks() {
         els.forEach(el => {
             if (el.hasAttribute('data-hooks-applied')) return;
             el.setAttribute('data-hooks-applied', '');
-
-            const wrapper = document.createElement('span');
-            wrapper.className = '__plugin-hook-wrapper';
-            wrapper.textContent = el.textContent;
-
-            const reactContent = document.createElement('span');
-            (reactContent as HTMLElement).style.display = 'none';
-            (el as HTMLElement).style.display = 'contents';
-
-            while (el.childNodes.length > 0) {
-                reactContent.appendChild(el.childNodes[0]);
-            }
-            el.appendChild(reactContent);
-            el.appendChild(wrapper);
-
-            hooks.forEach(fn => fn(wrapper));
+            hooks.forEach(({ fn, pluginId }) => {
+                try {
+                    fn(el);
+                } catch (err) {
+                    showPluginError(pluginId, `DOM hook on "${selector}"`, err);
+                }
+            });
         });
     }
 }
@@ -187,9 +260,11 @@ export function startDOMHookObserver() {
                 if (!(node instanceof Element)) return;
                 node.querySelectorAll('[data-hooks-applied]').forEach(el => {
                     el.removeAttribute('data-hooks-applied');
+                    el.removeAttribute('data-plugin-hooked');
                 });
                 if (node.hasAttribute('data-hooks-applied')) {
                     node.removeAttribute('data-hooks-applied');
+                    node.removeAttribute('data-plugin-hooked');
                 }
             });
         }

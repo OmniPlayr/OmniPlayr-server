@@ -16,6 +16,7 @@ import { setNavigate } from './modules/navigate';
 import { useSearchParams } from "react-router-dom";
 import api from './modules/api.ts';
 import Header from './Header.tsx';
+import Settings from './Settings.tsx';
 
 import.meta.glob('./plugins/*/index.{ts,tsx}', { eager: true });
 
@@ -156,6 +157,7 @@ function AppShell() {
                             ) : (
                                 <Routes>
                                     <Route path="/" element={<Dashboard />} />
+                                    <Route path="/settings" element={<Settings />} />
                                     <Route path="/dashboard" element={<Dashboard />} />
                                     {getRoutes().map(({ path, component: Component }) => (
                                         <Route key={path} path={path} element={<Component />} />
