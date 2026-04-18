@@ -151,7 +151,7 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
 
 
 def load_plugins():
-    config_path = Path("config.json")
+    config_path = Path("config.local.json")
     if not config_path.exists():
         return
 
