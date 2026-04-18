@@ -18,17 +18,55 @@ function VolumeIcon({ volume, onClick }: { volume: number; onClick?: () => void 
     return <Volume2 className="option-icon" onClick={onClick} />;
 }
 
-function AlbumArt({ metadata }: { metadata: TrackMetadata | {} | null }) {
-    const [valid, setValid] = useState(true)
-    
-    const src = (metadata as TrackMetadata)?.album_art ?? undefined
+function extractAverageColor(img: HTMLImageElement): string {
+    try {
+        const canvas = document.createElement('canvas');
+        const size = 32;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return 'transparent';
+        ctx.drawImage(img, 0, 0, size, size);
+        const data = ctx.getImageData(0, 0, size, size).data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+        }
+        return `rgb(${Math.round(r / count)},${Math.round(g / count)},${Math.round(b / count)})`;
+    } catch {
+        return 'transparent';
+    }
+}
+
+function AlbumArt({
+    metadata,
+    onColorChange,
+}: {
+    metadata: TrackMetadata | {} | null;
+    onColorChange: (color: string | null) => void;
+}) {
+    const [valid, setValid] = useState(true);
+
+    const src = (metadata as TrackMetadata)?.album_art ?? undefined;
+
+    useEffect(() => {
+        setValid(true);
+    }, [src]);
 
     if (!src || !valid) {
         return (
-            <div className="player-album-art-placeholder">
+            <div
+                className="player-album-art-placeholder"
+                ref={(el) => {
+                    if (el) onColorChange(null);
+                }}
+            >
                 <Music size={22} />
             </div>
-        )
+        );
     }
 
     return (
@@ -37,9 +75,17 @@ function AlbumArt({ metadata }: { metadata: TrackMetadata | {} | null }) {
             src={src}
             alt="Album art"
             draggable={false}
-            onError={() => setValid(false)}
+            crossOrigin="anonymous"
+            onLoad={(e) => {
+                const color = extractAverageColor(e.currentTarget);
+                onColorChange(color);
+            }}
+            onError={() => {
+                setValid(false);
+                onColorChange(null);
+            }}
         />
-    )
+    );
 }
 
 function Player() {
@@ -48,6 +94,7 @@ function Player() {
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [metadata, setMetadata] = useState<TrackMetadata | null>(null);
+    const [accentColor, setAccentColor] = useState<string | null>(null);
 
     const [displayProgress, setDisplayProgress] = useState(0);
     const [displayTime, setDisplayTime] = useState(0);
@@ -146,10 +193,24 @@ function Player() {
         }
     };
 
+    const baseColor = accentColor?.startsWith('rgb(')
+        ? accentColor.replace('rgb(', 'rgba(').replace(')', ', 0.35)')
+        : accentColor;
+
+    const artGradient = baseColor
+        ? `linear-gradient(to right, ${baseColor} 0px, ${baseColor} 72px, transparent 260px)`
+        : undefined;
+
     return (
-        <div className="player" data-component="Player">
+        <div
+            className="player"
+            data-component="Player"
+            data-playing-id={player.currentSongId}
+            data-source-type={player.currentSourceType}
+            style={artGradient ? { backgroundImage: artGradient } : undefined}
+        >
             <div className="player-song-info">
-                <AlbumArt metadata={metadata} />
+                <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
                 {(metadata?.title || metadata?.artist) && (
                     <div className="player-track-info">
                         {metadata?.title && (

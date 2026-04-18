@@ -125,6 +125,7 @@ button[data-type="secondary"] {
     flex-direction: column;
     height: 100vh;
     padding: 10px;
+    padding-bottom: 0px;
 }
 
 .dashboard-hor {

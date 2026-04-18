@@ -4,7 +4,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev # Use Dockerfile.dev for development
+      dockerfile: Dockerfile.dev
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html
@@ -18,7 +18,7 @@ services:
       - backend
     restart: unless-stopped
     environment:
-      - CHOKIDAR_USEPOLLING=true # Use polling for file changes, useful for development
+      - CHOKIDAR_USEPOLLING=true
 
   backend:
     build: ./backend
@@ -28,7 +28,7 @@ services:
       - ./backend/config:/app/config
       - ./user_storage:/user_storage
     environment:
-      - DATABASE_URL=postgres://postgres:password@db:5432/omniplayr
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-omniplayr}
     ports:
       - "8224:8224"
       - "8324:8224"
@@ -41,9 +41,9 @@ services:
     image: postgres:16
     container_name: omniplayr_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: omniplayr
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-omniplayr}
     volumes:
       - ./db:/var/lib/postgresql/data
     ports:

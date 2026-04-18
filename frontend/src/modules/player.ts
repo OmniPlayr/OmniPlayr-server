@@ -2,6 +2,8 @@ import { getConfig } from './config';
 
 type PlayerListener = () => void;
 
+type TrackChangeListener = (songId: string | null, sourceType: string | null) => void;
+
 export interface TrackMetadata {
     title: string | null;
     artist: string | null;
@@ -13,9 +15,16 @@ export interface TrackMetadata {
 }
 
 class AudioPlayer {
+    
     private audio = new Audio();
     private listeners = new Set<PlayerListener>();
+
+    private queue: { songId: string; sourceType: string }[] = [];
+    private isTransitioning = false;
+
     private currentBlobUrl: string | null = null;
+    
+    private trackListeners = new Set<TrackChangeListener>();
 
     isLoading = false;
     currentSongId: string | null = null;
@@ -26,6 +35,10 @@ class AudioPlayer {
         for (const event of ['timeupdate', 'play', 'pause', 'ended', 'loadedmetadata', 'waiting', 'playing']) {
             this.audio.addEventListener(event, () => this.notify());
         }
+
+        this.audio.addEventListener('ended', () => {
+            this.nextInQueue();
+        });
     }
 
     subscribe(cb: PlayerListener): () => void {
@@ -37,15 +50,37 @@ class AudioPlayer {
         this.listeners.forEach(cb => cb());
     }
 
+    private async nextInQueue() {
+        if (this.isTransitioning) return;
+        const next = this.queue.shift();
+        if (!next) return;
+        await this.playSong(next.songId, next.sourceType);
+    }
+
+    addToQueue(songId: string, sourceType: string) {
+        this.queue.push({ songId, sourceType });
+
+        if (!this.currentSongId && !this.isTransitioning) {
+            const next = this.queue.shift();
+            if (next) {
+                this.playSong(next.songId, next.sourceType);
+            }
+        }
+    }
+
     async playSong(songId: string, sourceType: string) {
         const token = localStorage.getItem('access_token');
         if (!token) throw new Error('No access token');
+
+        this.isTransitioning = true;
 
         this.isLoading = true;
         this.currentSongId = songId;
         this.currentSourceType = sourceType;
         this.currentMetadata = null;
+
         this.notify();
+        this.notifyTrackChange();
 
         try {
             const baseUrl = getConfig<string>('api.apiUrl') ?? '';
@@ -67,16 +102,27 @@ class AudioPlayer {
             const blob = await streamRes.blob();
             if (this.currentBlobUrl) URL.revokeObjectURL(this.currentBlobUrl);
             this.currentBlobUrl = URL.createObjectURL(blob);
+
             this.audio.src = this.currentBlobUrl;
+
             this.isLoading = false;
             this.notify();
 
             await this.audio.play();
-        } catch (e) {
+        } finally {
             this.isLoading = false;
+            this.isTransitioning = false;
             this.notify();
-            throw e;
         }
+    }
+
+    skip() {
+        this.audio.pause();
+        this.nextInQueue();
+    }
+
+    clearQueue() {
+        this.queue = [];
     }
 
     togglePlay() {
@@ -89,13 +135,38 @@ class AudioPlayer {
         this.audio.currentTime = this.audio.duration * Math.max(0, Math.min(1, fraction));
     }
 
-    setVolume(fraction: number) { this.audio.volume = Math.max(0, Math.min(1, fraction)); }
+    setVolume(fraction: number) {
+        this.audio.volume = Math.max(0, Math.min(1, fraction));
+    }
 
-    get isPlaying() { return !this.audio.paused && !this.audio.ended; }
-    get currentTime() { return this.audio.currentTime; }
-    get duration() { return this.audio.duration || 0; }
-    get hasTrack() { return !!this.currentSongId; }
-    get volume() { return this.audio.volume; }
+    subscribeToTrackChange(cb: TrackChangeListener): () => void {
+        this.trackListeners.add(cb);
+        return () => this.trackListeners.delete(cb);
+    }
+
+    private notifyTrackChange() {
+        this.trackListeners.forEach(cb => cb(this.currentSongId, this.currentSourceType));
+    }
+
+    get isPlaying() {
+        return !this.audio.paused && !this.audio.ended;
+    }
+
+    get currentTime() {
+        return this.audio.currentTime;
+    }
+
+    get duration() {
+        return this.audio.duration || 0;
+    }
+
+    get hasTrack() {
+        return !!this.currentSongId;
+    }
+
+    get volume() {
+        return this.audio.volume;
+    }
 }
 
 export const player = new AudioPlayer();
@@ -103,6 +174,3 @@ export const player = new AudioPlayer();
 export function playSong(songId: string, sourceType: string) {
     return player.playSong(songId, sourceType);
 }
-
-playSong('test.mp3', 'mp3');
-player.setVolume(0);

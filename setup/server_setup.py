@@ -12,6 +12,8 @@ import socketserver
 import webbrowser
 import time
 import subprocess
+import secrets
+import string
 
 SETUP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SETUP_DIR)
@@ -43,7 +45,6 @@ async def set_progress(pct: int):
     await broadcast({"type": "progress", "pct": pct})
 
 async def ask(question_id: str, question: str, options: list) -> str:
-    """Send a question to the UI and wait for the user's answer."""
     loop = asyncio.get_event_loop()
     fut = loop.create_future()
     pending_questions[question_id] = fut
@@ -72,8 +73,24 @@ async def run_cmd(args: list) -> bool:
     return proc.returncode == 0
 
 
+def _generate_password(length: int = 32) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _env_file_exists() -> bool:
+    return os.path.exists(os.path.join(PROJECT_DIR, '.env'))
+
+
+def _write_env_file():
+    env_path = os.path.join(PROJECT_DIR, '.env')
+    with open(env_path, 'w') as f:
+        f.write(f"POSTGRES_USER=omniplayr\n")
+        f.write(f"POSTGRES_PASSWORD={_generate_password()}\n")
+        f.write(f"POSTGRES_DB=omniplayr\n")
+
+
 def _images_exist() -> bool:
-    """Return True if docker compose images are already built."""
     try:
         result = subprocess.run(
             ["docker", "compose", "images", "--format", "json"],
@@ -172,8 +189,13 @@ async def run_install(force_rebuild: bool = False):
 
 
 async def startup_sequence():
-    """Decide whether to build or skip, then run install."""
     await asyncio.sleep(1.5)
+
+    if not _env_file_exists():
+        _write_env_file()
+        await log("Generated database credentials.", "success")
+    else:
+        await log("Using existing database configuration.", "info")
 
     images_exist = _images_exist()
 
