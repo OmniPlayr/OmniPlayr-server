@@ -14,15 +14,15 @@ async def lifespan(app: FastAPI):
     init_db()
     # This loads the config files
     load_configs()
+
+    # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
+    start_config_watcher()
     
     # This loads the plugins
     load_plugins()
 
     # This sets the /api/plugin prefix for plugins
     app.include_router(get_plugin_router(), prefix="/api/plugin")
-
-    # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
-    start_config_watcher()
     yield
 
 

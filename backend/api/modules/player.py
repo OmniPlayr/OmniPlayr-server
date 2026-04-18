@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from fastapi.responses import StreamingResponse
 from api.helpers.omniplayr import get_plugin
 from api.helpers.server import verify_auth
 
 router = APIRouter()
+
 
 def _build_stream_url(request: Request, source_type: str, song_id: str) -> str:
     base = str(request.base_url).rstrip("/")
@@ -11,26 +12,23 @@ def _build_stream_url(request: Request, source_type: str, song_id: str) -> str:
 
 
 @router.get("/media/{source_type}:{song_id:path}")
-def get_media_info(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth)):
-    if not auth:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def get_media_info(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_id: int = Header(..., alias="X-Account-Id")):
     plugin = get_plugin(source_type)
     if plugin is None:
         raise HTTPException(status_code=404, detail=f"No plugin registered for source type '{source_type}'")
-
+    if not plugin.check_ownership(song_id, x_account_id):
+        raise HTTPException(status_code=403, detail="Access denied")
     try:
-        metadata = plugin.get_metadata(song_id)
+        metadata = plugin.get_metadata(song_id, x_account_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-    file_size = plugin.get_file_size(song_id)
-    content_type = plugin.get_content_type(song_id)
+    file_size = plugin.get_file_size(song_id, x_account_id)
+    content_type = plugin.get_content_type(song_id, x_account_id)
     stream_url = _build_stream_url(request, source_type, song_id)
-
     return {
         "source_type": source_type,
         "song_id": song_id,
@@ -40,17 +38,17 @@ def get_media_info(source_type: str, song_id: str, request: Request, auth=Depend
         "metadata": metadata,
     }
 
+
 @router.get("/stream/{source_type}:{song_id:path}")
-def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth)):
-    if not auth:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_id: int = Header(..., alias="X-Account-Id")):
     plugin = get_plugin(source_type)
     if plugin is None:
         raise HTTPException(status_code=404, detail=f"No plugin registered for source type '{source_type}'")
-
+    if not plugin.check_ownership(song_id, x_account_id):
+        raise HTTPException(status_code=403, detail="Access denied")
     try:
-        file_size    = plugin.get_file_size(song_id)
-        content_type = plugin.get_content_type(song_id)
+        file_size = plugin.get_file_size(song_id, x_account_id)
+        content_type = plugin.get_content_type(song_id, x_account_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -70,31 +68,24 @@ def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(
             length = end - start + 1
 
             def _ranged_stream():
-                stream = plugin.get_stream(song_id)
+                stream = plugin.get_stream(song_id, x_account_id)
                 bytes_seen = 0
                 bytes_sent = 0
-
                 for chunk in stream:
                     chunk_len = len(chunk)
-
                     if bytes_seen + chunk_len <= start:
                         bytes_seen += chunk_len
                         continue
-
                     chunk_start = max(0, start - bytes_seen)
                     data = chunk[chunk_start:]
-
                     remaining = length - bytes_sent
                     if remaining <= 0:
                         break
-
                     if len(data) > remaining:
                         data = data[:remaining]
-
                     yield data
                     bytes_sent += len(data)
                     bytes_seen += chunk_len
-
                     if bytes_sent >= length:
                         break
 
@@ -113,7 +104,7 @@ def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(
             pass
 
     try:
-        stream = plugin.get_stream(song_id)
+        stream = plugin.get_stream(song_id, x_account_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -121,11 +112,7 @@ def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    headers = {
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache",
-    }
+    headers = {"Accept-Ranges": "bytes", "Cache-Control": "no-cache"}
     if file_size is not None:
         headers["Content-Length"] = str(file_size)
-
     return StreamingResponse(stream, media_type=content_type, headers=headers)

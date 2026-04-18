@@ -49,19 +49,21 @@ def reload_plugin_config(plugin_key: str):
 class PluginBase:
     source_type: str = ""
 
-    def get_stream(self, song_id: str):
+    def get_stream(self, song_id: str, account_id: int):
         raise NotImplementedError
 
-    def get_content_type(self, song_id: str) -> str:
+    def get_content_type(self, song_id: str, account_id: int) -> str:
         return "audio/mpeg"
 
-    def get_file_size(self, song_id: str) -> int | None:
+    def get_file_size(self, song_id: str, account_id: int) -> int | None:
         return None
 
-    def get_metadata(self, song_id: str) -> dict:
+    def get_metadata(self, song_id: str, account_id: int) -> dict:
         return {}
 
-
+    def check_ownership(self, song_id: str, account_id: int) -> bool:
+        return True
+    
 class _Api:
     def __init__(self, router: APIRouter):
         self._router = router

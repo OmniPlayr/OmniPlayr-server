@@ -1,4 +1,5 @@
 import { getConfig } from './config';
+import { getAccount } from './account';
 
 type PlayerListener = () => void;
 
@@ -84,7 +85,12 @@ class AudioPlayer {
 
         try {
             const baseUrl = getConfig<string>('api.apiUrl') ?? '';
-            const headers = { Authorization: `Bearer ${token}` };
+            const accountId = getAccount();
+
+            const headers = {
+                Authorization: `Bearer ${token}`,
+                "X-Account-Id": String(accountId),
+            };
             const encoded = encodeURIComponent(songId);
 
             const [metaRes, streamRes] = await Promise.all([
@@ -174,3 +180,5 @@ export const player = new AudioPlayer();
 export function playSong(songId: string, sourceType: string) {
     return player.playSong(songId, sourceType);
 }
+
+playSong('BABY BOY (clip).m4a', 'mp3');

@@ -1,10 +1,14 @@
 import { getConfig } from "./config";
+import { getAccount } from "./account";
+
 interface RouteInfo {
     path: string;
     methods: string[];
     name: string;
 }
+
 let _routeCache: RouteInfo[] | null = null;
+
 async function fetchRoutes(): Promise<RouteInfo[]> {
     if (_routeCache) return _routeCache;
     const baseUrl = getConfig<string>("api.apiUrl") ?? "";
@@ -16,9 +20,11 @@ async function fetchRoutes(): Promise<RouteInfo[]> {
     _routeCache = await res.json();
     return _routeCache!;
 }
+
 export function invalidateRouteCache() {
     _routeCache = null;
 }
+
 function replaceUrlParams(url: string, params?: object): string {
     if (!params) return url;
     return url.replace(/\{(\w+)\}/g, (_, key) => {
@@ -26,6 +32,18 @@ function replaceUrlParams(url: string, params?: object): string {
         return encodeURIComponent(String((params as Record<string, unknown>)[key]));
     });
 }
+
+function buildHeaders(): Record<string, string> {
+    const token = localStorage.getItem("access_token");
+    const accountId = getAccount();
+
+    return {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(accountId ? { "X-Account-Id": String(accountId) } : {}),
+    };
+}
+
 async function api(
     idOrPath: string,
     data?: object,
@@ -34,11 +52,8 @@ async function api(
     stream = false
 ): Promise<unknown> {
     const baseUrl = getConfig<string>("api.apiUrl") ?? "";
-    const token = localStorage.getItem("access_token");
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
+    const headers = buildHeaders();
+
     if (idOrPath.startsWith("/")) {
         const url = `${baseUrl}/api${replaceUrlParams(idOrPath, params)}`;
         const res = await fetch(url, {
@@ -51,6 +66,7 @@ async function api(
         if (stream) return res;
         return res.json();
     }
+
     const routes = await fetchRoutes();
     const route = routes.find((r) => r.name === idOrPath);
     if (!route) throw new Error(`No route found with name "${idOrPath}"`);
@@ -66,4 +82,5 @@ async function api(
     if (stream) return res;
     return res.json();
 }
+
 export default api;
