@@ -28,6 +28,7 @@ services:
       - ./backend/config:/app/config
       - ./user_storage:/user_storage
       - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-omniplayr}
     ports:
