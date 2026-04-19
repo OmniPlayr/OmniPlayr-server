@@ -331,6 +331,7 @@
 
 .player-fullscreen {
     display: none;
+    transform: translateY(100%);
 }
 
 @media (max-width: 768px) {
@@ -341,12 +342,22 @@
         z-index: 9999;
         flex-direction: column;
         align-items: center;
+        transform: translateY(100%);
+        animation: fullscreen-slide-down 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .player-fullscreen.active {
         animation: fullscreen-slide-up 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
     @keyframes fullscreen-slide-up {
         from { transform: translateY(100%); }
         to { transform: translateY(0); }
+    }
+
+    @keyframes fullscreen-slide-down {
+        from { transform: translateY(0); }
+        to { transform: translateY(100%); }
     }
 
     .player-fullscreen-close {

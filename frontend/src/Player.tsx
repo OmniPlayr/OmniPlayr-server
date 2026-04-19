@@ -164,11 +164,20 @@ function Player() {
             }
         };
 
-        const onPointerUp = () => {
+        const onPointerUp = (e: PointerEvent) => {
             if (isDragging.current) {
                 isDragging.current = false;
                 player.seek(dragFraction.current);
             }
+
+            if (progressBarRef.current?.hasPointerCapture(e.pointerId)) {
+                progressBarRef.current.releasePointerCapture(e.pointerId);
+            }
+
+            if (volumeSliderRef.current?.hasPointerCapture(e.pointerId)) {
+                volumeSliderRef.current.releasePointerCapture(e.pointerId);
+            }
+
             isVolumeDragging.current = false;
         };
 
@@ -183,18 +192,26 @@ function Player() {
 
     const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!progressBarRef.current) return;
+
+        progressBarRef.current.setPointerCapture(e.pointerId);
+
         const rect = progressBarRef.current.getBoundingClientRect();
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+
         isDragging.current = true;
         dragFraction.current = frac;
         setDisplayProgress(frac);
         setDisplayTime(frac * duration);
     };
 
-    const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const handleVolumeMouseDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!volumeSliderRef.current) return;
+
+        volumeSliderRef.current.setPointerCapture(e.pointerId);
+
         const rect = volumeSliderRef.current.getBoundingClientRect();
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+
         isVolumeDragging.current = true;
         volumeDragFrac.current = frac;
         setDisplayVolume(frac);
@@ -244,106 +261,101 @@ function Player() {
 
         return (
             <>
-                {!isFullscreen && (
+                <div
+                    className="player-mini"
+                    style={miniStyle}
+                    onClick={() => setIsFullscreen(true)}
+                    data-component="Player"
+                    data-playing-id={player.currentSongId}
+                    data-source-type={player.currentSourceType}
+                >
+                    <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
+                    <div className="player-mini-info">
+                        {metadata?.title && (
+                            <span className="player-mini-title">{metadata.title}</span>
+                        )}
+                        <span className="player-mini-artist">
+                            {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
+                        </span>
+                    </div>
                     <div
-                        className="player-mini"
-                        style={miniStyle}
-                        onClick={() => setIsFullscreen(true)}
-                        data-component="Player"
-                        data-playing-id={player.currentSongId}
-                        data-source-type={player.currentSourceType}
+                        className="player-mini-play"
+                        onClick={(e) => { e.stopPropagation(); player.togglePlay(); }}
                     >
+                        {isLoading
+                            ? <Loader className="mini-play-icon mini-play-icon--spin" />
+                            : isPlaying
+                            ? <Pause className="mini-play-icon" />
+                            : <Play className="mini-play-icon" />
+                        }
+                    </div>
+                </div>
+                <div
+                    className={`player-fullscreen${isFullscreen ? ' active' : ''}`}
+                    style={{ background: fullscreenBg }}
+                    data-component="Player-Fullscreen"
+                    data-playing-id={player.currentSongId}
+                    data-source-type={player.currentSourceType}
+                >
+                    <div
+                        className="player-fullscreen-close"
+                        onClick={() => setIsFullscreen(false)}
+                    >
+                        <ChevronDown size={30} />
+                    </div>
+
+                    <div className="player-fullscreen-art-area">
                         <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
-                        <div className="player-mini-info">
+                    </div>
+
+                    <div className="player-fullscreen-bottom">
+                        <div className="player-fullscreen-info">
                             {metadata?.title && (
-                                <span className="player-mini-title">{metadata.title}</span>
+                                <span className="player-fullscreen-title">{metadata.title}</span>
                             )}
-                            <span className="player-mini-artist">
+                            <span className="player-fullscreen-artist">
                                 {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
                             </span>
                         </div>
-                        <div
-                            className="player-mini-play"
-                            onClick={(e) => { e.stopPropagation(); player.togglePlay(); }}
-                        >
-                            {isLoading
-                                ? <Loader className="mini-play-icon mini-play-icon--spin" />
-                                : isPlaying
-                                ? <Pause className="mini-play-icon" />
-                                : <Play className="mini-play-icon" />
-                            }
-                        </div>
-                    </div>
-                )}
 
-                {isFullscreen && (
-                    <div
-                        className="player-fullscreen"
-                        style={{ background: fullscreenBg }}
-                        data-component="Player"
-                        data-playing-id={player.currentSongId}
-                        data-source-type={player.currentSourceType}
-                    >
-                        <div
-                            className="player-fullscreen-close"
-                            onClick={() => setIsFullscreen(false)}
-                        >
-                            <ChevronDown size={30} />
-                        </div>
+                        <div className="player-fullscreen-empty-slot" />
 
-                        <div className="player-fullscreen-art-area">
-                            <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
-                        </div>
-
-                        <div className="player-fullscreen-bottom">
-                            <div className="player-fullscreen-info">
-                                {metadata?.title && (
-                                    <span className="player-fullscreen-title">{metadata.title}</span>
-                                )}
-                                <span className="player-fullscreen-artist">
-                                    {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
-                                </span>
+                        <div className="player-fullscreen-controls">
+                            <Shuffle className="fs-control-icon" />
+                            <SkipBack className="fs-control-icon" />
+                            <div
+                                className="fs-play-btn"
+                                onClick={() => player.togglePlay()}
+                            >
+                                {isLoading
+                                    ? <Loader className="fs-play-icon fs-play-icon--spin" />
+                                    : isPlaying
+                                    ? <Pause className="fs-play-icon" />
+                                    : <Play className="fs-play-icon" />
+                                }
                             </div>
+                            <SkipForward className="fs-control-icon" />
+                            <Repeat className="fs-control-icon" />
+                        </div>
 
-                            <div className="player-fullscreen-empty-slot" />
-
-                            <div className="player-fullscreen-controls">
-                                <Shuffle className="fs-control-icon" />
-                                <SkipBack className="fs-control-icon" />
+                        <div className="player-fullscreen-progress">
+                            <div
+                                className="fs-progress-bar"
+                                ref={progressBarRef}
+                                onPointerDown={handleProgressPointerDown}
+                            >
                                 <div
-                                    className="fs-play-btn"
-                                    onClick={() => player.togglePlay()}
-                                >
-                                    {isLoading
-                                        ? <Loader className="fs-play-icon fs-play-icon--spin" />
-                                        : isPlaying
-                                        ? <Pause className="fs-play-icon" />
-                                        : <Play className="fs-play-icon" />
-                                    }
-                                </div>
-                                <SkipForward className="fs-control-icon" />
-                                <Repeat className="fs-control-icon" />
+                                    className="fs-progress-fill"
+                                    style={{ width: `${displayProgress * 100}%` }}
+                                />
                             </div>
-
-                            <div className="player-fullscreen-progress">
-                                <div
-                                    className="fs-progress-bar"
-                                    ref={progressBarRef}
-                                    onPointerDown={handleProgressPointerDown}
-                                >
-                                    <div
-                                        className="fs-progress-fill"
-                                        style={{ width: `${displayProgress * 100}%` }}
-                                    />
-                                </div>
-                                <div className="fs-progress-times">
-                                    <span>{formatTime(displayTime)}</span>
-                                    <span>{formatTime(duration || currentTime)}</span>
-                                </div>
+                            <div className="fs-progress-times">
+                                <span>{formatTime(displayTime)}</span>
+                                <span>{formatTime(duration || currentTime)}</span>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
             </>
         );
     }
@@ -410,7 +422,7 @@ function Player() {
                         className="volume-slider"
                         ref={volumeSliderRef}
                         style={{ '--fill': displayVolume * 100 } as React.CSSProperties}
-                        onMouseDown={handleVolumeMouseDown}
+                        onPointerDown={handleVolumeMouseDown}
                     >
                         <div
                             className="volume-slider-fill"
@@ -423,4 +435,4 @@ function Player() {
     );
 }
 
-export default Player;
+export { useIsMobile, Player };

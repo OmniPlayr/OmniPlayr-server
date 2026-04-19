@@ -84,3 +84,5 @@ async function api(
 }
 
 export default api;
+
+api('/plugin/mp3/update-playlist', {});

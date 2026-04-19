@@ -9,7 +9,7 @@ import './styles/fonts/default-fonts.css'
 import Login from './login.tsx'
 import AccountSelect from './AccountSelect.tsx';
 import Dashboard from './Dashboard.tsx';
-import Player from './Player.tsx';
+import {Player} from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
 import BottomNav from './BottomNav.tsx';
 import { getAccount } from './modules/account.ts';
@@ -223,6 +223,18 @@ function AppShell() {
                         />
                     )}
                     <div className="dashboard-hor">
+                        {isMobile && (
+                            <>
+                            <BottomNav
+                                onMenuToggle={() => setSidebarOpen(prev => !prev)}
+                                onHome={() => handleTabChange(null)}
+                                onSettings={() => handleTabChange('__settings')}
+                                activeTabId={resolvedTabId}
+                                isMenuOpen={sidebarOpen}
+                            />
+                            <Player />
+                            </>
+                        )}
                         {!isMobile && (
                             <Sidebar
                                 account={account}
@@ -255,14 +267,8 @@ function AppShell() {
                             )}
                         </div>
                     </div>
-                    <Player />
-                    {isMobile && (
-                        <BottomNav
-                            onMenuToggle={() => setSidebarOpen(prev => !prev)}
-                            onHome={() => handleTabChange(null)}
-                            onSettings={() => handleTabChange('__settings')}
-                            activeTabId={resolvedTabId}
-                        />
+                    {!isMobile && (
+                        <Player /> 
                     )}
                 </div>
             ) : (

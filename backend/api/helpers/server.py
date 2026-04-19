@@ -26,7 +26,7 @@ def verify_token(access_token: str):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT * FROM access_tokens WHERE access_token = %s AND access_token_expires > NOW()",
+                "SELECT access_token FROM access_tokens WHERE access_token = %s AND access_token_expires > NOW()",
                 (access_token,)
             )
 
@@ -38,7 +38,7 @@ def verify_token(access_token: str):
                     detail="Invalid access token"
                 )
 
-            return row
+            return row["access_token"]
 
 def verify_auth(creds: HTTPAuthorizationCredentials = Depends(security)):
     return verify_token(creds.credentials)
