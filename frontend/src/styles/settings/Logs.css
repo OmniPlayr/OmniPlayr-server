@@ -1,0 +1,166 @@
+.logs-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+    height: calc(100dvh - 220px);
+    min-height: 300px;
+}
+
+.logs-toolbar {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.logs-select {
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    color: var(--clr-text-a0);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--font-family);
+}
+
+.logs-select:focus {
+    outline: none;
+    border-color: var(--clr-primary-a0);
+}
+
+.logs-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--clr-text-a20);
+    cursor: pointer;
+    user-select: none;
+}
+
+.logs-refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 6px 12px;
+    margin-left: auto;
+}
+
+.logs-spinning {
+    animation: spin 1s linear infinite;
+}
+
+.logs-container {
+    flex: 1;
+    overflow-y: auto;
+    background-color: var(--clr-surface-a0);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 4px 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--clr-surface-a40) transparent;
+}
+
+.log-row {
+    display: grid;
+    grid-template-columns: 80px 44px 1fr 2fr;
+    gap: 10px;
+    padding: 2px 12px;
+    align-items: baseline;
+    min-height: 22px;
+}
+
+.log-row:hover {
+    background-color: var(--clr-popup-a10);
+}
+
+.log-time {
+    color: var(--clr-text-a50);
+    font-size: 11px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.log-level-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-radius: 4px;
+    padding: 1px 5px;
+    text-align: center;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+}
+
+.log-level-badge--info {
+    color: var(--clr-info-a10);
+    background-color: color-mix(in srgb, var(--clr-info-a10) 14%, transparent);
+}
+
+.log-level-badge--success {
+    color: var(--clr-success-a10);
+    background-color: color-mix(in srgb, var(--clr-success-a10) 14%, transparent);
+}
+
+.log-level-badge--warning {
+    color: var(--clr-warning-a10);
+    background-color: color-mix(in srgb, var(--clr-warning-a10) 14%, transparent);
+}
+
+.log-level-badge--error {
+    color: var(--clr-danger-a10);
+    background-color: color-mix(in srgb, var(--clr-danger-a10) 14%, transparent);
+}
+
+.log-level-badge--critical {
+    color: #fff;
+    background-color: var(--clr-danger-a0);
+}
+
+.log-level-badge--debug {
+    color: var(--clr-text-a40);
+    background-color: color-mix(in srgb, var(--clr-text-a40) 12%, transparent);
+}
+
+.log-source {
+    color: var(--clr-text-a40);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.log-message {
+    color: var(--clr-text-a10);
+    word-break: break-word;
+    font-size: 12px;
+}
+
+.log-row--error .log-message { color: var(--clr-danger-a10); }
+.log-row--critical .log-message { color: var(--clr-danger-a0); font-weight: 600; }
+.log-row--warning .log-message { color: var(--clr-warning-a10); }
+.log-row--success .log-message { color: var(--clr-success-a10); }
+.log-row--debug .log-message { color: var(--clr-text-a40); }
+
+.logs-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--clr-text-a50);
+    font-size: 14px;
+    font-family: var(--font-family);
+}
+
+.logs-footer {
+    font-size: 12px;
+    color: var(--clr-text-a50);
+    text-align: right;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+}

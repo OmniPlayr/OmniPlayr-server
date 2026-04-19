@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Menu, X, ShieldAlert } from "lucide-react"
 import "./styles/Header.css"
 
 interface HeaderProps {
@@ -9,9 +9,10 @@ interface HeaderProps {
     onMenuToggle?: () => void;
     isMobile?: boolean;
     sidebarOpen?: boolean;
+    safeMode?: boolean;
 }
 
-function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMobile, sidebarOpen }: HeaderProps) {
+function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMobile, sidebarOpen, safeMode }: HeaderProps) {
     return (
         <div className="header">
             <div className="header-left">
@@ -34,6 +35,12 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
                         onClick={canGoForward ? onForward : undefined}
                     />
                 </div>
+                {safeMode && (
+                    <div className="header-safe-mode-badge">
+                        <ShieldAlert size={12} />
+                        Safe Mode
+                    </div>
+                )}
             </div>
         </div>
     )

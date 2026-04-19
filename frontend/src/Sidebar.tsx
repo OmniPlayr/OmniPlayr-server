@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from "react-router-dom";
 import { storeAccount } from './modules/account';
 import { usePlugins } from './modules/usePlugins';
-import { getTabs, type PluginTab } from './modules/plugins';
+import { getTabs, onPluginsLoaded, type PluginTab } from './modules/plugins';
 
 async function loadAccounts() {
     return await api("get_accounts") as any[];
@@ -50,6 +50,8 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose }: Sidebar
 
     useEffect(() => {
         setTabs(getTabs());
+        const unsub = onPluginsLoaded(() => setTabs(getTabs()));
+        return unsub;
     }, []);
 
     function handleTabChange(tabId: string | null) {

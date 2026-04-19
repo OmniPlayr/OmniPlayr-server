@@ -12,15 +12,14 @@ import Dashboard from './Dashboard.tsx';
 import Player from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
 import { getAccount } from './modules/account.ts';
-import { getRoutes, getTab, getTabByUrl } from './modules/plugins';
+import { getRoutes, getTab, getTabByUrl, notifyPluginsLoaded } from './modules/plugins';
 import { usePlugins } from './modules/usePlugins';
 import { setNavigate } from './modules/navigate';
 import { useSearchParams } from "react-router-dom";
 import api from './modules/api.ts';
 import Header from './Header.tsx';
 import Settings from './Settings.tsx';
-
-import.meta.glob('./plugins/*/index.{ts,tsx}', { eager: true });
+import { initSafeMode } from './modules/safeMode';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -54,6 +53,12 @@ function isTokenValid(): boolean {
 
 async function loadAccountById(accountId: string) {
     return await api("get_account", undefined, { account_id: accountId }) as any;
+}
+
+async function loadPlugins(): Promise<void> {
+    const modules = import.meta.glob('./plugins/*/index.{ts,tsx}');
+    await Promise.all(Object.values(modules).map(m => (m as () => Promise<unknown>)()));
+    notifyPluginsLoaded();
 }
 
 function NavigateSetter() {
@@ -90,6 +95,7 @@ function AppShell() {
     const [searchParams, setSearchParams] = useSearchParams();
     const isMobile = useIsMobile();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [safeMode, setSafeMode] = useState(false);
 
     const [activeTabId, setActiveTabId] = useState<string | null>(() =>
         resolveActiveTabFromPath(location.pathname)
@@ -99,7 +105,19 @@ function AppShell() {
     const [historyIndex, setHistoryIndex] = useState(0);
 
     useEffect(() => {
-        // This just checks if the user is authenticated and logged into an account, if not the shell wont load anyway, so this is a nice way to check that in my opinion.
+        if (!isAuth) return;
+        initSafeMode().then(sm => {
+            setSafeMode(sm);
+            if (!sm) {
+                loadPlugins().catch(console.error);
+            }
+        }).catch(() => {
+            setSafeMode(false);
+            loadPlugins().catch(console.error);
+        });
+    }, [isAuth]);
+
+    useEffect(() => {
         if (!showShell) return;
 
         setNavHistory(prev => {
@@ -117,12 +135,10 @@ function AppShell() {
         setActiveTabId(resolved);
     }, [location.pathname, showShell]);
 
-    // Close sidebar when navigating on mobile
     useEffect(() => {
         setSidebarOpen(false);
     }, [location.pathname]);
 
-    // Close sidebar when switching to desktop
     useEffect(() => {
         if (!isMobile) setSidebarOpen(false);
     }, [isMobile]);
@@ -190,6 +206,7 @@ function AppShell() {
                         onMenuToggle={() => setSidebarOpen(prev => !prev)}
                         isMobile={isMobile}
                         sidebarOpen={sidebarOpen}
+                        safeMode={safeMode}
                     />
                     <div className="dashboard-hor">
                         {!isMobile && (

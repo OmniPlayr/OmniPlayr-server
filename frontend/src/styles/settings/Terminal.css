@@ -1,0 +1,11 @@
+.terminal-section {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--clr-surface-a0);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 10px;
+    height: 100%;
+    width: 100%;
+    margin-top: 10px;
+    overflow: hidden;
+}

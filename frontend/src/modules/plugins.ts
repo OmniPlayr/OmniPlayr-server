@@ -152,7 +152,7 @@ function showPluginError(pluginId: string, context: string, error: unknown) {
     const banner = document.createElement('div');
     banner.className = '__plugin-error-banner';
     const text = document.createElement('span');
-    text.textContent = `Plugin error [${pluginId}] — ${context}: ${message}`;
+    text.textContent = `Plugin error [${pluginId}] - ${context}: ${message}`;
     const close = document.createElement('button');
     close.className = '__plugin-error-close';
     close.textContent = '×';
@@ -161,7 +161,7 @@ function showPluginError(pluginId: string, context: string, error: unknown) {
     banner.appendChild(text);
     banner.appendChild(close);
     getErrorContainer().appendChild(banner);
-    console.error(`[plugins] ${pluginId} — ${context}:`, error);
+    console.error(`[plugins] ${pluginId} - ${context}:`, error);
 }
 
 export function registerTab(
@@ -276,4 +276,18 @@ export function startDOMHookObserver() {
 export function stopDOMHookObserver() {
     observer?.disconnect();
     observer = null;
+}
+
+const _pluginLoadListeners: Array<() => void> = [];
+
+export function onPluginsLoaded(fn: () => void): () => void {
+    _pluginLoadListeners.push(fn);
+    return () => {
+        const idx = _pluginLoadListeners.indexOf(fn);
+        if (idx !== -1) _pluginLoadListeners.splice(idx, 1);
+    };
+}
+
+export function notifyPluginsLoaded(): void {
+    _pluginLoadListeners.forEach(fn => fn());
 }

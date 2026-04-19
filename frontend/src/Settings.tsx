@@ -9,7 +9,8 @@ import {
     CaseSensitive,
     Power,
     FileText,
-    Users
+    Users,
+    Terminal as TerminalIcon
 } from "lucide-react";
 
 import './styles/Settings.css';
@@ -17,6 +18,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Theme from "./settings/Theme";
 import Fonts from "./settings/Fonts";
 import About from "./settings/About";
+import Logs from "./settings/Logs";
+import PowerOptions from "./settings/PowerOptions";
+import TerminalPage from "./settings/Terminal";
 
 function Settings({ account }: any) {
     const navigate = useNavigate();
@@ -97,7 +101,7 @@ function Settings({ account }: any) {
                 icon: Info,
                 title: "Logs",
                 description: "View system logs",
-                component: () => <div>Logs</div>,
+                component: () => <Logs />,
                 condition: () => account?.role === "admin"
             },
             {
@@ -105,7 +109,15 @@ function Settings({ account }: any) {
                 icon: Power,
                 title: "Power Options",
                 description: "Reboot, shutdown, safe mode and more",
-                component: () => <div>Power Options</div>,
+                component: () => <PowerOptions />,
+                condition: () => account?.role === "admin"
+            },
+            {
+                id: "terminal",
+                icon: TerminalIcon,
+                title: "Terminal",
+                description: "Run commands on the server",
+                component: () => <TerminalPage />,
                 condition: () => account?.role === "admin"
             },
             {

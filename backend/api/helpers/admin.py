@@ -2,20 +2,32 @@ from fastapi import Depends, HTTPException, status, Header
 from api.helpers.db import get_conn
 from api.helpers.server import verify_auth
 
-
 def verify_admin(
     auth=Depends(verify_auth),
     x_account_id: int = Header(..., alias="X-Account-Id"),
 ) -> bool:
+
+    if not get_admin_status(x_account_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    return True
+
+def get_admin_status(account_id: int) -> bool:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT role FROM accounts WHERE id = %s",
-                (x_account_id,),
+                (account_id,),
             )
             row = cur.fetchone()
+
     if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
-    if row["role"] != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    return True
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found"
+        )
+
+    return row["role"] == "admin"

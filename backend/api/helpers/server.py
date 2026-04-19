@@ -22,21 +22,26 @@ def parse_interval(interval_str: str) -> relativedelta:
     
 security = HTTPBearer()
     
-def verify_auth(creds: HTTPAuthorizationCredentials = Depends(security)):
-    access_token = creds.credentials
-
+def verify_token(access_token: str):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT * FROM access_tokens WHERE access_token = %s AND access_token_expires > NOW()",
                 (access_token,)
             )
-            if cur.fetchone() is None:
+
+            row = cur.fetchone()
+
+            if row is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid access token"
                 )
-            return True
+
+            return row
+
+def verify_auth(creds: HTTPAuthorizationCredentials = Depends(security)):
+    return verify_token(creds.credentials)
 
 async def create_access_token(password_protected: bool, cur: object, only_access_token: bool = False) -> dict:
     access_token = secrets.token_hex(32) # This returns 64 chars for some random reason, so because we want 64, we have to enter 32 :(

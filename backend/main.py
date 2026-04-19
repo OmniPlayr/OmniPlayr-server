@@ -33,6 +33,8 @@ async def lifespan(app: FastAPI):
 
     # This sets the /api/plugin prefix for plugins
     app.include_router(get_plugin_router(), prefix="/api/plugin")
+    
+    log("Server started", "info", "main")
     yield
 
 

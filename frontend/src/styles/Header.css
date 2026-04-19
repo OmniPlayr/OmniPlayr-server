@@ -52,6 +52,22 @@
     color: var(--clr-text-a0);
 }
 
+.header-safe-mode-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: color-mix(in srgb, var(--clr-warning-a0) 20%, transparent);
+    color: var(--clr-warning-a10);
+    border: 1px solid var(--clr-warning-a0);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    user-select: none;
+}
+
 @media (max-width: 768px) {
     .header {
         height: 34px;
@@ -66,6 +82,4 @@
     .header-menu-btn {
         display: block;
     }
-
-    
 }
