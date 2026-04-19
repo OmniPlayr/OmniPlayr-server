@@ -1,0 +1,4 @@
+[logging]
+retention_days = "int"
+log_dir = "str"
+max_file_size_mb = "int"

@@ -1,13 +1,20 @@
+import os
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+ 
 from api.helpers.db import init_db
 from api.router import router
 from api.helpers.config import load_configs
 from api.helpers.omniplayr import load_plugins, get_plugin_router
 from api.helpers.config_watcher import start_config_watcher
+from api.helpers.log import log
+ 
+_SAFE_MODE_FILE = ".safe_mode"
+
+def _is_safe_mode() -> bool:
+    return os.path.exists(_SAFE_MODE_FILE)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,7 +26,10 @@ async def lifespan(app: FastAPI):
     start_config_watcher()
     
     # This loads the plugins
-    load_plugins()
+    if _is_safe_mode():
+        log("Safe mode is active - plugins are disabled", "warning", "main")
+    else:
+        load_plugins()
 
     # This sets the /api/plugin prefix for plugins
     app.include_router(get_plugin_router(), prefix="/api/plugin")
