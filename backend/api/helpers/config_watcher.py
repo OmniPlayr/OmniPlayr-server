@@ -5,19 +5,21 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 CONFIG_LOCAL_PATH = os.path.join(BASE_DIR, "config.local.json")
 
-def deep_merge(base: dict, override: dict) -> dict:
-    result = dict(override)
-    for key, value in base.items():
-        if key not in result:
-            result[key] = value
-        elif isinstance(value, dict) and isinstance(result[key], dict):
-            result[key] = deep_merge(value, result[key])
-    return result
+VERSION_KEYS = {"version", "safeVersion", "year", "month", "bugfix", "branch"}
 
+def deep_merge(base: dict, override: dict) -> dict:
+    result = dict(base)
+    for key, value in override.items():
+        if key in VERSION_KEYS:
+            continue
+        if key in result and isinstance(value, dict) and isinstance(result[key], dict):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 def sync_config():
     if not os.path.exists(CONFIG_PATH):
@@ -36,12 +38,10 @@ def sync_config():
     with open(CONFIG_LOCAL_PATH, "w") as f:
         json.dump(merged, f, indent=2)
 
-
 class ConfigChangeHandler(FileSystemEventHandler):
     def on_modified(self, event):
         if os.path.abspath(event.src_path) == os.path.abspath(CONFIG_PATH):
             sync_config()
-
 
 def start_config_watcher():
     sync_config()

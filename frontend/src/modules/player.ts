@@ -180,5 +180,3 @@ export const player = new AudioPlayer();
 export function playSong(songId: string, sourceType: string) {
     return player.playSong(songId, sourceType);
 }
-
-playSong('BABY BOY (clip).m4a', 'mp3');

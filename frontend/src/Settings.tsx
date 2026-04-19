@@ -14,6 +14,9 @@ import {
 
 import './styles/Settings.css';
 import { useLocation, useNavigate } from "react-router-dom";
+import Theme from "./settings/Theme";
+import Fonts from "./settings/Fonts";
+import About from "./settings/About";
 
 function Settings({ account }: any) {
     const navigate = useNavigate();
@@ -60,7 +63,7 @@ function Settings({ account }: any) {
             icon: Info,
             title: "About",
             description: "Version information, credits, and more",
-            component: () => <div>About</div>
+            component: () => <About />
         }
     ];
 
@@ -71,7 +74,7 @@ function Settings({ account }: any) {
                 icon: SunMoon,
                 title: "Theme",
                 description: "Change how OmniPlayr looks",
-                component: () => <div>Theme</div>
+                component: () => <Theme />
             },
             {
                 id: "colors",
@@ -85,7 +88,7 @@ function Settings({ account }: any) {
                 icon: CaseSensitive,
                 title: "Fonts",
                 description: "Adjust typography",
-                component: () => <div>Fonts</div>
+                component: () => <Fonts />
             }
         ],
         system: [

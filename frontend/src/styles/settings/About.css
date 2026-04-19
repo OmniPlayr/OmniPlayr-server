@@ -1,0 +1,228 @@
+.about-section {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+@media screen and (max-width: 1400px) {
+    .about-section {
+        flex-direction: column;
+    }
+}
+
+.about-left {
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.about-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 2;
+    min-width: 0;
+    height: 100%;
+}
+
+.about-versions {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.about-version {
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--clr-popup-a50);
+    background-color: var(--clr-popup-a10);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 220px;
+}
+
+.about-version-title {
+    color: var(--clr-text-a0);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 2px;
+}
+
+.about-version-divider {
+    height: 1px;
+    background-color: var(--clr-popup-a50);
+    margin: 4px 0;
+}
+
+.about-version-value {
+    color: var(--clr-text-a0);
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: center;
+}
+
+.about-version-value b {
+    opacity: 0.5;
+    font-weight: 600;
+    min-width: 52px;
+}
+
+.about-version-current {
+    font-weight: 500;
+}
+
+.about-version-latest {
+    color: var(--clr-success-a0);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.about-version-update {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 6px;
+}
+
+.about-version-update.year {
+    color: var(--clr-danger-a0);
+    background-color: color-mix(in srgb, var(--clr-danger-a0) 12%, transparent);
+}
+
+.about-version-update.month {
+    color: var(--clr-warning-a0);
+    background-color: color-mix(in srgb, var(--clr-warning-a0) 12%, transparent);
+}
+
+.about-version-update.bugfix {
+    color: var(--clr-info-a10);
+    background-color: color-mix(in srgb, var(--clr-info-a10) 12%, transparent);
+}
+
+.about-license-content {
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--clr-popup-a50);
+    background-color: var(--clr-popup-a10);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.about-license-text {
+    font-size: 13px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    color: var(--clr-text-a0);
+    opacity: 0.7;
+    line-height: 1.6;
+    overflow-y: auto;
+}
+
+.about-license-loading {
+    font-size: 13px;
+    color: var(--clr-text-a0);
+    opacity: 0.4;
+}
+
+.about-contributors {
+    margin-top: 20px;
+}
+
+.about-contributors-title {
+    color: var(--clr-text-a0);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 8px;
+}
+
+.about-contributors-list {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.about-contributor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    width: 64px;
+}
+
+.about-contributor-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--clr-popup-a50);
+}
+
+.about-contributor-name {
+    color: var(--clr-text-a0);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
+    opacity: 0.7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.about-contributor:hover .about-contributor-avatar {
+    border-color: var(--clr-text-a0);
+}
+
+.about-contributor:hover .about-contributor-name {
+    opacity: 1;
+}
+
+.disclaimer-banner {
+    padding: 5px;
+    border-radius: 12px;
+    border: 1px solid var(--clr-warning-a0);
+    background-color: var(--clr-warning-a20);
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.disclaimer-text {
+    font-size: 13px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    color: var(--clr-warning-a0);
+    font-weight: 600;
+}
+
+.disclaimer-icon {
+    color: var(--clr-warning-a0);
+    width: 50px;
+    height: 30px;
+}

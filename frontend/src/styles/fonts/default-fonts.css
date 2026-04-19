@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond&family=Playfair+Display&family=Inter&family=DM+Sans&family=JetBrains+Mono&family=Fira+Code&family=Fraunces&family=Lato&family=Source+Sans+3&display=swap');
+
+:root {
+    --font-family: 'Inter', sans-serif;
+
+    --font-inter-family: 'Inter', sans-serif;
+    --font-garamond-family: 'EB Garamond', serif;
+    --font-georgia-family: 'Georgia', serif;
+    --font-playfair-display-family: 'Playfair Display', serif;
+    --font-helvetica-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+    --font-neue-haas-grotesk-family: 'Neue Haas Grotesk', 'Helvetica Neue', sans-serif;
+    --font-dm-sans-family: 'DM Sans', sans-serif;
+    --font-jetbrains-mono-family: 'JetBrains Mono', monospace;
+    --font-fira-code-family: 'Fira Code', monospace;
+    --font-commit-mono-family: 'Commit Mono', monospace;
+    --font-canela-family: 'Canela', serif;
+    --font-fraunces-family: 'Fraunces', serif;
+    --font-cabinet-grotesk-family: 'Cabinet Grotesk', sans-serif;
+    --font-system-ui-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-lato-family: 'Lato', sans-serif;
+    --font-source-sans-pro-family: 'Source Sans 3', sans-serif;
+}
+
+:root[data-font='inter'] { --font-family: var(--font-inter-family); }
+:root[data-font='garamond'] { --font-family: var(--font-garamond-family); }
+:root[data-font='georgia'] { --font-family: var(--font-georgia-family); }
+:root[data-font='playfair-display'] { --font-family: var(--font-playfair-display-family); }
+:root[data-font='helvetica'] { --font-family: var(--font-helvetica-family); }
+:root[data-font='neue-haas-grotesk'] { --font-family: var(--font-neue-haas-grotesk-family); }
+:root[data-font='dm-sans'] { --font-family: var(--font-dm-sans-family); }
+:root[data-font='jetbrains-mono'] { --font-family: var(--font-jetbrains-mono-family); }
+:root[data-font='fira-code'] { --font-family: var(--font-fira-code-family); }
+:root[data-font='commit-mono'] { --font-family: var(--font-commit-mono-family); }
+:root[data-font='canela'] { --font-family: var(--font-canela-family); }
+:root[data-font='fraunces'] { --font-family: var(--font-fraunces-family); }
+:root[data-font='cabinet-grotesk'] { --font-family: var(--font-cabinet-grotesk-family); }
+:root[data-font='system-ui'] { --font-family: var(--font-system-ui-family); }
+:root[data-font='lato'] { --font-family: var(--font-lato-family); }
+:root[data-font='source-sans-pro'] { --font-family: var(--font-source-sans-pro-family); }

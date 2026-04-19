@@ -5,6 +5,7 @@ import 'normalize.css';
 import './styles/index.css'
 import './styles/themes/light.css'
 import './styles/themes/dark.css'
+import './styles/fonts/default-fonts.css'
 import Login from './login.tsx'
 import AccountSelect from './AccountSelect.tsx';
 import Dashboard from './Dashboard.tsx';
@@ -22,7 +23,24 @@ import Settings from './Settings.tsx';
 import.meta.glob('./plugins/*/index.{ts,tsx}', { eager: true });
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
-document.documentElement.setAttribute('data-theme', savedTheme);
+const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
+
+if (preferSystemTheme) {
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.setAttribute('prefer-system-theme', 'true');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.setAttribute('prefer-system-theme', 'true');
+    }
+} else {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+}
+
+const savedFont = localStorage.getItem('font');
+if (savedFont) {
+    document.documentElement.setAttribute('data-font', savedFont);
+}
 
 function isTokenValid(): boolean {
     const access_expiry = localStorage.getItem('access_token_expires');

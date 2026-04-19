@@ -43,46 +43,57 @@
 
 #plugins .settings-option-icon {
     background-color: var(--clr-primary-a0);
+    color: var(--clr-text-light-a0);
 }
 
 #accounts .settings-option-icon {
     background-color: var(--clr-success-a0);
+    color: var(--clr-text-light-a0);
 }
 
 #system .settings-option-icon {
     background-color: var(--clr-warning-a0);
+    color: var(--clr-text-light-a0);
 }
 
 #appearance .settings-option-icon {
     background-color: var(--clr-danger-a0);
+    color: var(--clr-text-light-a0);
 }
 
 #theme .settings-option-icon {
     background-color: var(--clr-info-a10);
+    color: var(--clr-text-light-a0);
 }
 
 #colors .settings-option-icon {
     background-color: var(--clr-warning-a10);
+    color: var(--clr-text-light-a0);
 }
 
 #logs .settings-option-icon {
     background-color: var(--clr-danger-a10);
+    color: var(--clr-text-light-a0);
 }
 
 #power-options .settings-option-icon {
     background-color: var(--clr-success-a0);
+    color: var(--clr-text-light-a0);
 }
 
 #config .settings-option-icon {
     background-color: var(--clr-warning-a0);
+    color: var(--clr-text-light-a0);
 }
 
 #profile .settings-option-icon {
     background-color: var(--clr-info-a0);
+    color: var(--clr-text-light-a0);
 }
 
 #other-people .settings-option-icon {
     background-color: var(--clr-primary-a10);
+    color: var(--clr-text-light-a0);
 }
 
 .settings-tab-info {
@@ -107,4 +118,26 @@
     gap: 10px;
     align-items: center;
     
+}
+
+.settings-toggle-item {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+}
+
+.settings-toggle-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-toggle-item-name {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.settings-toggle-item-description {
+    font-size: 14px;
+    color: var(--clr-text-a30);
 }

@@ -64,3 +64,7 @@
 
     --pd-dash-component: 15px;
 }
+
+:root {
+    --theme-dark-color: #101010;
+}
