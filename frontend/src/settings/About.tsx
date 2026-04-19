@@ -2,26 +2,24 @@ import '../styles/settings/About.css';
 import api from '../modules/api';
 import { useEffect, useRef, useState } from 'react';
 import { getConfig } from '../modules/config';
-import { ArrowRight, TriangleAlert } from 'lucide-react';
+import { ArrowRight, TriangleAlert, WifiOff } from 'lucide-react';
+
+const GITHUB_CACHE_KEY = 'omniplayr_github_info';
 
 async function loadServerInfo() {
     return await api('/info/server') as any[];
 }
 
 async function fetchGithub(branch: string) {
-    const headers = {
-        Authorization: `Bearer ${getConfig("github.token") as string}`
-    };
-
     async function fetchFile(path: string) {
-        const res = await fetch(`https://api.github.com/repos/OmniPlayr/OmniPlayr-server/contents/${path}?ref=${branch}`, { headers });
+        const res = await fetch(`https://api.github.com/repos/OmniPlayr/OmniPlayr-server/contents/${path}?ref=${branch}`);
         if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
         const data = await res.json();
         return atob(data.content.replace(/\n/g, ""));
     }
 
     async function fetchContributors() {
-        const res = await fetch(`https://api.github.com/repos/OmniPlayr/OmniPlayr-server/contributors`, { headers });
+        const res = await fetch(`https://api.github.com/repos/OmniPlayr/OmniPlayr-server/contributors`);
         if (!res.ok) throw new Error(`Failed to fetch contributors: ${res.status}`);
         return await res.json();
     }
@@ -33,12 +31,28 @@ async function fetchGithub(branch: string) {
         fetchContributors()
     ]);
 
-    return {
+    const result = {
         backendConfig: JSON.parse(backendConfigRaw),
         versionToml: versionTomlRaw,
         license: licenseRaw,
         contributors
     };
+
+    try {
+        localStorage.setItem(GITHUB_CACHE_KEY, JSON.stringify(result));
+    } catch {
+    }
+
+    return result;
+}
+
+function loadCachedGithub(): any | null {
+    try {
+        const raw = localStorage.getItem(GITHUB_CACHE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
 }
 
 function parseToml(toml: string): Record<string, any> {
@@ -145,6 +159,7 @@ function VersionBlock({ title, current, latest }: VersionBlockProps) {
 function About() {
     const [serverInfo, setServerInfo] = useState<any>(null);
     const [githubInfo, setGithubInfo] = useState<any>(null);
+    const [githubStale, setGithubStale] = useState(false);
     const githubFetched = useRef(false);
 
     useEffect(() => {
@@ -154,7 +169,19 @@ function About() {
     useEffect(() => {
         if (!serverInfo?.branch || githubFetched.current) return;
         githubFetched.current = true;
-        fetchGithub(serverInfo.branch).then(setGithubInfo);
+
+        fetchGithub(serverInfo.branch)
+            .then(data => {
+                setGithubInfo(data);
+                setGithubStale(false);
+            })
+            .catch(() => {
+                const cached = loadCachedGithub();
+                if (cached) {
+                    setGithubInfo(cached);
+                    setGithubStale(true);
+                }
+            });
     }, [serverInfo]);
 
     const frontendSafeVersion = getConfig("version.frontend.safeVersion") as string;
@@ -173,6 +200,12 @@ function About() {
             <div className="about-section">
                 <div className='about-left'>
                     <h1 className='about-title'>Version & Credits</h1>
+                    {githubStale && (
+                        <div className='disclaimer-banner'>
+                            <WifiOff className='disclaimer-icon' />
+                            <span className='disclaimer-text'>Could not reach GitHub (rate limit or network issue). Showing cached data from a previous session.</span>
+                        </div>
+                    )}
                     <div className='about-versions'>
                         <VersionBlock
                             title="Frontend"
