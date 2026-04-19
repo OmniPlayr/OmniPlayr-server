@@ -32,13 +32,13 @@ interface SidebarProps {
 function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose }: SidebarProps) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
-    const [, setSearchParams] = useSearchParams();
     const [tabs, setTabs] = useState<PluginTab[]>([]);
     usePlugins();
 
     function loadAccount(id: string) {
         storeAccount(id);
-        setSearchParams({ account_id: id });
+        window.history.pushState({}, '', '/');
+        window.dispatchEvent(new Event('account-switched'));
     }
 
     useEffect(() => {

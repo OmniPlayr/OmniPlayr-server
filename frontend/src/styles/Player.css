@@ -134,7 +134,7 @@
 
 .progress-bar-fill {
     height: 100%;
-    background-color: var(--clr-text-a0);
+    background-color: var(--clr-primary-a0);
     border-radius: 5px;
     pointer-events: none;
     transition: width 0.1s linear;
@@ -193,7 +193,7 @@
 
 .volume-slider-fill {
     height: 100%;
-    background-color: var(--clr-text-a0);
+    background-color: var(--clr-primary-a0);
     border-radius: 5px;
     pointer-events: none;
     will-change: width;

@@ -21,6 +21,7 @@ import About from "./settings/About";
 import Logs from "./settings/Logs";
 import PowerOptions from "./settings/PowerOptions";
 import TerminalPage from "./settings/Terminal";
+import Colors from "./settings/Colors";
 
 function Settings({ account }: any) {
     const navigate = useNavigate();
@@ -85,7 +86,7 @@ function Settings({ account }: any) {
                 icon: Palette,
                 title: "Colors",
                 description: "Customize accent colors",
-                component: () => <div>Colors</div>
+                component: () => <Colors />
             },
             {
                 id: "fonts",

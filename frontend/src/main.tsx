@@ -21,6 +21,7 @@ import Header from './Header.tsx';
 import Settings from './Settings.tsx';
 import { initSafeMode } from './modules/safeMode';
 import Shutdown from './Shutdown.tsx';
+import { generateCssVars } from './modules/customColor.ts';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -40,6 +41,14 @@ if (preferSystemTheme) {
 const savedFont = localStorage.getItem('font');
 if (savedFont) {
     document.documentElement.setAttribute('data-font', savedFont);
+}
+
+const customColor = localStorage.getItem('custom_color');
+if (customColor) {
+    if (customColor && /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(customColor)) {
+        const cssVars = generateCssVars(customColor, 'clr-primary');
+        if (cssVars) document.documentElement.style.cssText += cssVars;
+    }
 }
 
 function isTokenValid(): boolean {
@@ -183,6 +192,10 @@ function AppShell() {
         const id = searchParams.get("account_id");
         if (!id) return;
         setAccountId(id);
+        setNavHistory(['/']);
+        setHistoryIndex(0);
+        setActiveTabId(null);
+        navigate('/dashboard');
         setSearchParams({});
     }, [searchParams]);
 
@@ -262,9 +275,17 @@ function AppShell() {
 }
 
 function App() {
+    const [shellKey, setShellKey] = useState(0);
+
+    useEffect(() => {
+        const handler = () => setShellKey(k => k + 1);
+        window.addEventListener('account-switched', handler);
+        return () => window.removeEventListener('account-switched', handler);
+    }, []);
+
     return (
         <BrowserRouter>
-            <AppShell />
+            <AppShell key={shellKey} />
         </BrowserRouter>
     )
 }
