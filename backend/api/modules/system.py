@@ -44,59 +44,65 @@ def system_status(admin=Depends(verify_admin)):
 
 
 @router.post("/shutdown")
-def shutdown(admin=Depends(verify_admin)):
+async def shutdown(admin=Depends(verify_admin)):
     log("System shutdown requested by admin", "warning", "system")
 
-    if _in_docker():
-        if not shutil.which("docker"):
-            raise HTTPException(status_code=500, detail="Docker CLI not available")
+    try:
+        if _in_docker():
+            if not shutil.which("docker"):
+                raise HTTPException(status_code=500, detail="Docker CLI not available")
 
-        subprocess = [
-            "docker",
-            "compose",
-            "down",
-        ]
+            process = await asyncio.create_subprocess_exec(
+                "docker", "stop",
+                "omniplayr_backend",
+                "omniplayr_frontend",
+                "omniplayr_db",
+                "omniplayr_pgadmin"
+            )
+        else:
+            process = await asyncio.create_subprocess_exec(
+                "shutdown", "-h", "now"
+            )
 
-        try:
-            asyncio.create_subprocess_exec(*subprocess)
-        except Exception as exc:
-            log(f"Shutdown docker compose failed: {exc}", "error", "system")
-            raise HTTPException(status_code=500, detail=str(exc))
-    else:
-        try:
-            asyncio.create_subprocess_exec("shutdown", "-h", "now")
-        except Exception as exc:
-            log(f"Shutdown host failed: {exc}", "error", "system")
-            raise HTTPException(status_code=500, detail=str(exc))
+        await process.wait()
+
+    except Exception as exc:
+        log(f"Shutdown failed: {exc}", "error", "system")
+        raise HTTPException(status_code=500, detail=str(exc))
 
     return {"status": "shutting_down"}
 
 
 @router.post("/reboot")
-def reboot(admin=Depends(verify_admin)):
+async def reboot(admin=Depends(verify_admin)):
     log("System reboot requested by admin", "warning", "system")
 
-    if _in_docker():
-        if not shutil.which("docker"):
-            raise HTTPException(status_code=500, detail="Docker CLI not available")
+    try:
+        if _in_docker():
+            process = await asyncio.create_subprocess_exec(
+                "docker", "restart",
+                "omniplayr_backend",
+                "omniplayr_frontend",
+                "omniplayr_db",
+                "omniplayr_pgadmin"
+            )
+        else:
+            process = await asyncio.create_subprocess_exec(
+                "reboot"
+            )
 
-        try:
-            asyncio.create_subprocess_exec("docker", "compose", "restart")
-        except Exception as exc:
-            log(f"Reboot docker compose failed: {exc}", "error", "system")
-            raise HTTPException(status_code=500, detail=str(exc))
-    else:
-        try:
-            asyncio.create_subprocess_exec("reboot")
-        except Exception as exc:
-            log(f"Reboot host failed: {exc}", "error", "system")
-            raise HTTPException(status_code=500, detail=str(exc))
+        await process.wait()
+
+    except Exception as exc:
+        log(f"Reboot failed: {exc}", "error", "system")
+        raise HTTPException(status_code=500, detail=str(exc))
 
     return {"status": "rebooting"}
 
 
 class TerminalCommand(BaseModel):
     command: str
+
 
 async def verify_admin_ws(ws: WebSocket):
     token = ws.query_params.get("token")
@@ -116,6 +122,7 @@ async def verify_admin_ws(ws: WebSocket):
         return None
 
     return True
+
 
 @router.websocket("/terminal/ws")
 async def terminal_ws(ws: WebSocket):
@@ -160,6 +167,7 @@ async def terminal_ws(ws: WebSocket):
         process.terminate()
         os.close(master)
         os.close(slave)
+
 
 @router.post("/safe-mode/enable")
 def enable_safe_mode(admin=Depends(verify_admin)):

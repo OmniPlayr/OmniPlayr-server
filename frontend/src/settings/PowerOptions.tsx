@@ -2,6 +2,22 @@ import { useState, useEffect } from 'react';
 import api from '../modules/api';
 import '../styles/settings/PowerOptions.css';
 import { Power, RotateCcw, Shield, ShieldOff } from 'lucide-react';
+import { navigate } from '../modules/navigate';
+
+async function waitForShutdown() {
+    let alive = true;
+
+    while (alive) {
+        try {
+            await api('/system/status');
+            await new Promise(r => setTimeout(r, 1500));
+        } catch {
+            alive = false;
+        }
+    }
+
+    navigate('/shutdown');
+}
 
 function PowerOptions() {
     const [safeMode, setSafeMode] = useState(false);
@@ -24,14 +40,29 @@ function PowerOptions() {
             setConfirming(action);
             return;
         }
+
         setConfirming(null);
         setActionDone(action);
-        try {
-            await api(`/system/${action}`, {});
-        } catch {
+
+        if (action === 'shutdown') {
+            waitForShutdown();
+
+            try {
+                await api('/system/shutdown', {});
+            } catch {
+                
+            }
+
+            return;
         }
+
         if (action === 'reboot') {
+            try {
+                await api('/system/reboot', {});
+            } catch {}
+
             setTimeout(() => window.location.reload(), 6000);
+            return;
         }
     }
 

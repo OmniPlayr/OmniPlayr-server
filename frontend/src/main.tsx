@@ -20,6 +20,7 @@ import api from './modules/api.ts';
 import Header from './Header.tsx';
 import Settings from './Settings.tsx';
 import { initSafeMode } from './modules/safeMode';
+import Shutdown from './Shutdown.tsx';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -90,7 +91,7 @@ function AppShell() {
     const navigate = useNavigate();
     const [isAuth] = useState(() => isTokenValid());
     const [accountId, setAccountId] = useState<string | null>(getAccount);
-    const showShell = isAuth && !!accountId && location.pathname !== '/login';
+    const showShell = isAuth && !!accountId && location.pathname !== '/login' && location.pathname !== '/shutdown';
     const [account, setAccount] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const isMobile = useIsMobile();
@@ -246,6 +247,7 @@ function AppShell() {
             ) : (
                 <Routes>
                     <Route path="/login" element={<Login />} />
+                    <Route path="/shutdown" element={<Shutdown />} />
                     <Route path="/" element={
                         !isTokenValid()
                             ? <Navigate to="/login" />
