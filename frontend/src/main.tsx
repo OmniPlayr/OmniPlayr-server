@@ -11,6 +11,7 @@ import AccountSelect from './AccountSelect.tsx';
 import Dashboard from './Dashboard.tsx';
 import Player from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
+import BottomNav from './BottomNav.tsx';
 import { getAccount } from './modules/account.ts';
 import { getRoutes, getTab, getTabByUrl, notifyPluginsLoaded } from './modules/plugins';
 import { usePlugins } from './modules/usePlugins';
@@ -212,16 +213,15 @@ function AppShell() {
         <>
             {showShell ? (
                 <div className="dashboard" data-component="Dashboard">
-                    <Header
-                        canGoBack={historyIndex > 0}
-                        canGoForward={historyIndex < navHistory.length - 1}
-                        onBack={goBack}
-                        onForward={goForward}
-                        onMenuToggle={() => setSidebarOpen(prev => !prev)}
-                        isMobile={isMobile}
-                        sidebarOpen={sidebarOpen}
-                        safeMode={safeMode}
-                    />
+                    {!isMobile && (
+                        <Header
+                            canGoBack={historyIndex > 0}
+                            canGoForward={historyIndex < navHistory.length - 1}
+                            onBack={goBack}
+                            onForward={goForward}
+                            safeMode={safeMode}
+                        />
+                    )}
                     <div className="dashboard-hor">
                         {!isMobile && (
                             <Sidebar
@@ -256,6 +256,14 @@ function AppShell() {
                         </div>
                     </div>
                     <Player />
+                    {isMobile && (
+                        <BottomNav
+                            onMenuToggle={() => setSidebarOpen(prev => !prev)}
+                            onHome={() => handleTabChange(null)}
+                            onSettings={() => handleTabChange('__settings')}
+                            activeTabId={resolvedTabId}
+                        />
+                    )}
                 </div>
             ) : (
                 <Routes>

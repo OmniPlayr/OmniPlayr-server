@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import './styles/Player.css';
-import { Shuffle, SkipBack, SkipForward, Play, Pause, Loader, Repeat, Music, Volume, Volume2, VolumeX, Volume1 } from 'lucide-react';
+import {
+    Shuffle, SkipBack, SkipForward, Play, Pause, Loader,
+    Repeat, Music, Volume, Volume2, VolumeX, Volume1, ChevronDown
+} from 'lucide-react';
 import { player, type TrackMetadata } from './modules/player';
 import { usePlugins } from './modules/usePlugins';
 
@@ -49,7 +52,6 @@ function AlbumArt({
     onColorChange: (color: string | null) => void;
 }) {
     const [valid, setValid] = useState(true);
-
     const src = (metadata as TrackMetadata)?.album_art ?? undefined;
 
     useEffect(() => {
@@ -60,9 +62,7 @@ function AlbumArt({
         return (
             <div
                 className="player-album-art-placeholder"
-                ref={(el) => {
-                    if (el) onColorChange(null);
-                }}
+                ref={(el) => { if (el) onColorChange(null); }}
             >
                 <Music size={22} />
             </div>
@@ -88,6 +88,17 @@ function AlbumArt({
     );
 }
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
+    return isMobile;
+}
+
 function Player() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -95,6 +106,8 @@ function Player() {
     const [duration, setDuration] = useState(0);
     const [metadata, setMetadata] = useState<TrackMetadata | null>(null);
     const [accentColor, setAccentColor] = useState<string | null>(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const isMobile = useIsMobile();
 
     const [displayProgress, setDisplayProgress] = useState(0);
     const [displayTime, setDisplayTime] = useState(0);
@@ -111,6 +124,10 @@ function Player() {
     const prevVolume = useRef(player.volume > 0 ? player.volume : 1);
 
     usePlugins();
+
+    useEffect(() => {
+        if (!isMobile && isFullscreen) setIsFullscreen(false);
+    }, [isMobile, isFullscreen]);
 
     useEffect(() => {
         return player.subscribe(() => {
@@ -164,7 +181,7 @@ function Player() {
         };
     }, [duration]);
 
-    const handleProgressMouseDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!progressBarRef.current) return;
         const rect = progressBarRef.current.getBoundingClientRect();
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -210,6 +227,127 @@ function Player() {
         }
         : undefined;
 
+    if (isMobile) {
+        if (!player.hasTrack) return null;
+
+        const miniAccent = accentColor
+            ? accentColor.replace('rgb(', 'rgba(').replace(')', ', 0.45)')
+            : null;
+
+        const miniStyle = miniAccent
+            ? { background: `linear-gradient(to right, ${miniAccent} 0px, var(--clr-popup-a0) 220px)` }
+            : undefined;
+
+        const fullscreenBg = accentColor
+            ? `linear-gradient(to bottom, ${accentColor} 0%, #0c0c0c 65%)`
+            : '#0c0c0c';
+
+        return (
+            <>
+                {!isFullscreen && (
+                    <div
+                        className="player-mini"
+                        style={miniStyle}
+                        onClick={() => setIsFullscreen(true)}
+                        data-component="Player"
+                        data-playing-id={player.currentSongId}
+                        data-source-type={player.currentSourceType}
+                    >
+                        <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
+                        <div className="player-mini-info">
+                            {metadata?.title && (
+                                <span className="player-mini-title">{metadata.title}</span>
+                            )}
+                            <span className="player-mini-artist">
+                                {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
+                            </span>
+                        </div>
+                        <div
+                            className="player-mini-play"
+                            onClick={(e) => { e.stopPropagation(); player.togglePlay(); }}
+                        >
+                            {isLoading
+                                ? <Loader className="mini-play-icon mini-play-icon--spin" />
+                                : isPlaying
+                                ? <Pause className="mini-play-icon" />
+                                : <Play className="mini-play-icon" />
+                            }
+                        </div>
+                    </div>
+                )}
+
+                {isFullscreen && (
+                    <div
+                        className="player-fullscreen"
+                        style={{ background: fullscreenBg }}
+                        data-component="Player"
+                        data-playing-id={player.currentSongId}
+                        data-source-type={player.currentSourceType}
+                    >
+                        <div
+                            className="player-fullscreen-close"
+                            onClick={() => setIsFullscreen(false)}
+                        >
+                            <ChevronDown size={30} />
+                        </div>
+
+                        <div className="player-fullscreen-art-area">
+                            <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
+                        </div>
+
+                        <div className="player-fullscreen-bottom">
+                            <div className="player-fullscreen-info">
+                                {metadata?.title && (
+                                    <span className="player-fullscreen-title">{metadata.title}</span>
+                                )}
+                                <span className="player-fullscreen-artist">
+                                    {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
+                                </span>
+                            </div>
+
+                            <div className="player-fullscreen-empty-slot" />
+
+                            <div className="player-fullscreen-controls">
+                                <Shuffle className="fs-control-icon" />
+                                <SkipBack className="fs-control-icon" />
+                                <div
+                                    className="fs-play-btn"
+                                    onClick={() => player.togglePlay()}
+                                >
+                                    {isLoading
+                                        ? <Loader className="fs-play-icon fs-play-icon--spin" />
+                                        : isPlaying
+                                        ? <Pause className="fs-play-icon" />
+                                        : <Play className="fs-play-icon" />
+                                    }
+                                </div>
+                                <SkipForward className="fs-control-icon" />
+                                <Repeat className="fs-control-icon" />
+                            </div>
+
+                            <div className="player-fullscreen-progress">
+                                <div
+                                    className="fs-progress-bar"
+                                    ref={progressBarRef}
+                                    onPointerDown={handleProgressPointerDown}
+                                >
+                                    <div
+                                        className="fs-progress-fill"
+                                        style={{ width: `${displayProgress * 100}%` }}
+                                    />
+                                </div>
+                                <div className="fs-progress-times">
+                                    <span>{formatTime(displayTime)}</span>
+                                    <span>{formatTime(duration || currentTime)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </>
+        );
+    }
+
     return (
         <div
             className="player"
@@ -254,7 +392,7 @@ function Player() {
                     <div
                         className="progress-bar"
                         ref={progressBarRef}
-                        onMouseDown={handleProgressMouseDown}
+                        onPointerDown={handleProgressPointerDown}
                     >
                         <div
                             className="progress-bar-fill"
