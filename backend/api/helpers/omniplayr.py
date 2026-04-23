@@ -153,6 +153,9 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
 
 
 def load_plugins():
+    plugins_dir = Path("plugins")
+    plugins_dir.mkdir(exist_ok=True)
+
     config_path = Path("config.local.json")
     if not config_path.exists():
         return
@@ -160,7 +163,6 @@ def load_plugins():
     with open(config_path) as f:
         config = json.load(f)
 
-    plugins_dir = Path("plugins")
     declared: dict = config.get("plugins", {})
 
     for plugin_key in declared:

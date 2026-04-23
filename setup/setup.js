@@ -31,6 +31,9 @@ function setInstallProgress(pct) {
 }
 
 function goToStep(index) {
+    if (index === 1 && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
     steps[currentStep].classList.remove('active');
     currentStep = index;
     steps[currentStep].classList.add('active');
@@ -110,6 +113,14 @@ function escHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function notifyInstallDone() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    new Notification('OmniPlayr', {
+        body: 'Installation complete! Continue setup to finish.',
+        icon: '/assets/favicons/setup.svg',
+    });
+}
+
 let ws;
 
 function showQuestion(id, text, options) {
@@ -159,6 +170,7 @@ function connect() {
         if (msg.type === 'question') showQuestion(msg.id, msg.text, msg.options);
         if (msg.type === 'next') {
             appendLog('Installation complete, continuing setup…', 'success');
+            notifyInstallDone();
             if (!gotSetupStateFromHttp) goToStep(msg.step + 1);
         }
         if (msg.type === 'redirect') {
