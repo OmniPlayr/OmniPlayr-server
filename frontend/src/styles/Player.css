@@ -99,8 +99,8 @@
 }
 
 .play-icon {
-    color: var(--clr-surface-a0);
-    fill: var(--clr-surface-a0);
+    color: var(--clr-popup-a0);
+    fill: var(--clr-popup-a0);
 }
 
 .play-icon.spinning {

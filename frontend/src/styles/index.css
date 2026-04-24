@@ -189,3 +189,14 @@ input.switch:checked {
 input.switch:checked::after {
     left: calc(100% - 19px);
 }
+
+.beta-tag {
+    background-color: var(--clr-primary-a0);
+    color: var(--clr-text-light-a0);
+    border: 1px solid var(--clr-primary-a20);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: 5px;
+}

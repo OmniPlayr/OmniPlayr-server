@@ -5,6 +5,7 @@ import 'normalize.css';
 import './styles/index.css'
 import './styles/themes/light.css'
 import './styles/themes/dark.css'
+import './styles/themes/transparent.css'
 import './styles/fonts/default-fonts.css'
 import Login from './login.tsx'
 import AccountSelect from './AccountSelect.tsx';

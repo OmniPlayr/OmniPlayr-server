@@ -1,6 +1,6 @@
 [api]
-apiUrl = "http://192.168.178.35:8224"
-terminalUrl = "ws://192.168.178.35:8224"
+apiUrl = "http://localhost:8224"
+terminalUrl = "ws://localhost:8224"
 
 [accounts]
 accountStore = "sessionStorage"
