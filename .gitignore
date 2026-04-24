@@ -104,3 +104,4 @@ config.local.json
 
 # AI
 .claude/
+.continue/
