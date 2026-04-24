@@ -13,6 +13,7 @@ export interface TrackMetadata {
     duration: number | null;
     genre: string | null;
     year: string | null;
+    filename: string | null;
 }
 
 class AudioPlayer {

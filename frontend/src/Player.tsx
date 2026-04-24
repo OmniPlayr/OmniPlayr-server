@@ -271,8 +271,10 @@ function Player() {
                 >
                     <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
                     <div className="player-mini-info">
-                        {metadata?.title && (
+                        {metadata?.title ? (
                             <span className="player-mini-title">{metadata.title}</span>
+                        ) : (
+                            <span className="player-mini-title">{metadata?.filename}</span>
                         )}
                         <span className="player-mini-artist">
                             {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
@@ -312,6 +314,8 @@ function Player() {
                         <div className="player-fullscreen-info">
                             {metadata?.title && (
                                 <span className="player-fullscreen-title">{metadata.title}</span>
+                            ) || (
+                                <span className="player-fullscreen-title">{metadata?.filename}</span>
                             )}
                             <span className="player-fullscreen-artist">
                                 {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
@@ -371,10 +375,12 @@ function Player() {
             <div className='player-song-gradient' style={artGradient ? { ...artGradient2 } : undefined}></div>
             <div className="player-song-info">
                 <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
-                {(metadata?.title || metadata?.artist) && (
+                {(metadata?.title || metadata?.artist || metadata?.filename) && (
                     <div className="player-track-info">
                         {metadata?.title && (
                             <span className="player-track-title">{metadata.title}</span>
+                        ) || (
+                            <span className="player-track-title">{metadata?.filename}</span>
                         )}
                         <span className="player-track-artist">
                             {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
