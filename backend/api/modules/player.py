@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from fastapi.responses import StreamingResponse
-from api.helpers.omniplayr import get_plugin
+from backend.api.helpers.plugins import get_plugin
 from api.helpers.server import verify_auth
 
 router = APIRouter()

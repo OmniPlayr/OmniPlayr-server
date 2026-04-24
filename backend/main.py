@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.helpers.db import init_db
 from api.router import router
 from api.helpers.config import load_configs
-from api.helpers.omniplayr import load_plugins, get_plugin_router
+from backend.api.helpers.plugins import load_plugins, get_plugin_router
 from api.helpers.config_watcher import start_config_watcher
 from api.helpers.log import log
  
