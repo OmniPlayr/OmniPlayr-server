@@ -14,6 +14,7 @@ import time
 import subprocess
 import secrets
 import string
+import socket
 
 SETUP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SETUP_DIR)
@@ -250,13 +251,27 @@ def serve_http():
         httpd.serve_forever()
 
 
+def get_device_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
+
 async def main():
     threading.Thread(target=serve_http, daemon=True).start()
-    print("Setup UI available at http://localhost:8080", flush=True)
+
+    ip = get_device_ip()
+    print(f"Setup UI available at http://{ip}:8080", flush=True)
 
     time.sleep(0.5)
     try:
-        webbrowser.open("http://localhost:8080")
+        webbrowser.open(f"http://{ip}:8080")
     except Exception:
         pass
 
@@ -265,6 +280,5 @@ async def main():
     async with websockets.serve(ws_handler, "0.0.0.0", 8765):
         await install_task
         await asyncio.Event().wait()
-
 
 asyncio.run(main())
