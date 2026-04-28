@@ -40,8 +40,8 @@ def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
                 int(frontend.get("year", 0)),
                 int(frontend.get("month", 0)),
                 int(frontend.get("bugfix", 0)),
-                frontend.get("branch", "main"),
             ),
+            "branch": frontend.get("branch", "main"),
             "safe_version": frontend.get("safeVersion", "0.0.0-main"),
         }
 
@@ -53,8 +53,8 @@ def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
         }
 
 def _frontend_version_to_string(v: tuple) -> str:
-    year, month, bugfix, branch = v
-    return f"{year}.{month}.{bugfix}-{branch}"
+    year, month, bugfix = v
+    return f"{year}.{month}.{bugfix}"
 
 def _get_current_info() -> dict:
     config_path = Path("config.json")
@@ -64,7 +64,7 @@ def _get_current_info() -> dict:
         return json.load(f)
 
 def _get_frontend_info() -> dict:
-    path = Path("frontend/src/config/version.toml")
+    path = Path("/frontend/src/config/version.toml")
 
     if not path.exists():
         return {
@@ -85,15 +85,15 @@ def _get_frontend_info() -> dict:
         safe_version = frontend.get("safeVersion", "0.0.0-main")
 
         return {
-            "version_tuple": (year, month, bugfix, branch),
-            "safe_version": safe_version,
+            "version_tuple": (year, month, bugfix),
             "branch": branch,
+            "safe_version": safe_version,
         }
-
+        
     except Exception as e:
         log(f"Frontend TOML parse failed: {e}", "error", "updater")
         return {
-            "version_tuple": (0, 0, 0, "main"),
+            "version_tuple": (0, 0, 0),
             "safe_version": "0.0.0-main",
             "branch": "main",
         }
@@ -141,7 +141,7 @@ def _load_cache() -> dict | None:
         with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT *
+                    SELECT id, last_checked, latest_version, latest_frontend_version, update_available, tarball_url
                     FROM update_cache
                     WHERE id = 1
                 """)
@@ -149,7 +149,6 @@ def _load_cache() -> dict | None:
     except Exception as e:
         log(f"Cache load failed: {e}", "error", "updater")
         return None
-
 
 def _save_cache(latest_backend: str, latest_frontend: str, update_available: bool, tarball_url: str):
     with get_conn() as conn:
@@ -169,6 +168,14 @@ def _save_cache(latest_backend: str, latest_frontend: str, update_available: boo
             )
         conn.commit()
 
+def _cache_get(cache, key, index):
+    try:
+        return cache[key]
+    except Exception:
+        try:
+            return cache[index]
+        except Exception:
+            return None
 
 def check_for_updates(force: bool = False) -> dict:
     current = _get_current_info()
@@ -176,6 +183,8 @@ def check_for_updates(force: bool = False) -> dict:
 
     current_version = current.get("version", "0.0.0")
     branch = current.get("branch", "main")
+    
+    current_frontend_version = _frontend_version_to_string(frontend_current["version_tuple"])
 
     owner, repo = _get_repo()
     if not owner or not repo:
@@ -188,28 +197,36 @@ def check_for_updates(force: bool = False) -> dict:
     interval_hours = get_config("github.check_interval_hours", 24)
     cache = _load_cache()
 
-    if not force and cache and cache["last_checked"]:
-        age = datetime.now(cache["last_checked"].tzinfo) - cache["last_checked"]
-        if age < timedelta(hours=interval_hours):
-            return {
-                "current_version": current_version,
-                "latest_version": cache["latest_version"],
-                "latest_frontend_version": cache["latest_frontend_version"],
-                "update_available": bool(cache["update_available"]),
-                "tarball_url": cache["tarball_url"],
-                "from_cache": True,
-            }
+    if not force and cache:
+        last_checked = _cache_get(cache, "last_checked", 1)
+
+        if last_checked:
+            now = datetime.now()
+
+            if hasattr(last_checked, "tzinfo") and last_checked.tzinfo:
+                now = datetime.now(last_checked.tzinfo)
+
+            age = now - last_checked
+
+            if age < timedelta(hours=interval_hours):
+                return {
+                    "current_version": current_version,
+                    "current_frontend_version": current_frontend_version,
+                    "latest_version": _cache_get(cache, "latest_version", 2),
+                    "latest_frontend_version": _cache_get(cache, "latest_frontend_version", 3),
+                    "update_available": _cache_get(cache, "update_available", 4),
+                    "tarball_url": _cache_get(cache, "tarball_url", 5),
+                    "from_cache": True,
+                }
 
     remote = _fetch_remote_config(owner, repo, branch)
     if remote is None:
         return {"error": "Could not reach GitHub"}
 
     latest_backend = remote.get("version", "0.0.0")
-
     remote_frontend = _fetch_remote_frontend_info(owner, repo, branch)
 
     backend_new = _is_newer(latest_backend, current_version)
-
     frontend_new = remote_frontend["version_tuple"] > frontend_current["version_tuple"]
 
     update_available = backend_new or frontend_new

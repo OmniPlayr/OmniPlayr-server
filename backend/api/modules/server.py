@@ -70,7 +70,7 @@ async def get_server_token(password: Optional[ServerPassword] = Body(None)):
             if not password.password:
                 raise HTTPException(status_code=400, detail="Password is required")
             
-            if not password_check(password.password, stored_password[0]):
+            if not password_check(password.password, stored_password["password"]):
                 raise HTTPException(status_code=400, detail="Invalid password")
             
             response = await create_access_token(password_protected=True, cur=cur)
