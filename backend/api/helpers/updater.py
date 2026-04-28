@@ -255,13 +255,14 @@ def check_for_updates(force: bool = False) -> dict:
         "tarball_url": url,
         "from_cache": False,
     }
-
-def _get_checksum(path: Path) -> str:
-    hash_md5 = hashlib.md5()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+def _get_normalized_hash(path: Path) -> str:
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+        normalized_data = data.replace(b"\r\n", b"\n")
+        return hashlib.md5(normalized_data).hexdigest()
+    except Exception:
+        return ""
 
 def apply_update() -> dict:
     cache = _load_cache()
@@ -293,6 +294,9 @@ def apply_update() -> dict:
                 tar.extractall(extract_path, filter="data")
 
             source_root = next(extract_path.iterdir())
+            
+            with open(source_root / ".gitattributes", "w") as ga:
+                ga.write("* text=auto\n")
 
             backend_source = source_root / "backend"
             frontend_source = source_root / "frontend"
@@ -307,7 +311,7 @@ def apply_update() -> dict:
         if requirements.exists():
             subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(requirements)])
 
-        log("Update applied successfully", "success", "updater")
+        log("Backend and Frontend sync completed", "success", "updater")
         return {"status": "applied"}
 
     except Exception as e:
@@ -327,10 +331,9 @@ def _copy_update(source: Path, dest: Path):
         else:
             should_copy = True
             if target.exists():
-                if item.stat().st_size == target.stat().st_size:
-                    if _get_checksum(item) == _get_checksum(target):
-                        should_copy = False
+                if _get_normalized_hash(item) == _get_normalized_hash(target):
+                    should_copy = False
             
             if should_copy:
                 shutil.copy2(item, target)
-                log(f"Updated file: {target}", "info", "updater")
+                log(f"Updated: {target}", "info", "updater")
