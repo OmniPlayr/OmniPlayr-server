@@ -21,6 +21,10 @@ let access_token = null;
 
 const BACKEND = `http://${location.hostname}:8224/api`;
 
+const openButton = document.getElementById('open-button');
+openButton.addEventListener('click', () => {
+    window.open(`http://${location.hostname}:8223`, '_blank');
+});
 function setTopProgress(stepIndex) {
     topProgressBar.style.width = ((stepIndex + 1) * stepWidth) + '%';
 }

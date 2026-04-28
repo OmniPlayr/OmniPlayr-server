@@ -8,6 +8,7 @@ from api.modules.logs import router as logs_router
 from api.modules.system import router as system_router
 from api.helpers.plugins import get_plugin_router
 from api.modules.server_info import router as server_info
+from api.modules.update import router as update_router
 
 router = APIRouter()
 router.include_router(account_router, prefix="/accounts", tags=["accounts"])
@@ -18,3 +19,4 @@ router.include_router(endpoints_router, prefix="/endpoints", tags=["endpoints"])
 router.include_router(server_info, prefix="/info", tags=["info"])
 router.include_router(logs_router, prefix="/logs", tags=["logs"])
 router.include_router(system_router, prefix="/system", tags=["system"])
+router.include_router(update_router, prefix="/update", tags=["update"])
