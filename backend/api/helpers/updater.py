@@ -8,6 +8,7 @@ import tempfile
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
+import fnmatch
 
 import hashlib
 
@@ -318,22 +319,65 @@ def apply_update() -> dict:
         log(f"Apply update failed: {e}", "error", "updater")
         return {"error": str(e)}
 
-def _copy_update(source: Path, dest: Path):
+def _load_gitignore_file(path: Path) -> list[str]:
+    patterns = []
+
+    if not path.exists():
+        return patterns
+
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+
+            if not line or line.startswith("#"):
+                continue
+
+            patterns.append(line.rstrip("/"))
+    except Exception as e:
+        log(f".gitignore parse failed: {e}", "error", "updater")
+
+    return patterns
+
+
+def _is_ignored(rel_path: str, patterns: list[str]) -> bool:
+    for pattern in patterns:
+        if fnmatch.fnmatch(rel_path, pattern) or rel_path.startswith(pattern):
+            return True
+    return False
+
+
+def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None = None, root: Path | None = None):
     dest.mkdir(parents=True, exist_ok=True)
+
+    if root is None:
+        root = source
+
+    if inherited_patterns is None:
+        inherited_patterns = []
+
+    local_gitignore = _load_gitignore_file(source / ".gitignore")
+    patterns = inherited_patterns + local_gitignore
+
     for item in source.iterdir():
         if item.name in PRESERVED_PATHS or item.is_symlink():
+            continue
+
+        rel = str(item.relative_to(root)).replace("\\", "/")
+
+        if _is_ignored(rel, patterns):
             continue
 
         target = dest / item.name
 
         if item.is_dir():
-            _copy_update(item, target)
+            _copy_update(item, target, patterns, root)
         else:
             should_copy = True
+
             if target.exists():
                 if _get_normalized_hash(item) == _get_normalized_hash(target):
                     should_copy = False
-            
+
             if should_copy:
                 shutil.copy2(item, target)
                 log(f"Updated: {target}", "info", "updater")
