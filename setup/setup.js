@@ -49,13 +49,17 @@ function goToStep(index) {
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = '/assets/favicons/downloading.svg';
     }
+
+    if (index === 5 && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'complete' }));
+    }
 }
 
 function saveSetupState(step) {
     fetch(`${BACKEND}/setup/state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_step: step, completed: true }),
+        body: JSON.stringify({ current_step: step, completed: step === 5 }),
     }).catch(() => {});
 }
 
@@ -242,12 +246,12 @@ function createAccountItem(existing = null) {
         const bid = accountItem.dataset.backendId;
         if (bid) {
             try {
-                await fetch(`${BACKEND}/accounts/${bid}`, { 
+                await fetch(`${BACKEND}/setup/accounts/${bid}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${access_token}`
                     }
-                 });
+                });
                 persistedAccounts.delete(Number(bid));
             } catch (e) {
                 console.warn('Delete failed', e);
@@ -294,9 +298,9 @@ function createAccountItem(existing = null) {
 
 async function patchAccount(id, fields) {
     try {
-        await fetch(`${BACKEND}/accounts/${id}`, {
+        await fetch(`${BACKEND}/setup/accounts/${id}`, {
             method: 'PATCH',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${access_token}`
             },
@@ -415,12 +419,12 @@ async function saveAccounts() {
 
         if (bid) {
             upsertPromises.push(
-                fetch(`${BACKEND}/accounts/${bid}`, {
+                fetch(`${BACKEND}/setup/accounts/${bid}`, {
                     method: 'PATCH',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${access_token}`
-                     },
+                    },
                     body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 }),
                 }).then(async r => {
                     if (r.ok) {
@@ -434,10 +438,10 @@ async function saveAccounts() {
             upsertPromises.push(
                 fetch(`${BACKEND}/accounts/`, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${access_token}`
-                     },
+                    },
                     body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 })
                 }).then(async r => {
                     if (r.ok) {

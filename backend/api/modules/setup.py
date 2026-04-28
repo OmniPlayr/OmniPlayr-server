@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from api.helpers.db import get_conn
+from api.helpers.server import verify_auth
+from api.helpers.account import update_account, delete_account
 
 router = APIRouter()
 
@@ -8,6 +10,12 @@ router = APIRouter()
 class SetupState(BaseModel):
     current_step: int
     completed: bool = False
+
+
+class SetupAccountUpdate(BaseModel):
+    name: str | None = None
+    role: str | None = None
+    avatar_b64: str | None = None
 
 
 def _get_state():
@@ -42,3 +50,27 @@ def get_setup_state():
 @router.post("/state")
 def save_setup_state(body: SetupState):
     return _save_state(body.current_step, body.completed)
+
+
+def _check_setup_not_completed():
+    state = _get_state()
+    if state and state["completed"]:
+        raise HTTPException(status_code=403, detail="Setup is already completed")
+
+
+@router.patch("/accounts/{account_id}")
+def setup_update_account(account_id: int, body: SetupAccountUpdate, auth=Depends(verify_auth)):
+    _check_setup_not_completed()
+    if body.role is not None and body.role not in ("user", "admin"):
+        raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
+    result = update_account(account_id, body.name, body.role, body.avatar_b64)
+    if not result:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return result
+
+
+@router.delete("/accounts/{account_id}", status_code=204)
+def setup_delete_account(account_id: int, auth=Depends(verify_auth)):
+    _check_setup_not_completed()
+    if not delete_account(account_id):
+        raise HTTPException(status_code=404, detail="Account not found")
