@@ -107,20 +107,20 @@ def _get_frontend_info() -> dict:
             "branch": "main",
         }
 
-async def _hard_restart():
+def _hard_restart():
     try:
         if os.path.exists("/.dockerenv") or (
             os.path.exists("/proc/1/cgroup") and "docker" in open("/proc/1/cgroup").read()
         ):
-            await asyncio.create_subprocess_exec(
+            subprocess.Popen([
                 "docker", "restart",
                 "omniplayr_backend",
                 "omniplayr_frontend",
                 "omniplayr_db",
                 "omniplayr_pgadmin"
-            )
+            ])
         else:
-            await asyncio.create_subprocess_exec("reboot")
+            subprocess.Popen(["reboot"])
     except Exception:
         os._exit(1)
 
@@ -348,7 +348,7 @@ def apply_update() -> dict:
 
         log("Backend and Frontend sync completed, restarting system", "success", "updater")
 
-        asyncio.create_task(_hard_restart())
+        _hard_restart()
         return {"status": "restarting"}
 
     except Exception as e:
