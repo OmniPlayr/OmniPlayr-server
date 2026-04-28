@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from api.helpers.admin import verify_admin, get_admin_status
 from api.helpers.log import log
-from api.helpers.server import verify_token
+from api.helpers.server import verify_token, get_token_user
 
 router = APIRouter()
 
@@ -106,9 +106,9 @@ class TerminalCommand(BaseModel):
 
 async def verify_admin_ws(ws: WebSocket):
     token = ws.query_params.get("token")
-    account_id = ws.query_params.get("account_id")
+    account_token = ws.query_params.get("account_token")
 
-    if not token or not account_id:
+    if not token or not account_token:
         await ws.close(code=1008)
         return None
 
@@ -116,8 +116,13 @@ async def verify_admin_ws(ws: WebSocket):
     if not user:
         await ws.close(code=1008)
         return None
+    
+    user_id = get_token_user(account_token)
+    if not user_id:
+        await ws.close(code=1008)
+        return None
 
-    if not get_admin_status(int(account_id)):
+    if not get_admin_status(int(user_id)):
         await ws.close(code=1008)
         return None
 

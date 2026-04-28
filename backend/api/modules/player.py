@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from fastapi.responses import StreamingResponse
-from backend.api.helpers.plugins import get_plugin
-from api.helpers.server import verify_auth
+from api.helpers.plugins import get_plugin
+from api.helpers.server import verify_auth, get_token_user
 
 router = APIRouter()
 
@@ -10,24 +10,24 @@ def _build_stream_url(request: Request, source_type: str, song_id: str) -> str:
     base = str(request.base_url).rstrip("/")
     return f"{base}/api/player/stream/{source_type}:{song_id}"
 
-
 @router.get("/media/{source_type}:{song_id:path}")
-def get_media_info(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_id: int = Header(..., alias="X-Account-Id")):
+def get_media_info(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    account_id = get_token_user(x_account_token)
     plugin = get_plugin(source_type)
     if plugin is None:
         raise HTTPException(status_code=404, detail=f"No plugin registered for source type '{source_type}'")
-    if not plugin.check_ownership(song_id, x_account_id):
+    if not plugin.check_ownership(song_id, account_id):
         raise HTTPException(status_code=403, detail="Access denied")
     try:
-        metadata = plugin.get_metadata(song_id, x_account_id)
+        metadata = plugin.get_metadata(song_id, account_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    file_size = plugin.get_file_size(song_id, x_account_id)
-    content_type = plugin.get_content_type(song_id, x_account_id)
+    file_size = plugin.get_file_size(song_id, account_id)
+    content_type = plugin.get_content_type(song_id, account_id)
     stream_url = _build_stream_url(request, source_type, song_id)
     return {
         "source_type": source_type,
@@ -38,17 +38,17 @@ def get_media_info(source_type: str, song_id: str, request: Request, auth=Depend
         "metadata": metadata,
     }
 
-
 @router.get("/stream/{source_type}:{song_id:path}")
-def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_id: int = Header(..., alias="X-Account-Id")):
+def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    account_id = get_token_user(x_account_token)
     plugin = get_plugin(source_type)
     if plugin is None:
         raise HTTPException(status_code=404, detail=f"No plugin registered for source type '{source_type}'")
-    if not plugin.check_ownership(song_id, x_account_id):
+    if not plugin.check_ownership(song_id, account_id):
         raise HTTPException(status_code=403, detail="Access denied")
     try:
-        file_size = plugin.get_file_size(song_id, x_account_id)
-        content_type = plugin.get_content_type(song_id, x_account_id)
+        file_size = plugin.get_file_size(song_id, account_id)
+        content_type = plugin.get_content_type(song_id, account_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -68,7 +68,7 @@ def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(
             length = end - start + 1
 
             def _ranged_stream():
-                stream = plugin.get_stream(song_id, x_account_id)
+                stream = plugin.get_stream(song_id, account_id)
                 bytes_seen = 0
                 bytes_sent = 0
                 for chunk in stream:
@@ -104,7 +104,7 @@ def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(
             pass
 
     try:
-        stream = plugin.get_stream(song_id, x_account_id)
+        stream = plugin.get_stream(song_id, account_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:

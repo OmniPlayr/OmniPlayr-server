@@ -30,10 +30,10 @@ function Terminal() {
         }
 
         const token = localStorage.getItem('access_token');
-        const accountId = getAccount();
+        const accountToken = getAccount();
 
         const ws = new WebSocket(
-            `${getConfig('api.terminalUrl')}/api/system/terminal/ws?token=${token}&account_id=${accountId}`
+            `${getConfig('api.terminalUrl')}/api/system/terminal/ws?token=${token}&account_token=${accountToken}`
         );
 
         socket.current = ws;

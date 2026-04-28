@@ -43,6 +43,36 @@ def verify_token(access_token: str):
 def verify_auth(creds: HTTPAuthorizationCredentials = Depends(security)):
     return verify_token(creds.credentials)
 
+def match_account(account_id: int, account_token: str, allow_admin_force: bool = False) -> bool:
+    from api.helpers.admin import get_admin_status
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT account_id FROM account_tokens WHERE token = %s AND revoked = false", (account_token,))
+            row = cur.fetchone()
+            if row is None:
+                return False
+
+            token_account_id = row["account_id"]
+
+            if token_account_id == account_id:
+                return True
+
+            if allow_admin_force and get_admin_status(token_account_id):
+                return True
+
+            return False
+
+def get_token_user(token: str):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT account_id FROM account_tokens WHERE token = %s AND revoked = false", (token,))
+            row = cur.fetchone()
+            if row is None:
+                return None
+
+            return row["account_id"]
+
+
 async def create_access_token(password_protected: bool, cur: object, only_access_token: bool = False) -> dict:
     access_token = secrets.token_hex(32) # This returns 64 chars for some random reason, so because we want 64, we have to enter 32 :(
     refresh_token = secrets.token_hex(32)

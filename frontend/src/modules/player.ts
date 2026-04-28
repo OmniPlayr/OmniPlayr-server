@@ -86,11 +86,11 @@ class AudioPlayer {
 
         try {
             const baseUrl = getConfig<string>('api.apiUrl') ?? '';
-            const accountId = getAccount();
+            const accountToken = getAccount();
 
             const headers = {
                 Authorization: `Bearer ${token}`,
-                "X-Account-Id": String(accountId),
+                "X-Account-Token": String(accountToken),
             };
             const encoded = encodeURIComponent(songId);
 

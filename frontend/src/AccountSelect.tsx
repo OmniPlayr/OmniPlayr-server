@@ -8,6 +8,11 @@ async function loadAccounts() {
     return await api("get_accounts") as any[];
 }
 
+async function loginAccount(id: string) {
+    const tokenInfo = await api("/accounts/login", { user_id: id }) as any;
+    storeAccount(tokenInfo?.token);
+}
+
 function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) => void }) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [loaded, setLoaded] = useState(false);
@@ -23,7 +28,7 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
 
     const loadAccount = (id: string) => {
         setSelected(id);
-        storeAccount(id);
+        loginAccount(id);
         setFadingOut(true);
         setTimeout(() => {
             onAccountSelected(id);

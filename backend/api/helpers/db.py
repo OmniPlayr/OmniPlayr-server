@@ -38,6 +38,14 @@ SCHEMA = {
         "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
         "password_protected": "BOOLEAN NOT NULL",
         "revoked": "BOOLEAN NOT NULL DEFAULT FALSE"
+    },
+    "account_tokens": {
+        "id": "SERIAL PRIMARY KEY",
+        "account_id": "INT NOT NULL",
+        "token": "VARCHAR(255) NOT NULL",
+        "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+        "password_protected": "BOOLEAN NOT NULL",
+        "revoked": "BOOLEAN NOT NULL DEFAULT FALSE"
     }
 }
 

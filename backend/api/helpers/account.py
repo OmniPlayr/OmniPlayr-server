@@ -1,4 +1,5 @@
 from api.helpers.db import get_conn
+import secrets
 
 def list_accounts():
     with get_conn() as conn:
@@ -59,7 +60,6 @@ def update_account(account_id: int, name: str | None, role: str | None, avatar_b
         conn.commit()
     return row
 
-
 def delete_account(account_id: int) -> bool:
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -67,3 +67,20 @@ def delete_account(account_id: int) -> bool:
             deleted = cur.fetchone()
         conn.commit()
     return deleted is not None
+
+def create_account_token(account_id: int):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            token = secrets.token_hex(32)
+            cur.execute(
+                "INSERT INTO account_tokens (account_id, token, password_protected) VALUES (%s, %s, %s) RETURNING token",
+                (account_id, token, False),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return {
+        "token": row["token"],
+        "account_id": account_id,
+        "password_protected": False,
+        "message": "Account token created successfully",
+    }

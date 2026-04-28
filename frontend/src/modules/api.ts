@@ -32,15 +32,14 @@ function replaceUrlParams(url: string, params?: object): string {
         return encodeURIComponent(String((params as Record<string, unknown>)[key]));
     });
 }
-
 function buildHeaders(): Record<string, string> {
     const token = localStorage.getItem("access_token");
-    const accountId = getAccount();
+    const accountToken = getAccount();
 
     return {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(accountId ? { "X-Account-Id": String(accountId) } : {}),
+        ...(accountToken ? { "X-Account-Token": String(accountToken) } : {}),
     };
 }
 

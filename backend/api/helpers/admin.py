@@ -1,13 +1,14 @@
 from fastapi import Depends, HTTPException, status, Header
 from api.helpers.db import get_conn
-from api.helpers.server import verify_auth
-
+from api.helpers.server import verify_auth, get_token_user
 def verify_admin(
     auth=Depends(verify_auth),
-    x_account_id: int = Header(..., alias="X-Account-Id"),
+    x_account_token: str = Header(..., alias="X-Account-Token"),
 ) -> bool:
+    
+    account_id = get_token_user(x_account_token)
 
-    if not get_admin_status(x_account_id):
+    if not get_admin_status(account_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"

@@ -63,8 +63,8 @@ function isTokenValid(): boolean {
     return false;
 }
 
-async function loadAccountById(accountId: string) {
-    return await api("get_account", undefined, { account_id: accountId }) as any;
+async function loadAccount() {
+    return await api("get_account", undefined, { account_id: "me" }) as any;
 }
 
 async function loadPlugins(): Promise<void> {
@@ -202,8 +202,7 @@ function AppShell() {
     }, [searchParams]);
 
     useEffect(() => {
-        if (!accountId) return;
-        loadAccountById(accountId).then(fetched => setAccount(fetched));
+        loadAccount().then(fetched => setAccount(fetched));
     }, [accountId]);
 
     const resolvedTabId = resolveActiveTabFromPath(location.pathname) ?? activeTabId;

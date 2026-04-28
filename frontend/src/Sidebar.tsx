@@ -29,17 +29,18 @@ interface SidebarProps {
     onClose?: () => void;
 }
 
+async function loginAccount(id: string) {
+    const tokenInfo = await api("/accounts/login", { user_id: id }) as any;
+    storeAccount(tokenInfo?.token);
+    window.history.pushState({}, '', '/');
+    window.dispatchEvent(new Event('account-switched'));
+}
+
 function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose }: SidebarProps) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
     const [tabs, setTabs] = useState<PluginTab[]>([]);
     usePlugins();
-
-    function loadAccount(id: string) {
-        storeAccount(id);
-        window.history.pushState({}, '', '/');
-        window.dispatchEvent(new Event('account-switched'));
-    }
 
     useEffect(() => {
         loadAccounts().then(fetched => {
@@ -107,7 +108,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose }: Sidebar
                                 <div className="user-switch-account" onClick={openAccountSelect}>
                                     <div className="account-select__dash">
                                         {accounts.map((acc: any) => (
-                                            <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loadAccount(acc.id)}>
+                                            <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loginAccount(acc.id)}>
                                                 <img draggable="false" className="user-avatar" src={acc.avatar_b64 || defaultPfp} alt={acc.name} />
                                                 <div className="user-info">
                                                     <p className="user-name">{acc.name}</p>
