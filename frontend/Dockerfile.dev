@@ -5,8 +5,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-COPY config/api.toml ./config/api.toml
+COPY . .
 
-EXPOSE 8223
-
-CMD sh -c "IP=$(hostname -i | awk '{print $1}') && sed -i \"s|http://localhost:8224|http://$IP:8224|g; s|ws://localhost:8224|ws://$IP:8224|g\" config/api.toml && npm run dev -- --host --port 8223 --force"
+CMD sh -c "IP=$(hostname -i | awk '{print $1}') && sed -i \"s|http://localhost:8224|http://$IP:8224|g; s|ws://localhost:8224|ws://$IP:8224|g\" src/config/api.toml && npm run dev -- --host --port 8223 --force"
