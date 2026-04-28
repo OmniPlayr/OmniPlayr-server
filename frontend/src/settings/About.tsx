@@ -165,7 +165,7 @@ function About({ updateAvailable, onRefreshCheck }: any) {
 
     const handleCheck = async () => {
         setLoading(true);
-        await api("check_update");
+        await api("/update/check");
         onRefreshCheck(); 
         setLoading(false);
     };
@@ -173,7 +173,7 @@ function About({ updateAvailable, onRefreshCheck }: any) {
     const handleApply = async () => {
         if (!confirm("The server will restart to apply the update. Proceed?")) return;
         setLoading(true);
-        await api("apply_update", {}, {});
+        await api("/update/apply", {}, {});
         alert("Update applied. The server is restarting.");
         window.location.reload();
     };
