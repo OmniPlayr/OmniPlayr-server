@@ -17,6 +17,8 @@ from api.helpers.db import get_conn
 from api.helpers.log import log
 import tomllib
 
+import asyncio
+
 BACKEND_PRESERVED = {
     "plugins",
     "config",
@@ -104,6 +106,23 @@ def _get_frontend_info() -> dict:
             "safe_version": "0.0.0",
             "branch": "main",
         }
+
+async def _hard_restart():
+    try:
+        if os.path.exists("/.dockerenv") or (
+            os.path.exists("/proc/1/cgroup") and "docker" in open("/proc/1/cgroup").read()
+        ):
+            await asyncio.create_subprocess_exec(
+                "docker", "restart",
+                "omniplayr_backend",
+                "omniplayr_frontend",
+                "omniplayr_db",
+                "omniplayr_pgadmin"
+            )
+        else:
+            await asyncio.create_subprocess_exec("reboot")
+    except Exception:
+        os._exit(1)
 
 def _frontend_version_to_string(v: tuple) -> str:
     year, month, bugfix = v
@@ -327,8 +346,10 @@ def apply_update() -> dict:
         if requirements.exists():
             subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(requirements)])
 
-        log("Backend and Frontend sync completed", "success", "updater")
-        return {"status": "applied"}
+        log("Backend and Frontend sync completed, restarting system", "success", "updater")
+
+        asyncio.create_task(_hard_restart())
+        return {"status": "restarting"}
 
     except Exception as e:
         log(f"Apply update failed: {e}", "error", "updater")
