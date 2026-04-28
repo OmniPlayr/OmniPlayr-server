@@ -25,6 +25,15 @@ PRESERVED_PATHS = {
     ".safe_mode",
 }
 
+def _normalize_version_str(v: str) -> str:
+    try:
+        if not v:
+            return v
+        return v.split("-")[0]
+    except Exception:
+        return v
+
+
 def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
     url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/frontend/src/config/version.toml"
 
@@ -38,6 +47,8 @@ def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
 
         frontend = data.get("version", {}).get("frontend", {})
 
+        safe_version = _normalize_version_str(frontend.get("safeVersion", "0.0.0-main"))
+
         return {
             "version_tuple": (
                 int(frontend.get("year", 0)),
@@ -45,34 +56,24 @@ def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
                 int(frontend.get("bugfix", 0)),
             ),
             "branch": frontend.get("branch", "main"),
-            "safe_version": frontend.get("safeVersion", "0.0.0-main"),
+            "safe_version": safe_version,
         }
 
     except Exception as e:
         log(f"Failed to fetch remote frontend version: {e}", "error", "updater")
         return {
             "version_tuple": (0, 0, 0, "main"),
-            "safe_version": "0.0.0-main",
+            "safe_version": "0.0.0",
         }
 
-def _frontend_version_to_string(v: tuple) -> str:
-    year, month, bugfix = v
-    return f"{year}.{month}.{bugfix}"
-
-def _get_current_info() -> dict:
-    config_path = Path("config.json")
-    if not config_path.exists():
-        return {"version": "0.0.0", "branch": "main"}
-    with open(config_path) as f:
-        return json.load(f)
 
 def _get_frontend_info() -> dict:
     path = Path("/frontend/src/config/version.toml")
 
     if not path.exists():
         return {
-            "version_tuple": (0, 0, 0, "main"),
-            "safe_version": "0.0.0-main",
+            "version_tuple": (0, 0, 0),
+            "safe_version": "0.0.0",
             "branch": "main",
         }
 
@@ -85,21 +86,32 @@ def _get_frontend_info() -> dict:
         month = int(frontend.get("month", 0))
         bugfix = int(frontend.get("bugfix", 0))
         branch = frontend.get("branch", "main")
-        safe_version = frontend.get("safeVersion", "0.0.0-main")
+        safe_version = _normalize_version_str(frontend.get("safeVersion", "0.0.0-main"))
 
         return {
             "version_tuple": (year, month, bugfix),
             "branch": branch,
             "safe_version": safe_version,
         }
-        
+
     except Exception as e:
         log(f"Frontend TOML parse failed: {e}", "error", "updater")
         return {
             "version_tuple": (0, 0, 0),
-            "safe_version": "0.0.0-main",
+            "safe_version": "0.0.0",
             "branch": "main",
         }
+
+def _frontend_version_to_string(v: tuple) -> str:
+    year, month, bugfix = v
+    return f"{year}.{month}.{bugfix}"
+
+def _get_current_info() -> dict:
+    config_path = Path("config.json")
+    if not config_path.exists():
+        return {"version": "0.0.0", "branch": "main"}
+    with open(config_path) as f:
+        return json.load(f)
 
 def _parse_version(v: str) -> tuple:
     try:
@@ -187,7 +199,7 @@ def check_for_updates(force: bool = False) -> dict:
     current_version = current.get("version", "0.0.0")
     branch = current.get("branch", "main")
     
-    current_frontend_version = _frontend_version_to_string(frontend_current["version_tuple"])
+    current_frontend_version = _normalize_version_str(_frontend_version_to_string(frontend_current["version_tuple"]))
 
     owner, repo = _get_repo()
     if not owner or not repo:
@@ -214,9 +226,9 @@ def check_for_updates(force: bool = False) -> dict:
             if age < timedelta(hours=interval_hours):
                 return {
                     "current_version": current_version,
-                    "current_frontend_version": current_frontend_version,
                     "latest_version": _cache_get(cache, "latest_version", 2),
-                    "latest_frontend_version": _cache_get(cache, "latest_frontend_version", 3),
+                    "latest_frontend_version": _normalize_version_str(_cache_get(cache, "latest_frontend_version", 3)),
+                    "current_frontend_version": current_frontend_version,
                     "update_available": _cache_get(cache, "update_available", 4),
                     "tarball_url": _cache_get(cache, "tarball_url", 5),
                     "from_cache": True,
@@ -251,7 +263,7 @@ def check_for_updates(force: bool = False) -> dict:
     return {
         "current_version": current_version,
         "latest_version": latest_backend,
-        "latest_frontend_version": remote_frontend["safe_version"],
+        "latest_frontend_version": _normalize_version_str(remote_frontend["safe_version"]),
         "update_available": update_available,
         "tarball_url": url,
         "from_cache": False,
