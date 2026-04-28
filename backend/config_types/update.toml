@@ -1,0 +1,4 @@
+[github]
+owner = "str"
+repo = "str"
+check_interval_hours = "int"

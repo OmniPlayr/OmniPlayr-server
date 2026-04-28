@@ -73,3 +73,29 @@
         display: none;
     }
 }
+
+.header-update-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: var(--clr-primary-a0);
+    color: var(--clr-text-white-a0);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.header-update-badge:hover {
+    transform: scale(1.05);
+}
+
+.spin-hover {
+    transition: transform 0.5s ease;
+}
+
+.header-update-badge:hover .spin-hover {
+    transform: rotate(180deg);
+}

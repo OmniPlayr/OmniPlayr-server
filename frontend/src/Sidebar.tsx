@@ -27,6 +27,7 @@ interface SidebarProps {
     onTabChange: (tabId: string | null) => void;
     isOpen?: boolean;
     onClose?: () => void;
+    updateAvailable?: boolean;
 }
 
 async function loginAccount(id: string) {
@@ -36,7 +37,7 @@ async function loginAccount(id: string) {
     window.dispatchEvent(new Event('account-switched'));
 }
 
-function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose }: SidebarProps) {
+function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, updateAvailable }: SidebarProps) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
     const [tabs, setTabs] = useState<PluginTab[]>([]);
@@ -92,9 +93,10 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose }: Sidebar
                                 </div>
                             );
                         })}
-                        <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => handleTabChange("__settings")}>
+                        <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => onTabChange("__settings")}>
                             <Settings className="tab-icon" />
                             <p className="tab-text">Settings</p>
+                            {updateAvailable && <span className="update-badge">1</span>}
                         </div>
                     </div>
                     <div className="sidebar-user">

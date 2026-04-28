@@ -23,7 +23,7 @@ import PowerOptions from "./settings/PowerOptions";
 import TerminalPage from "./settings/Terminal";
 import Colors from "./settings/Colors";
 
-function Settings({ account }: any) {
+function Settings({ account, updateAvailable, onRefreshCheck }: any) {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -68,7 +68,7 @@ function Settings({ account }: any) {
             icon: Info,
             title: "About",
             description: "Version information, credits, and more",
-            component: () => <About />
+            component: () => <About updateAvailable={updateAvailable} onRefreshCheck={onRefreshCheck} />
         }
     ];
 

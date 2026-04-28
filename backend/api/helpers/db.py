@@ -46,6 +46,14 @@ SCHEMA = {
         "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
         "password_protected": "BOOLEAN NOT NULL",
         "revoked": "BOOLEAN NOT NULL DEFAULT FALSE"
+    },
+    "update_cache": {
+        "id": "INT PRIMARY KEY DEFAULT 1",
+        "last_checked": "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+        "latest_version": "VARCHAR(50) NOT NULL DEFAULT '0.0.0'",
+        "latest_frontend_version": "VARCHAR(50) NOT NULL DEFAULT '0.0.0'",
+        "update_available": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "tarball_url": "TEXT"
     }
 }
 

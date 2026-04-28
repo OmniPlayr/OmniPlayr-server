@@ -7,9 +7,10 @@ interface BottomNavProps {
     onSettings: () => void;
     activeTabId: string | null;
     isMenuOpen: boolean;
+    updateAvailable?: boolean;
 }
 
-function BottomNav({ onMenuToggle, onHome, onSettings, activeTabId, isMenuOpen }: BottomNavProps) {
+function BottomNav({ onMenuToggle, onHome, onSettings, activeTabId, isMenuOpen, updateAvailable }: BottomNavProps) {
     return (
         <nav className="bottom-nav">
             <div className="bottom-nav-item" onClick={onMenuToggle}>
@@ -26,12 +27,10 @@ function BottomNav({ onMenuToggle, onHome, onSettings, activeTabId, isMenuOpen }
             >
                 <House className="bottom-nav-icon" />
             </div>
-
-            <div
-                className={`bottom-nav-item${activeTabId === '__settings' ? ' active' : ''}`}
-                onClick={onSettings}
-            >
+    
+            <div className={`bottom-nav-item${activeTabId === '__settings' ? ' active' : ''}`} onClick={onSettings}>
                 <Settings className="bottom-nav-icon" />
+                {updateAvailable && <span className="update-badge">1</span>}
             </div>
         </nav>
     );

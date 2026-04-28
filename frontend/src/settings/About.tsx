@@ -2,7 +2,7 @@ import '../styles/settings/About.css';
 import api from '../modules/api';
 import { useEffect, useRef, useState } from 'react';
 import { getConfig } from '../modules/config';
-import { ArrowRight, TriangleAlert, WifiOff } from 'lucide-react';
+import { ArrowRight, TriangleAlert, WifiOff, RefreshCw } from 'lucide-react';
 
 const GITHUB_CACHE_KEY = 'omniplayr_github_info';
 
@@ -156,11 +156,27 @@ function VersionBlock({ title, current, latest }: VersionBlockProps) {
     );
 }
 
-function About() {
+function About({ updateAvailable, onRefreshCheck }: any) {
     const [serverInfo, setServerInfo] = useState<any>(null);
     const [githubInfo, setGithubInfo] = useState<any>(null);
     const [githubStale, setGithubStale] = useState(false);
     const githubFetched = useRef(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleCheck = async () => {
+        setLoading(true);
+        await api("check_update");
+        onRefreshCheck(); 
+        setLoading(false);
+    };
+
+    const handleApply = async () => {
+        if (!confirm("The server will restart to apply the update. Proceed?")) return;
+        setLoading(true);
+        await api("apply_update", {}, {});
+        alert("Update applied. The server is restarting.");
+        window.location.reload();
+    };
 
     useEffect(() => {
         loadServerInfo().then(setServerInfo);
@@ -197,6 +213,31 @@ function About() {
 
     return (
         <>
+            <div className="about-version">
+                <div className="about-version-title">System Update</div>
+                <div className="about-version-divider" />
+                <div className="about-version-value">
+                    <b>Status:</b> 
+                    {updateAvailable ? (
+                        <span className="about-version-update month">Update Available</span>
+                    ) : (
+                        "Up to date"
+                    )}
+                </div>
+                <div className="about-update-controls">
+                    {updateAvailable ? (
+                        <button className="btn-update primary" onClick={handleApply} disabled={loading}>
+                            {loading && <RefreshCw className="loading-icon" size={14} />}
+                            Install Now
+                        </button>
+                    ) : (
+                        <button className="btn-update secondary" onClick={handleCheck} disabled={loading}>
+                            {loading && <RefreshCw className="loading-icon" size={14} />}
+                            Check for Updates
+                        </button>
+                    )}
+                </div>
+            </div>
             <div className="about-section">
                 <div className='about-left'>
                     <h1 className='about-title'>Version & Credits</h1>

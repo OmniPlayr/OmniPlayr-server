@@ -108,16 +108,30 @@ function AppShell() {
     const isMobile = useIsMobile();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [safeMode, setSafeMode] = useState(false);
+    const [updateAvailable, setUpdateAvailable] = useState(false);
 
     const [activeTabId, setActiveTabId] = useState<string | null>(() =>
         resolveActiveTabFromPath(location.pathname)
     );
+
+    const checkUpdates = async (force = false) => {
+        try {
+            const res = await api(`/update/check${force ? '?force=true' : ''}`) as any;
+            if (res?.update_available) setUpdateAvailable(true);
+            else setUpdateAvailable(false);
+        } catch (e) {
+            console.error("Update check failed", e);
+        }
+    };
 
     const [navHistory, setNavHistory] = useState<string[]>([location.pathname]);
     const [historyIndex, setHistoryIndex] = useState(0);
 
     useEffect(() => {
         if (!isAuth) return;
+        api("check_update").then((res: any) => {
+            if (res?.update_available) setUpdateAvailable(true);
+        }).catch(() => {});
         initSafeMode().then(sm => {
             setSafeMode(sm);
             if (!sm) {
@@ -220,6 +234,8 @@ function AppShell() {
                             onBack={goBack}
                             onForward={goForward}
                             safeMode={safeMode}
+                            updateAvailable={updateAvailable}
+                            onUpdateClick={() => navigate('/settings/about')}
                         />
                     )}
                     <div className="dashboard-hor">
@@ -231,6 +247,7 @@ function AppShell() {
                                 onSettings={() => handleTabChange('__settings')}
                                 activeTabId={resolvedTabId}
                                 isMenuOpen={sidebarOpen}
+                                updateAvailable={updateAvailable}
                             />
                             <Player />
                             </>
@@ -240,6 +257,7 @@ function AppShell() {
                                 account={account}
                                 activeTabId={resolvedTabId}
                                 onTabChange={handleTabChange}
+                                updateAvailable={updateAvailable}
                             />
                         )}
                         {isMobile && (
@@ -257,7 +275,7 @@ function AppShell() {
                             ) : (
                                 <Routes>
                                     <Route path="/" element={<Dashboard />} />
-                                    <Route path="/settings/*" element={<Settings account={account} />} />
+                                    <Route path="/settings/*" element={<Settings account={account} updateAvailable={updateAvailable} onRefreshCheck={() => checkUpdates(true)} />} />
                                     <Route path="/dashboard" element={<Dashboard />} />
                                     {getRoutes().map(({ path, component: Component }) => (
                                         <Route key={path} path={path} element={<Component />} />

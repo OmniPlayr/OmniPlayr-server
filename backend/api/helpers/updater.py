@@ -12,6 +12,7 @@ from pathlib import Path
 from api.helpers.config import get_config
 from api.helpers.db import get_conn
 from api.helpers.log import log
+import tomllib
 
 PRESERVED_PATHS = {
     "plugins",
@@ -21,6 +22,39 @@ PRESERVED_PATHS = {
     ".safe_mode",
 }
 
+def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
+    url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/frontend/src/config/version.toml"
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "OmniPlayr-Updater/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read().decode("utf-8")
+
+        import tomllib
+        data = tomllib.loads(raw)
+
+        frontend = data.get("version", {}).get("frontend", {})
+
+        return {
+            "version_tuple": (
+                int(frontend.get("year", 0)),
+                int(frontend.get("month", 0)),
+                int(frontend.get("bugfix", 0)),
+                frontend.get("branch", "main"),
+            ),
+            "safe_version": frontend.get("safeVersion", "0.0.0-main"),
+        }
+
+    except Exception as e:
+        log(f"Failed to fetch remote frontend version: {e}", "error", "updater")
+        return {
+            "version_tuple": (0, 0, 0, "main"),
+            "safe_version": "0.0.0-main",
+        }
+
+def _frontend_version_to_string(v: tuple) -> str:
+    year, month, bugfix, branch = v
+    return f"{year}.{month}.{bugfix}-{branch}"
 
 def _get_current_info() -> dict:
     config_path = Path("config.json")
@@ -29,6 +63,40 @@ def _get_current_info() -> dict:
     with open(config_path) as f:
         return json.load(f)
 
+def _get_frontend_info() -> dict:
+    path = Path("frontend/src/config/version.toml")
+
+    if not path.exists():
+        return {
+            "version_tuple": (0, 0, 0, "main"),
+            "safe_version": "0.0.0-main",
+            "branch": "main",
+        }
+
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+
+        frontend = data.get("version", {}).get("frontend", {})
+
+        year = int(frontend.get("year", 0))
+        month = int(frontend.get("month", 0))
+        bugfix = int(frontend.get("bugfix", 0))
+        branch = frontend.get("branch", "main")
+        safe_version = frontend.get("safeVersion", "0.0.0-main")
+
+        return {
+            "version_tuple": (year, month, bugfix, branch),
+            "safe_version": safe_version,
+            "branch": branch,
+        }
+
+    except Exception as e:
+        log(f"Frontend TOML parse failed: {e}", "error", "updater")
+        return {
+            "version_tuple": (0, 0, 0, "main"),
+            "safe_version": "0.0.0-main",
+            "branch": "main",
+        }
 
 def _parse_version(v: str) -> tuple:
     try:
@@ -39,6 +107,10 @@ def _parse_version(v: str) -> tuple:
 
 def _is_newer(latest: str, current: str) -> bool:
     return _parse_version(latest) > _parse_version(current)
+
+
+def _is_frontend_newer(latest: tuple, current: tuple) -> bool:
+    return latest > current
 
 
 def _get_repo() -> tuple:
@@ -68,32 +140,40 @@ def _load_cache() -> dict | None:
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM update_cache WHERE id = 1")
+                cur.execute("""
+                    SELECT *
+                    FROM update_cache
+                    WHERE id = 1
+                """)
                 return cur.fetchone()
-    except Exception:
+    except Exception as e:
+        log(f"Cache load failed: {e}", "error", "updater")
         return None
 
 
-def _save_cache(latest_version: str, update_available: bool, tarball_url: str):
+def _save_cache(latest_backend: str, latest_frontend: str, update_available: bool, tarball_url: str):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO update_cache (id, last_checked, latest_version, update_available, tarball_url)
-                VALUES (1, NOW(), %s, %s, %s)
+                INSERT INTO update_cache (id, last_checked, latest_version, latest_frontend_version, update_available, tarball_url)
+                VALUES (1, NOW(), %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     last_checked = NOW(),
                     latest_version = EXCLUDED.latest_version,
+                    latest_frontend_version = EXCLUDED.latest_frontend_version,
                     update_available = EXCLUDED.update_available,
                     tarball_url = EXCLUDED.tarball_url
                 """,
-                (latest_version, update_available, tarball_url),
+                (latest_backend, latest_frontend, update_available, tarball_url),
             )
         conn.commit()
 
 
 def check_for_updates(force: bool = False) -> dict:
     current = _get_current_info()
+    frontend_current = _get_frontend_info()
+
     current_version = current.get("version", "0.0.0")
     branch = current.get("branch", "main")
 
@@ -102,7 +182,7 @@ def check_for_updates(force: bool = False) -> dict:
         return {
             "current_version": current_version,
             "update_available": False,
-            "error": "GitHub repository not configured. Set github.owner and github.repo in config/update.toml",
+            "error": "GitHub repository not configured",
         }
 
     interval_hours = get_config("github.check_interval_hours", 24)
@@ -114,50 +194,53 @@ def check_for_updates(force: bool = False) -> dict:
             return {
                 "current_version": current_version,
                 "latest_version": cache["latest_version"],
+                "latest_frontend_version": cache["latest_frontend_version"],
                 "update_available": bool(cache["update_available"]),
                 "tarball_url": cache["tarball_url"],
-                "last_checked": cache["last_checked"].isoformat(),
                 "from_cache": True,
             }
 
     remote = _fetch_remote_config(owner, repo, branch)
     if remote is None:
-        result = {
-            "current_version": current_version,
-            "update_available": False,
-            "error": "Could not reach GitHub to check for updates",
-        }
-        if cache and cache["last_checked"]:
-            result["last_checked"] = cache["last_checked"].isoformat()
-            result["latest_version"] = cache["latest_version"]
-            result["update_available"] = bool(cache["update_available"])
-        return result
+        return {"error": "Could not reach GitHub"}
 
-    latest_version = remote.get("version", "0.0.0")
-    update_available = _is_newer(latest_version, current_version)
+    latest_backend = remote.get("version", "0.0.0")
+
+    remote_frontend = _fetch_remote_frontend_info(owner, repo, branch)
+
+    backend_new = _is_newer(latest_backend, current_version)
+
+    frontend_new = remote_frontend["version_tuple"] > frontend_current["version_tuple"]
+
+    update_available = backend_new or frontend_new
     url = _tarball_url(owner, repo, branch)
 
-    _save_cache(latest_version, update_available, url)
+    _save_cache(
+        latest_backend,
+        remote_frontend["safe_version"],
+        update_available,
+        url,
+    )
+
     log(
-        f"Update check: current={current_version}, latest={latest_version}, update_available={update_available}",
+        f"Update check backend={backend_new} frontend={frontend_new}",
         "info",
         "updater",
     )
 
     return {
         "current_version": current_version,
-        "latest_version": latest_version,
+        "latest_version": latest_backend,
+        "latest_frontend_version": remote_frontend["safe_version"],
         "update_available": update_available,
         "tarball_url": url,
-        "last_checked": datetime.now().isoformat(),
         "from_cache": False,
     }
-
 
 def apply_update() -> dict:
     cache = _load_cache()
     if not cache:
-        return {"error": "No update info available. Run a check first."}
+        return {"error": "No update info available"}
     if not cache["update_available"]:
         return {"error": "No update available"}
 
@@ -169,49 +252,37 @@ def apply_update() -> dict:
             tmp_path = Path(tmp_dir)
             tarball_path = tmp_path / "update.tar.gz"
 
-            log(f"Downloading update from {tarball_url}", "info", "updater")
-            req = urllib.request.Request(tarball_url, headers={"User-Agent": "OmniPlayr-Updater/1.0"})
+            req = urllib.request.Request(tarball_url)
             with urllib.request.urlopen(req, timeout=120) as resp:
                 with open(tarball_path, "wb") as f:
                     shutil.copyfileobj(resp, f)
 
-            log("Extracting update archive", "info", "updater")
             extract_path = tmp_path / "extracted"
             extract_path.mkdir()
 
             with tarfile.open(tarball_path, "r:gz") as tar:
                 tar.extractall(extract_path, filter="data")
 
-            extracted_dirs = list(extract_path.iterdir())
-            if not extracted_dirs:
-                return {"error": "Update archive is empty"}
+            source_root = list(extract_path.iterdir())[0]
 
-            source_root = extracted_dirs[0]
             backend_source = source_root / "backend"
-            if backend_source.exists():
-                source_root = backend_source
+            frontend_source = source_root / "frontend"
 
-            log("Applying update files", "info", "updater")
-            _copy_update(source_root, app_dir)
+            if backend_source.exists():
+                _copy_update(backend_source, app_dir)
+
+            if frontend_source.exists():
+                _copy_update(frontend_source, Path("/frontend"))
 
         requirements = app_dir / "requirements.txt"
         if requirements.exists():
-            log("Installing updated dependencies", "info", "updater")
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-r", str(requirements), "--quiet"],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                log(f"Dependency install warning: {result.stderr}", "warning", "updater")
+            subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(requirements)])
 
-        _save_cache(cache["latest_version"], False, cache["tarball_url"])
-        log(f"Update to {cache['latest_version']} applied successfully", "success", "updater")
-        return {"status": "applied", "version": cache["latest_version"]}
+        log("Update applied (backend + frontend)", "success", "updater")
+        return {"status": "applied"}
 
     except Exception as e:
-        log(f"Update apply failed: {e}", "error", "updater")
-        return {"error": f"Update failed: {str(e)}"}
+        return {"error": str(e)}
 
 
 def _copy_update(source: Path, dest: Path):
@@ -220,10 +291,12 @@ def _copy_update(source: Path, dest: Path):
             continue
         if item.is_symlink():
             continue
-        dest_item = dest / item.name
+
+        target = dest / item.name
+
         if item.is_dir():
-            if dest_item.exists():
-                shutil.rmtree(dest_item)
-            shutil.copytree(item, dest_item, symlinks=False)
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(item, target, symlinks=False)
         else:
-            shutil.copy2(item, dest_item)
+            shutil.copy2(item, target)
