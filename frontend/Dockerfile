@@ -7,7 +7,7 @@ RUN npm ci
 
 COPY . .
 
-RUN IP=$(hostname -i | awk '{print $1}') && \
+RUN IP=$(ip route | awk 'NR==1 {print $3}') && \
     sed -i "s|http://localhost:8224|http://$IP:8224|g; s|ws://localhost:8224|ws://$IP:8224|g" src/config/api.toml
 
 RUN npm run build

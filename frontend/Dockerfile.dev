@@ -2,9 +2,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache iproute2
+
 COPY package*.json ./
 RUN npm install
 
 COPY . .
 
-CMD sh -c "IP=$(hostname -i | awk '{print $1}') && sed -i \"s|http://localhost:8224|http://$IP:8224|g; s|ws://localhost:8224|ws://$IP:8224|g\" src/config/api.toml && npm run dev -- --host --port 8223 --force"
+CMD sh -c "IP=$(ip route | awk 'NR==1 {print $3}') && sed -i \"s|http://localhost:8224|http://$IP:8224|g; s|ws://localhost:8224|ws://$IP:8224|g\" src/config/api.toml && npm run dev -- --host --port 8223 --force"
