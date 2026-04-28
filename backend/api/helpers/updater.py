@@ -9,6 +9,8 @@ import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import hashlib
+
 from api.helpers.config import get_config
 from api.helpers.db import get_conn
 from api.helpers.log import log
@@ -254,6 +256,13 @@ def check_for_updates(force: bool = False) -> dict:
         "from_cache": False,
     }
 
+def _get_checksum(path: Path) -> str:
+    hash_md5 = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
 def apply_update() -> dict:
     cache = _load_cache()
     if not cache:
@@ -298,7 +307,7 @@ def apply_update() -> dict:
         if requirements.exists():
             subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(requirements)])
 
-        log("Update applied (backend + frontend)", "success", "updater")
+        log("Update applied successfully", "success", "updater")
         return {"status": "applied"}
 
     except Exception as e:
@@ -316,4 +325,12 @@ def _copy_update(source: Path, dest: Path):
         if item.is_dir():
             _copy_update(item, target)
         else:
-            shutil.copy2(item, target)
+            should_copy = True
+            if target.exists():
+                if item.stat().st_size == target.stat().st_size:
+                    if _get_checksum(item) == _get_checksum(target):
+                        should_copy = False
+            
+            if should_copy:
+                shutil.copy2(item, target)
+                log(f"Updated file: {target}", "info", "updater")
