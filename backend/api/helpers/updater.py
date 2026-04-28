@@ -17,12 +17,15 @@ from api.helpers.db import get_conn
 from api.helpers.log import log
 import tomllib
 
-PRESERVED_PATHS = {
+BACKEND_PRESERVED = {
     "plugins",
     "config",
     "config.local.json",
     "logs",
     ".safe_mode",
+}
+
+FRONTEND_PRESERVED = {
 }
 
 def _normalize_version_str(v: str) -> str:
@@ -315,10 +318,10 @@ def apply_update() -> dict:
             frontend_source = source_root / "frontend"
 
             if backend_source.exists():
-                _copy_update(backend_source, app_dir)
+                _copy_update(backend_source, app_dir, preserved=BACKEND_PRESERVED)
 
             if frontend_source.exists():
-                _copy_update(frontend_source, Path("/frontend"))
+                _copy_update(frontend_source, Path("/frontend"), preserved=FRONTEND_PRESERVED)
 
         requirements = app_dir / "requirements.txt"
         if requirements.exists():
@@ -358,7 +361,7 @@ def _is_ignored(rel_path: str, patterns: list[str]) -> bool:
     return False
 
 
-def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None = None, root: Path | None = None):
+def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None = None, root: Path | None = None, preserved: set[str] | None = None):
     dest.mkdir(parents=True, exist_ok=True)
 
     if root is None:
@@ -371,7 +374,7 @@ def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None 
     patterns = inherited_patterns + local_gitignore
 
     for item in source.iterdir():
-        if item.name in PRESERVED_PATHS or item.is_symlink():
+        if item.is_symlink() or (preserved and item.name in preserved):
             continue
 
         rel = str(item.relative_to(root)).replace("\\", "/")
