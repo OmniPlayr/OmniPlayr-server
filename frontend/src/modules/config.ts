@@ -29,6 +29,17 @@ function convertType(value: TomlValue, typeStr: string): TomlValue {
             if (typeof value !== "object" || Array.isArray(value) || value === null)
                 throw new Error(`Expected dict, got ${typeof value}`);
             return value;
+        case "eval": {
+            if (typeof value !== "string") {
+                throw new Error(`Expected string for eval, got ${typeof value}`);
+            }
+
+            try {
+                return Function(`return (${value})`)();
+            } catch (e) {
+                throw new Error(`Eval failed: ${(e as Error).message}`);
+            }
+        }
         default:
             throw new Error(`Unknown type: ${t}`);
     }
@@ -71,6 +82,44 @@ function stemFromPath(path: string): string {
     return path.split("/").pop()!.replace(/\.toml$/, "");
 }
 
+function resolvePlaceholdersObject(value: TomlObject): TomlObject {
+    const resolve = (v: TomlValue): TomlValue => {
+        if (typeof v === "string") {
+            return v.replace(/\{([^}]+)\}/g, (_, expr) => {
+                try {
+                    return String(Function(`return (${expr})`)());
+                } catch (e) {
+                    throw new Error(
+                        `Eval failed in {${expr}} -> ${(e as Error).message}`
+                    );
+                }
+            });
+        }
+
+        if (Array.isArray(v)) {
+            return v.map(resolve);
+        }
+
+        if (v && typeof v === "object") {
+            const out: TomlObject = {};
+            for (const k in v) {
+                out[k] = resolve(v[k]);
+            }
+            return out;
+        }
+
+        return v;
+    };
+
+    const out: TomlObject = {};
+    for (const k in value) {
+        out[k] = resolve(value[k]);
+    }
+    return out;
+}
+function shouldResolveEval(typeData: TomlObject): boolean {
+    return JSON.stringify(typeData).includes('"eval"');
+}
 export function loadConfigs(): void {
     _loadedConfigs = {};
 
@@ -79,12 +128,19 @@ export function loadConfigs(): void {
 
     for (const [cfgPath, raw] of Object.entries(configs)) {
         const stem = stemFromPath(cfgPath);
-        const configData = toml.parse(raw) as TomlObject;
+
+        let configData = toml.parse(raw) as TomlObject;
 
         const typePath = `/src/config_types/${stem}.toml`;
+
         if (typePath in types) {
             const typeData = toml.parse(types[typePath]) as TomlObject;
+
             validateAgainstTypes(configData, typeData);
+
+            if (shouldResolveEval(typeData)) {
+                configData = resolvePlaceholdersObject(configData);
+            }
         }
 
         _loadedConfigs[stem] = configData;

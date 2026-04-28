@@ -1,5 +1,6 @@
 [api]
-apiUrl = "string"
+apiUrl = "eval"
+terminalUrl = "eval"
 
 [accounts]
 accountStore = "string <in ['sessionStorage', 'localStorage']>"
