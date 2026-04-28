@@ -258,10 +258,13 @@ def apply_update() -> dict:
     cache = _load_cache()
     if not cache:
         return {"error": "No update info available"}
-    if not cache["update_available"]:
+    
+    update_available = cache.get("update_available") if isinstance(cache, dict) else cache[4]
+    tarball_url = cache.get("tarball_url") if isinstance(cache, dict) else cache[5]
+    
+    if not update_available:
         return {"error": "No update available"}
 
-    tarball_url = cache["tarball_url"]
     app_dir = Path("/app")
 
     try:
@@ -280,7 +283,7 @@ def apply_update() -> dict:
             with tarfile.open(tarball_path, "r:gz") as tar:
                 tar.extractall(extract_path, filter="data")
 
-            source_root = list(extract_path.iterdir())[0]
+            source_root = next(extract_path.iterdir())
 
             backend_source = source_root / "backend"
             frontend_source = source_root / "frontend"
@@ -299,21 +302,18 @@ def apply_update() -> dict:
         return {"status": "applied"}
 
     except Exception as e:
+        log(f"Apply update failed: {e}", "error", "updater")
         return {"error": str(e)}
 
-
 def _copy_update(source: Path, dest: Path):
+    dest.mkdir(parents=True, exist_ok=True)
     for item in source.iterdir():
-        if item.name in PRESERVED_PATHS:
-            continue
-        if item.is_symlink():
+        if item.name in PRESERVED_PATHS or item.is_symlink():
             continue
 
         target = dest / item.name
 
         if item.is_dir():
-            if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(item, target, symlinks=False)
+            _copy_update(item, target)
         else:
             shutil.copy2(item, target)
