@@ -172,39 +172,41 @@ def _get_host_compose_dir(container_compose_dir: str) -> str:
 def _hard_restart():
     log("Initiating hard restart", "debug", "updater")
     try:
-        compose_dir = get_config("paths.compose_dir", "/compose")
-        log(f"compose_dir resolved to {compose_dir!r}", "debug", "updater")
-
-        in_docker = os.path.exists("/.dockerenv") or (
-            os.path.exists("/proc/1/cgroup") and "docker" in open("/proc/1/cgroup").read()
-        )
-        log(f"Running in Docker: {in_docker}", "debug", "updater")
+        in_docker = os.path.exists("/.dockerenv")
 
         if in_docker:
-            host_compose_dir = _get_host_compose_dir(compose_dir)
+            result = subprocess.run(
+                ["docker", "inspect", "omniplayr_backend", "--format",
+                 "{{index .Config.Labels \"com.docker.compose.project.working_dir\"}}"],
+                capture_output=True, text=True, check=True
+            )
+            host_compose_dir = result.stdout.strip()
+
+            if not host_compose_dir:
+                raise RuntimeError("Could not read compose working dir from container labels")
+
+            log(f"Resolved host compose dir from labels: {host_compose_dir!r}", "debug", "updater")
 
             update_cmd = (
-                f"cd {compose_dir} && "
+                f"cd '{host_compose_dir}' && "
                 f"docker compose down --remove-orphans --timeout 30 && "
                 f"docker rm -f omniplayr_db omniplayr_frontend omniplayr_backend omniplayr_pgadmin 2>/dev/null || true && "
                 f"docker compose build backend && "
                 f"docker compose up -d"
             )
 
-            log(f"Spawning detached update container", "debug", "updater")
             subprocess.Popen([
                 "docker", "run", "--rm",
                 "--name", "omniplayr_updater",
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
-                "-v", f"{host_compose_dir}:{compose_dir}",
-                "--workdir", compose_dir,
+                "-v", f"{host_compose_dir}:{host_compose_dir}",
+                "--workdir", host_compose_dir,
                 "docker:latest",
                 "sh", "-c", update_cmd,
             ])
-            log("Detached update container spawned, backend will now shut down", "debug", "updater")
+            log("Detached update container spawned", "debug", "updater")
 
         else:
-            log("Not in Docker, issuing system reboot", "debug", "updater")
             subprocess.Popen(["reboot"])
 
     except Exception as e:
