@@ -27,6 +27,10 @@ ROOT_PRESERVED = {
     ".gitignore",
     ".gitattributes",
     "README.md",
+    "db",
+    "logs",
+    "user_storage",
+    ".env",
 }
 
 BACKEND_PRESERVED = {
