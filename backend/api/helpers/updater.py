@@ -129,6 +129,30 @@ def _get_frontend_info() -> dict:
             "branch": "main",
         }
 
+def _get_host_compose_dir(container_compose_dir: str) -> str:
+    try:
+        with open("/proc/self/cgroup") as f:
+            for line in f:
+                if "docker" in line:
+                    container_id = line.strip().split("/")[-1]
+                    break
+
+        result = subprocess.run(
+            ["docker", "inspect", container_id],
+            capture_output=True, text=True, check=True
+        )
+        data = json.loads(result.stdout)[0]
+        host_path = next(
+            m["Source"] for m in data["Mounts"]
+            if m["Destination"] == container_compose_dir
+        )
+        log(f"Resolved host compose dir: {host_path!r}", "debug", "updater")
+        return host_path
+    except Exception as e:
+        log(f"Failed to resolve host compose dir: {e}, falling back to container path", "error", "updater")
+        return container_compose_dir
+
+
 def _hard_restart():
     log("Initiating hard restart", "debug", "updater")
     try:
@@ -141,29 +165,23 @@ def _hard_restart():
         log(f"Running in Docker: {in_docker}", "debug", "updater")
 
         if in_docker:
-            try:
-                subprocess.run(["docker", "compose", "version"], check=True, capture_output=True)
-                compose_cmd = "docker compose"
-                log("Using docker compose (v2)", "debug", "updater")
-            except Exception:
-                compose_cmd = "docker-compose"
-                log("Falling back to docker-compose (v1)", "debug", "updater")
+            host_compose_dir = _get_host_compose_dir(compose_dir)
 
             update_cmd = (
                 f"cd {compose_dir} && "
-                f"{compose_cmd} down && "
-                f"{compose_cmd} build backend && "
-                f"{compose_cmd} up -d"
+                f"docker-compose down && "
+                f"docker-compose build backend && "
+                f"docker-compose up -d"
             )
 
             log(f"Spawning detached update container", "debug", "updater")
             subprocess.Popen([
-                "docker", "run", "--rm",
+                "docker", "run",
                 "--name", "omniplayr_updater",
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
-                "-v", f"{compose_dir}:{compose_dir}",
+                "-v", f"{host_compose_dir}:{compose_dir}",
                 "--workdir", compose_dir,
-                "ghcr.io/linuxserver/docker-compose",
+                "docker/compose:latest",
                 "sh", "-c", update_cmd,
             ])
             log("Detached update container spawned, backend will now shut down", "debug", "updater")
