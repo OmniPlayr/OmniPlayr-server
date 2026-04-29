@@ -123,6 +123,12 @@ function Player() {
 
     const prevVolume = useRef(player.volume > 0 ? player.volume : 1);
 
+    const fsRef = useRef<HTMLDivElement>(null);
+    const fsDragStart = useRef(0);
+    const fsDragY = useRef(0);
+    const fsIsDragging = useRef(false);
+    const fsIsClosing = useRef(false);
+
     usePlugins();
 
     useEffect(() => {
@@ -189,6 +195,46 @@ function Player() {
             document.removeEventListener('pointerup', onPointerUp);
         };
     }, [duration]);
+
+    useEffect(() => {
+        if (!fsRef.current || fsIsClosing.current) return;
+        fsRef.current.style.transition = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+        fsRef.current.style.transform = isFullscreen ? 'translateY(0)' : 'translateY(100%)';
+    }, [isFullscreen]);
+
+    const handleFsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if ((e.target as HTMLElement).closest('.fs-progress-bar')) return;
+        fsIsDragging.current = true;
+        fsDragStart.current = e.clientY;
+        fsDragY.current = 0;
+        if (fsRef.current) fsRef.current.style.transition = 'none';
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    };
+
+    const handleFsPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!fsIsDragging.current || !fsRef.current) return;
+        const dy = Math.max(0, e.clientY - fsDragStart.current);
+        fsDragY.current = dy;
+        fsRef.current.style.transform = `translateY(${dy}px)`;
+    };
+
+    const handleFsPointerUp = () => {
+        if (!fsIsDragging.current || !fsRef.current) return;
+        fsIsDragging.current = false;
+        const dy = fsDragY.current;
+        if (dy > window.innerHeight * 0.28) {
+            fsIsClosing.current = true;
+            fsRef.current.style.transition = 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)';
+            fsRef.current.style.transform = 'translateY(100%)';
+            setTimeout(() => {
+                fsIsClosing.current = false;
+                setIsFullscreen(false);
+            }, 380);
+        } else {
+            fsRef.current.style.transition = 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            fsRef.current.style.transform = 'translateY(0)';
+        }
+    };
 
     const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!progressBarRef.current) return;
@@ -293,11 +339,15 @@ function Player() {
                     </div>
                 </div>
                 <div
-                    className={`player-fullscreen${isFullscreen ? ' active' : ''}`}
+                    className="player-fullscreen"
+                    ref={fsRef}
                     style={{ background: fullscreenBg }}
                     data-component="Player-Fullscreen"
                     data-playing-id={player.currentSongId}
                     data-source-type={player.currentSourceType}
+                    onPointerDown={handleFsPointerDown}
+                    onPointerMove={handleFsPointerMove}
+                    onPointerUp={handleFsPointerUp}
                 >
                     <div
                         className="player-fullscreen-close"

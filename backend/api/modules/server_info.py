@@ -3,6 +3,8 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 import json
 import os
+import base64
+import mimetypes
 
 from urllib.parse import quote
 
@@ -90,11 +92,9 @@ def get_plugins():
         "frontend": frontend_plugins
     }
 
-
 @router.get("/plugin-file")
 def get_plugin_file(plugin: str, file: str, frontend: bool = False):
     base_path = get_plugin_base(plugin, frontend)
-
     target_file = (base_path / file).resolve()
 
     try:
@@ -106,4 +106,8 @@ def get_plugin_file(plugin: str, file: str, frontend: bool = False):
     if not target_file.exists() or not target_file.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
-    return FileResponse(target_file)
+    mime_type, _ = mimetypes.guess_type(target_file)
+    with open(target_file, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode("utf-8")
+
+    return { "data": encoded, "mime_type": mime_type or "application/octet-stream" }

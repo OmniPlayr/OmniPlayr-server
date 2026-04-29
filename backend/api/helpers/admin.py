@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status, Header
 from api.helpers.db import get_conn
 from api.helpers.server import verify_auth, get_token_user
+from api.helpers.log import log
 def verify_admin(
     auth=Depends(verify_auth),
     x_account_token: str = Header(..., alias="X-Account-Token"),
@@ -9,11 +10,13 @@ def verify_admin(
     account_id = get_token_user(x_account_token)
 
     if not get_admin_status(account_id):
+        log(f"Unauthorized admin access by {account_id}", "debug", "admin")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
-
+    
+    log(f"Authorized admin access by {account_id}", "debug", "admin")
     return True
 
 def get_admin_status(account_id: int) -> bool:
@@ -26,6 +29,7 @@ def get_admin_status(account_id: int) -> bool:
             row = cur.fetchone()
 
     if row is None:
+        log(f"Account not found for admin check {account_id}", "debug", "admin")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Account not found"

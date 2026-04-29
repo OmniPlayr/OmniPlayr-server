@@ -22,6 +22,7 @@ import Logs from "./settings/Logs";
 import PowerOptions from "./settings/PowerOptions";
 import TerminalPage from "./settings/Terminal";
 import Colors from "./settings/Colors";
+import Plugins from "./settings/Plugins";
 
 function Settings({ account, updateAvailable, onRefreshCheck }: any) {
     const navigate = useNavigate();
@@ -41,7 +42,7 @@ function Settings({ account, updateAvailable, onRefreshCheck }: any) {
             icon: Blocks,
             title: "Plugins",
             description: "Modify your OmniPlayr experience by using plugins",
-            component: () => <div>Plugins</div>,
+            component: () => <Plugins />,
             condition: () => account?.role === "admin"
         },
         {
@@ -205,9 +206,14 @@ function Settings({ account, updateAvailable, onRefreshCheck }: any) {
                             >
                                 <Icon className="settings-option-icon" />
                                 <div className="settings-tab-info">
-                                    <p className="settings-tab-title">{tab.title}</p>
+                                    <p className="settings-tab-title">
+                                        {tab.title}
+                                    </p>
                                     <p className="settings-tab-description">{tab.description}</p>
                                 </div>
+                                {tab.id === "about" && updateAvailable && (
+                                    <span className="update-badge-about">1</span>
+                                )}
                             </div>
                         );
                     })}

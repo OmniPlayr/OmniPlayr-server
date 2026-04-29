@@ -258,7 +258,7 @@
 
 .update-badge {
     background-color: var(--clr-danger-a0);
-    color: var(--clr-text-white-a0);
+    color: var(--clr-text-light-a0);
     font-size: 10px;
     font-weight: 800;
     width: 16px;

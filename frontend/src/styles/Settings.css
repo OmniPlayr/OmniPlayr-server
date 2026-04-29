@@ -24,6 +24,7 @@
     color: var(--clr-text-a0);
     background-color: var(--clr-popup-a10);
     border: 1px solid var(--clr-popup-a30);
+    position: relative;
 }
 
 .settings-tab:hover {
@@ -139,4 +140,21 @@
 .settings-toggle-item-description {
     font-size: 14px;
     color: var(--clr-text-a30);
+}
+
+.update-badge-about {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 10px;
+    background-color: var(--clr-danger-a0);
+    color: var(--clr-text-light-a0) !important;
+    font-size: 12px;
+    font-weight: 800;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

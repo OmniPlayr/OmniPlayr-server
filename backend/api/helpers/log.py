@@ -21,8 +21,8 @@ LEVEL_COLORS = {
     "critical":"\033[38;5;201m",
 }
 RESET = "\033[0m"
-BOLD  = "\033[1m"
-DIM   = "\033[2m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
 
 LEVEL_LABELS = {
     "debug": "DBG",
@@ -90,10 +90,17 @@ def _caller_info() -> str:
     return "unknown"
 
 
+_DEV_MODE: bool = os.environ.get("DEV_MODE", "").lower() == "true"
+
+
 def log(message: str, level: str = "info", source: str | None = None) -> None:
+    if level == "debug" and not _DEV_MODE:
+        return
+
     _init_from_config()
 
     level = level.lower()
+
     label = LEVEL_LABELS.get(level, level.upper()[:3])
     color = LEVEL_COLORS.get(level, "")
 
