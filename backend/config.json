@@ -1,8 +1,8 @@
 {
-    "version": "2026.4.25",
-    "safeVersion": "2026.4.25-dev",
+    "version": "2026.4.26",
+    "safeVersion": "2026.4.26-dev",
     "year": 2026,
     "month": 4,
-    "bugfix": 25,
+    "bugfix": 26,
     "branch": "dev"
 }
