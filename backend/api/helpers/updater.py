@@ -141,14 +141,26 @@ def _hard_restart():
         log(f"Running in Docker: {in_docker}", "debug", "updater")
 
         if in_docker:
-            log(f"Spawning docker-compose up --build -d in {compose_dir!r}", "debug", "updater")
+            log(f"Building image via docker-compose build in {compose_dir!r}", "debug", "updater")
+            result = subprocess.run(
+                ["docker-compose", "build"],
+                cwd=compose_dir,
+            )
+            log(f"docker-compose build exited with code {result.returncode}", "debug", "updater")
+
+            if result.returncode != 0:
+                log("docker-compose build failed, aborting restart", "error", "updater")
+                return
+
+            log("Build complete, starting container via docker-compose up -d", "debug", "updater")
             subprocess.Popen(
-                ["docker-compose", "up", "--build", "-d"],
+                ["docker-compose", "up", "-d"],
                 cwd=compose_dir,
             )
         else:
             log("Not in Docker, issuing system reboot", "debug", "updater")
             subprocess.Popen(["reboot"])
+
     except Exception:
         log("Hard restart failed, calling os._exit(1)", "error", "updater")
         os._exit(1)
