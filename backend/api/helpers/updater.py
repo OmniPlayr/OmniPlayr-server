@@ -168,9 +168,10 @@ def _hard_restart():
 
             update_cmd = (
                 f"cd {compose_dir} && "
-                f"docker compose -p compose down && "
-                f"docker compose -p compose build backend && "
-                f"docker compose -p compose up -d"
+                f"docker compose down --remove-orphans --timeout 30 && "
+                f"docker rm -f omniplayr_db omniplayr_frontend omniplayr_backend omniplayr_pgadmin 2>/dev/null || true && "
+                f"docker compose build backend && "
+                f"docker compose up -d"
             )
 
             log(f"Spawning detached update container", "debug", "updater")
