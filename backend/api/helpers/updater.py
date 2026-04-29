@@ -382,17 +382,26 @@ def _is_ignored(rel_path: str, patterns: list[str]) -> bool:
     return False
 
 
-def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None = None, root: Path | None = None, preserved: set[str] | None = None):
+def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None = None, root: Path | None = None, preserved: set[str] | None = None, dest_inherited_patterns: list[str] | None = None, dest_root: Path | None = None):
     dest.mkdir(parents=True, exist_ok=True)
 
     if root is None:
         root = source
 
+    if dest_root is None:
+        dest_root = dest
+
     if inherited_patterns is None:
         inherited_patterns = []
 
+    if dest_inherited_patterns is None:
+        dest_inherited_patterns = []
+
     local_gitignore = _load_gitignore_file(source / ".gitignore")
     patterns = inherited_patterns + local_gitignore
+
+    dest_local_gitignore = _load_gitignore_file(dest / ".gitignore")
+    dest_patterns = dest_inherited_patterns + dest_local_gitignore
 
     for item in source.iterdir():
         if item.is_symlink() or (preserved and item.name in preserved):
@@ -404,9 +413,13 @@ def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None 
             continue
 
         target = dest / item.name
+        dest_rel = str(target.relative_to(dest_root)).replace("\\", "/")
+
+        if _is_ignored(dest_rel, dest_patterns):
+            continue
 
         if item.is_dir():
-            _copy_update(item, target, patterns, root)
+            _copy_update(item, target, patterns, root, preserved, dest_patterns, dest_root)
         else:
             should_copy = True
 
