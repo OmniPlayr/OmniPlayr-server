@@ -58,11 +58,15 @@ SCHEMA = {
 }
 
 def get_conn():
+    log("Opening new database connection", "debug", "db")
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 # This checks if the sql is safe, because we dont want sql injection
 def is_safe_sql_identifier(name):
-    return re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name) is not None
+    result = re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name) is not None
+    if not result:
+        log(f"Unsafe SQL identifier detected: {name!r}", "critical", "db")
+    return result
 
 def parse_column_type(definition):
     definition = definition.strip()
@@ -83,11 +87,14 @@ def parse_column_type(definition):
     
     for schema_type, pg_type in type_map.items():
         if base_type.startswith(schema_type):
+            log(f"Parsed column type {base_type!r} -> {pg_type!r}", "debug", "db")
             return pg_type
     
+    log(f"No mapping found for column type {base_type!r}, returning lowercased", "debug", "db")
     return base_type.lower()
 
 def can_convert_column(cur, table, col, from_type, to_type):
+    log(f"Checking if {table}.{col} can be converted from {from_type!r} to {to_type!r}", "debug", "db")
     try:
         cur.execute(f"""
             SELECT COUNT(*) as total,
@@ -95,8 +102,10 @@ def can_convert_column(cur, table, col, from_type, to_type):
             FROM {table}
         """)
         counts = cur.fetchone()
+        log(f"{table}.{col}: total={counts['total']} non_null={counts['non_null']}", "debug", "db")
         
         if counts['total'] == 0:
+            log(f"{table}.{col}: empty table, conversion is safe", "debug", "db")
             return True
         
         if to_type in ['integer', 'bigint', 'smallint']:
@@ -106,7 +115,9 @@ def can_convert_column(cur, table, col, from_type, to_type):
                 WHERE {col} IS NULL OR {col}::text ~ '^-?[0-9]+$'
             """)
             result = cur.fetchone()
-            return result['convertible'] == counts['total']
+            safe = result['convertible'] == counts['total']
+            log(f"{table}.{col}: integer conversion safe={safe} convertible={result['convertible']}/{counts['total']}", "debug", "db")
+            return safe
         
         if to_type == 'boolean':
             cur.execute(f"""
@@ -116,7 +127,9 @@ def can_convert_column(cur, table, col, from_type, to_type):
                       LOWER({col}::text) IN ('true', 'false', 't', 'f', '1', '0', 'yes', 'no', 'y', 'n')
             """)
             result = cur.fetchone()
-            return result['convertible'] == counts['total']
+            safe = result['convertible'] == counts['total']
+            log(f"{table}.{col}: boolean conversion safe={safe}", "debug", "db")
+            return safe
         
         if to_type in ['timestamp with time zone', 'timestamp without time zone']:
             cur.execute(f"""
@@ -134,27 +147,37 @@ def can_convert_column(cur, table, col, from_type, to_type):
                         WHERE {col} IS NOT NULL
                         LIMIT 1
                     """)
+                    log(f"{table}.{col}: timestamp conversion appears safe", "debug", "db")
                     return True
                 except:
+                    log(f"{table}.{col}: timestamp conversion failed on test row", "warning", "db")
                     return False
+            log(f"{table}.{col}: no non-null values, timestamp conversion safe", "debug", "db")
             return True
         
+        log(f"{table}.{col}: no specific check for type {to_type!r}, assuming safe", "debug", "db")
         return True
         
     except Exception as e:
-        log(f"Error checking conversion for {table}.{col}: {e}", "error")
+        log(f"Error checking conversion for {table}.{col}: {e}", "error", "db")
         return False
 
 def init_db():
+    log("Initializing database schema", "debug", "db")
     try:
         conn = get_conn()
         cur = conn.cursor()
         
+        log(f"Processing {len(SCHEMA)} table(s): {list(SCHEMA.keys())}", "debug", "db")
+        
         for table, columns in SCHEMA.items():
+            log(f"Processing table: {table!r}", "debug", "db")
             if not is_safe_sql_identifier(table):
+                log(f"Unsafe table name rejected: {table!r}", "critical", "db")
                 raise ValueError(f"Unsafe table name detected: {table}")
 
             cur.execute(f"CREATE TABLE IF NOT EXISTS {table} (id SERIAL PRIMARY KEY)")
+            log(f"Table {table!r} ensured to exist", "debug", "db")
 
             cur.execute("""
                 SELECT column_name, data_type, column_default, is_nullable
@@ -162,20 +185,26 @@ def init_db():
                 WHERE table_name = %s
             """, (table,))
             existing = {row['column_name']: row for row in cur.fetchall()}
+            log(f"Table {table!r} has {len(existing)} existing column(s): {list(existing.keys())}", "debug", "db")
 
             for col, definition in columns.items():
                 if not is_safe_sql_identifier(col):
+                    log(f"Unsafe column name rejected: {table}.{col}", "critical", "db")
                     raise ValueError(f"Unsafe column name detected: {table}.{col}")
                 if ";" in definition:
+                    log(f"Semicolon detected in column definition for {table}.{col}, rejecting", "critical", "db")
                     raise ValueError(f"Unsafe column definition detected for {table}.{col}")
 
                 if col not in existing:
+                    log(f"Column {table}.{col} does not exist, adding: {definition}", "debug", "db")
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
+                    log(f"Column {table}.{col} added", "debug", "db")
                 else:
                     existing_type = existing[col]['data_type']
                     target_type = parse_column_type(definition)
                     
                     if existing_type != target_type:
+                        log(f"Type mismatch on {table}.{col}: existing={existing_type!r} target={target_type!r}", "debug", "db")
                         if can_convert_column(cur, table, col, existing_type, target_type):
                             try:
                                 cur.execute("SAVEPOINT type_migration")
@@ -188,6 +217,8 @@ def init_db():
                                 log(f"Failed to migrate {table}.{col} from {existing_type} to {target_type}: {e}", "error")
                         else:
                             log(f"Cannot safely migrate {table}.{col} from {existing_type} to {target_type} - data would be lost", "warning")
+                    else:
+                        log(f"Column {table}.{col} type matches ({existing_type}), no migration needed", "debug", "db")
                     
                     is_primary_key = "PRIMARY KEY" in definition.upper()
                     schema_requires_not_null = "NOT NULL" in definition.upper()
@@ -195,12 +226,15 @@ def init_db():
                     
                     if not is_primary_key:
                         if schema_requires_not_null and not column_is_not_null:
+                            log(f"Schema requires NOT NULL on {table}.{col} but column is nullable, checking rows", "debug", "db")
                             cur.execute(f"""
                                 SELECT COUNT(*) as nulls
                                 FROM {table}
                                 WHERE {col} IS NULL
                             """)
-                            if cur.fetchone()['nulls'] == 0:
+                            null_count = cur.fetchone()['nulls']
+                            log(f"{table}.{col} has {null_count} NULL row(s)", "debug", "db")
+                            if null_count == 0:
                                 try:
                                     cur.execute("SAVEPOINT not_null_add")
                                     cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} SET NOT NULL")
@@ -212,6 +246,7 @@ def init_db():
                             else:
                                 log(f"Cannot set NOT NULL on {table}.{col} - column contains NULL values", "warning")
                         elif not schema_requires_not_null and column_is_not_null:
+                            log(f"Schema does not require NOT NULL on {table}.{col} but column has it, dropping constraint", "debug", "db")
                             try:
                                 cur.execute("SAVEPOINT not_null_drop")
                                 cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} DROP NOT NULL")
@@ -222,6 +257,7 @@ def init_db():
                                 log(f"Failed to drop NOT NULL on {table}.{col}: {e}", "error")
 
         # This makes sure there is something in the setup_state table
+        log("Ensuring setup_state default row exists", "debug", "db")
         cur.execute("""
             INSERT INTO setup_state (id, current_step, completed)
             VALUES (1, 0, FALSE)
@@ -229,6 +265,7 @@ def init_db():
         """)
         
         # This makes sure that there is something in the server table
+        log("Ensuring server default row exists", "debug", "db")
         cur.execute("""
             INSERT INTO server (id, password, pass_https)
             VALUES (1, NULL, FALSE)
@@ -238,7 +275,9 @@ def init_db():
         conn.commit()
         cur.close()
         conn.close()
+        log("Database initialization completed successfully", "debug", "db")
     except Exception as e:
+        log(f"Database initialization failed: {e}", "critical", "db")
         user_warn("Database initialization failed. Please restore an old backup or reinstall the server. Check the logs for more details.")
         log(f"Database initialization failed: {e}", "error")
         raise

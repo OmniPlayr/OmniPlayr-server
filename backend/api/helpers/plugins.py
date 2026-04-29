@@ -8,6 +8,7 @@ import toml
 from typing import Callable, Any
 
 from fastapi import APIRouter
+from api.helpers.log import log
 
 _registry: dict[str, "PluginBase"] = {}
 _plugin_router = APIRouter()
@@ -15,34 +16,42 @@ _plugin_router = APIRouter()
 _plugin_configs: dict[str, dict] = {}
 
 def _load_plugin_config(plugin_key: str) -> dict:
+    log(f"Loading plugin config for {plugin_key!r}", "debug", "plugins")
     if plugin_key in _plugin_configs:
+        log(f"Plugin config for {plugin_key!r} is cached, returning cached", "debug", "plugins")
         return _plugin_configs[plugin_key]
 
     plugin_dir = Path("plugins") / plugin_key
     config_file = plugin_dir / "config.toml"
 
     if not config_file.exists():
+        log(f"No config.toml for plugin {plugin_key!r}, using empty config", "debug", "plugins")
         _plugin_configs[plugin_key] = {}
         return {}
 
     data = toml.load(config_file)
     _plugin_configs[plugin_key] = data
+    log(f"Plugin config for {plugin_key!r} loaded with {len(data)} key(s)", "debug", "plugins")
     return data
 
 
 def get_plugin_config(plugin_key: str, key_path: str, default=None):
+    log(f"Getting plugin config: plugin={plugin_key!r} key={key_path!r}", "debug", "plugins")
     config = _load_plugin_config(plugin_key)
     parts = key_path.split(".")
     val = config
     try:
         for part in parts:
             val = val[part]
+        log(f"Plugin config key {key_path!r} found for {plugin_key!r}", "debug", "plugins")
         return val
     except (KeyError, TypeError):
+        log(f"Plugin config key {key_path!r} not found for {plugin_key!r}, using default={default!r}", "debug", "plugins")
         return default
 
 
 def reload_plugin_config(plugin_key: str):
+    log(f"Reloading plugin config for {plugin_key!r}", "debug", "plugins")
     _plugin_configs.pop(plugin_key, None)
     return _load_plugin_config(plugin_key)
 
@@ -88,32 +97,48 @@ api = _Api(_plugin_router)
 
 
 def register(plugin: PluginBase):
+    log(f"Registering plugin source_type={plugin.source_type!r}", "debug", "plugins")
+    if plugin.source_type in _registry:
+        log(f"Plugin source_type={plugin.source_type!r} already registered, overwriting", "warning", "plugins")
     _registry[plugin.source_type] = plugin
+    log(f"Plugin {plugin.source_type!r} registered successfully", "debug", "plugins")
 
 
 def get_plugin(source_type: str) -> PluginBase | None:
-    return _registry.get(source_type)
+    log(f"Looking up plugin for source_type={source_type!r}", "debug", "plugins")
+    plugin = _registry.get(source_type)
+    if plugin is None:
+        log(f"No plugin found for source_type={source_type!r}", "debug", "plugins")
+    else:
+        log(f"Plugin found for source_type={source_type!r}: {type(plugin).__name__}", "debug", "plugins")
+    return plugin
 
 
 def get_plugin_router() -> APIRouter:
+    log("Returning plugin router", "debug", "plugins")
     return _plugin_router
 
 
 def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
+    log(f"Checking dependencies for plugin {plugin_key!r}", "debug", "plugins")
     pkg_file = plugin_dir / "package.json"
     if not pkg_file.exists():
+        log(f"No package.json for plugin {plugin_key!r}, skipping dependency install", "debug", "plugins")
         return
 
     try:
         with open(pkg_file) as f:
             pkg = json.load(f)
     except Exception as e:
-        print(f"[WARN] Could not read {pkg_file}: {e}", flush=True)
+        log(f"Could not read {pkg_file} for plugin {plugin_key!r}: {e}", "warning", "plugins")
         return
 
     python_deps: dict = pkg.get("pythonDependencies", {})
     if not python_deps:
+        log(f"No pythonDependencies in package.json for plugin {plugin_key!r}", "debug", "plugins")
         return
+
+    log(f"Plugin {plugin_key!r} requires {len(python_deps)} python dependency/ies: {list(python_deps.keys())}", "debug", "plugins")
 
     def _to_pip_spec(name: str, ver: str) -> str:
         if ver in ("*", "^*", ""):
@@ -137,6 +162,7 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
         return f"{name}{ver}"
 
     specs = [_to_pip_spec(name, ver) for name, ver in python_deps.items()]
+    log(f"Installing pip specs for plugin {plugin_key!r}: {specs}", "debug", "plugins")
 
     try:
         result = subprocess.run(
@@ -145,35 +171,41 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
             text=True,
         )
         if result.returncode != 0:
-            print(f"[ERROR] pip failed for '{plugin_key}':\n{result.stderr}", flush=True)
+            log(f"pip install failed for plugin {plugin_key!r}:\n{result.stderr}", "error", "plugins")
         else:
-            print(f"[OK] installed deps for '{plugin_key}'", flush=True)
+            log(f"Dependencies installed successfully for plugin {plugin_key!r}", "debug", "plugins")
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to install deps for '{plugin_key}': {e}", flush=True)
+        log(f"Failed to install dependencies for plugin {plugin_key!r}: {e}", "error", "plugins")
 
 
 def load_plugins():
+    log("Loading plugins", "debug", "plugins")
     plugins_dir = Path("plugins")
     plugins_dir.mkdir(exist_ok=True)
 
     config_path = Path("config.local.json")
     if not config_path.exists():
+        log("config.local.json not found, no plugins to load", "debug", "plugins")
         return
 
     with open(config_path) as f:
         config = json.load(f)
 
     declared: dict = config.get("plugins", {})
+    log(f"Found {len(declared)} declared plugin(s): {list(declared.keys())}", "debug", "plugins")
 
     for plugin_key in declared:
+        log(f"Attempting to load plugin {plugin_key!r}", "debug", "plugins")
         plugin_dir = plugins_dir / plugin_key
         init_file = plugin_dir / "__init__.py"
         if not init_file.exists():
+            log(f"Plugin {plugin_key!r} has no __init__.py at {init_file}, skipping", "warning", "plugins")
             continue
 
         _install_plugin_dependencies(plugin_key, plugin_dir)
 
         module_name = f"plugins.{plugin_key.replace('@', '_').replace('-', '_')}"
+        log(f"Loading plugin {plugin_key!r} as module {module_name!r}", "debug", "plugins")
 
         spec = importlib.util.spec_from_file_location(
             module_name,
@@ -181,6 +213,7 @@ def load_plugins():
             submodule_search_locations=[str(plugin_dir)],
         )
         if spec is None or spec.loader is None:
+            log(f"Could not create module spec for plugin {plugin_key!r}, skipping", "error", "plugins")
             continue
 
         mod = importlib.util.module_from_spec(spec)
@@ -189,13 +222,20 @@ def load_plugins():
 
         try:
             spec.loader.exec_module(mod)
+            log(f"Plugin module {plugin_key!r} executed successfully", "debug", "plugins")
         except Exception as e:
-            print(f"[ERROR] Failed to load plugin '{plugin_key}': {e}", flush=True)
+            log(f"Failed to load plugin {plugin_key!r}: {e}", "error", "plugins")
             sys.modules.pop(module_name, None)
             continue
 
         if hasattr(mod, "setup"):
+            log(f"Calling setup() for plugin {plugin_key!r}", "debug", "plugins")
             try:
                 mod.setup()
+                log(f"Plugin {plugin_key!r} setup() completed", "debug", "plugins")
             except Exception as e:
-                print(f"[ERROR] Plugin '{plugin_key}' setup() failed: {e}", flush=True)
+                log(f"Plugin {plugin_key!r} setup() failed: {e}", "error", "plugins")
+        else:
+            log(f"Plugin {plugin_key!r} has no setup(), skipping", "debug", "plugins")
+
+    log(f"Plugin loading complete. Registered plugins: {list(_registry.keys())}", "debug", "plugins")
