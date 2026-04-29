@@ -611,8 +611,9 @@ def apply_update() -> dict:
         log("No update available in cache, aborting", "debug", "updater")
         return {"error": "No update available"}
 
-    compose_dir = Path(get_config("paths.compose_dir", "/compose"))
-    log(f"compose_dir={compose_dir}", "debug", "updater")
+    raw_compose_dir = get_config("paths.compose_dir", "/compose")
+    compose_dir = Path(_to_linux_path(raw_compose_dir))
+    log(f"compose_dir={compose_dir} (raw={raw_compose_dir!r})", "debug", "updater")
 
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
