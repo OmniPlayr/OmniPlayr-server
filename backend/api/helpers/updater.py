@@ -133,41 +133,15 @@ def _get_frontend_info() -> dict:
             "branch": "main",
         }
 
-def _get_host_compose_dir(container_compose_dir: str) -> str:
-    from_env = os.environ.get("HOST_COMPOSE_DIR", "").strip()
-    if from_env:
-        log(f"Resolved host compose dir from env: {from_env!r}", "debug", "updater")
-        return from_env
+def _to_linux_path(path: str) -> str:
+    if len(path) >= 2 and path[1] == ":" and path[0].isalpha():
+        drive = path[0].lower()
+        rest = path[2:].replace("\\", "/")
+        linux_path = f"/run/desktop/mnt/host/{drive}{rest}"
+        log(f"Converted Windows path {path!r} -> {linux_path!r}", "debug", "updater")
+        return linux_path
+    return path
 
-    try:
-        container_id = None
-        with open("/proc/self/cgroup") as f:
-            for line in f:
-                if "docker" in line:
-                    container_id = line.strip().split("/")[-1]
-                    break
-
-        if not container_id:
-            raise RuntimeError("Could not find container ID in cgroup")
-
-        result = subprocess.run(
-            ["docker", "inspect", container_id],
-            capture_output=True, text=True, check=True
-        )
-        data = json.loads(result.stdout)[0]
-        host_path = next(
-            m["Source"] for m in data["Mounts"]
-            if m["Destination"] == container_compose_dir
-        )
-        log(f"Resolved host compose dir via inspect: {host_path!r}", "debug", "updater")
-        return host_path
-
-    except Exception as e:
-        log(f"Failed to resolve host compose dir: {e}", "error", "updater")
-        raise RuntimeError(
-            f"Cannot determine host compose dir. "
-            f"Set HOST_COMPOSE_DIR env var in your docker-compose.yml. Error: {e}"
-        )
 
 def _hard_restart():
     log("Initiating hard restart", "debug", "updater")
@@ -180,12 +154,13 @@ def _hard_restart():
                  "{{index .Config.Labels \"com.docker.compose.project.working_dir\"}}"],
                 capture_output=True, text=True, check=True
             )
-            host_compose_dir = result.stdout.strip()
+            raw_compose_dir = result.stdout.strip()
 
-            if not host_compose_dir:
+            if not raw_compose_dir:
                 raise RuntimeError("Could not read compose working dir from container labels")
 
-            log(f"Resolved host compose dir from labels: {host_compose_dir!r}", "debug", "updater")
+            log(f"Raw compose dir from labels: {raw_compose_dir!r}", "debug", "updater")
+            host_compose_dir = _to_linux_path(raw_compose_dir)
 
             update_cmd = (
                 f"cd '{host_compose_dir}' && "
