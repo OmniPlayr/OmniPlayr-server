@@ -1,2 +1,2 @@
 [paths]
-compose_dir = "string"
+compose_dir = "str"
