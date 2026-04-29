@@ -576,8 +576,8 @@ def apply_update() -> dict:
         log("No update available in cache, aborting", "debug", "updater")
         return {"error": "No update available"}
 
-    app_dir = Path("/app")
-    log(f"app_dir={app_dir}", "debug", "updater")
+    compose_dir = Path(get_config("paths.compose_dir", "/compose"))
+    log(f"compose_dir={compose_dir}", "debug", "updater")
 
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -612,23 +612,23 @@ def apply_update() -> dict:
             log(f"backend_source exists={backend_source.exists()} frontend_source exists={frontend_source.exists()}", "debug", "updater")
 
             if backend_source.exists():
-                log(f"Syncing backend: {backend_source} -> {app_dir}", "debug", "updater")
-                _copy_update(backend_source, app_dir, preserved=BACKEND_PRESERVED)
+                backend_target = compose_dir / "backend"
+                log(f"Syncing backend: {backend_source} -> {backend_target}", "debug", "updater")
+                _copy_update(backend_source, backend_target, preserved=BACKEND_PRESERVED)
                 log("Backend sync complete", "debug", "updater")
 
             if frontend_source.exists():
-                log(f"Syncing frontend: {frontend_source} -> /frontend", "debug", "updater")
-                _copy_update(frontend_source, Path("/frontend"), preserved=FRONTEND_PRESERVED)
+                frontend_target = compose_dir / "frontend"
+                log(f"Syncing frontend: {frontend_source} -> {frontend_target}", "debug", "updater")
+                _copy_update(frontend_source, frontend_target, preserved=FRONTEND_PRESERVED)
                 log("Frontend sync complete", "debug", "updater")
 
-            compose_dir = Path(get_config("paths.compose_dir", "/compose"))
-            log(f"compose_dir={compose_dir} exists={compose_dir.exists()}", "debug", "updater")
             if compose_dir.exists():
                 log(f"Syncing compose root: {source_root} -> {compose_dir}", "debug", "updater")
                 _copy_update(source_root, compose_dir, preserved=ROOT_PRESERVED)
                 log("Compose root sync complete", "debug", "updater")
 
-        requirements = app_dir / "requirements.txt"
+        requirements = compose_dir / "backend" / "requirements.txt"
         log(f"Checking for requirements.txt at {requirements}: exists={requirements.exists()}", "debug", "updater")
         if requirements.exists():
             log("Installing Python dependencies from requirements.txt", "debug", "updater")
@@ -637,7 +637,6 @@ def apply_update() -> dict:
 
         log("Backend and Frontend sync completed, restarting system", "success", "updater")
 
-        log("Clearing update cache before restart", "debug", "updater")
         _clear_cache()
         _hard_restart()
         return {"status": "restarting"}
