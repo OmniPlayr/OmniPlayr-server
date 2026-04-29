@@ -168,9 +168,9 @@ def _hard_restart():
 
             update_cmd = (
                 f"cd {compose_dir} && "
-                f"docker compose down && "
-                f"docker compose build backend && "
-                f"docker compose up -d"
+                f"docker compose -p compose down && "
+                f"docker compose -p compose build backend && "
+                f"docker compose -p compose up -d"
             )
 
             log(f"Spawning detached update container", "debug", "updater")
