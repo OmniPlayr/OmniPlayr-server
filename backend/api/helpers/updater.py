@@ -134,12 +134,21 @@ def _get_frontend_info() -> dict:
         }
 
 def _get_host_compose_dir(container_compose_dir: str) -> str:
+    from_env = os.environ.get("HOST_COMPOSE_DIR", "").strip()
+    if from_env:
+        log(f"Resolved host compose dir from env: {from_env!r}", "debug", "updater")
+        return from_env
+
     try:
+        container_id = None
         with open("/proc/self/cgroup") as f:
             for line in f:
                 if "docker" in line:
                     container_id = line.strip().split("/")[-1]
                     break
+
+        if not container_id:
+            raise RuntimeError("Could not find container ID in cgroup")
 
         result = subprocess.run(
             ["docker", "inspect", container_id],
@@ -150,11 +159,15 @@ def _get_host_compose_dir(container_compose_dir: str) -> str:
             m["Source"] for m in data["Mounts"]
             if m["Destination"] == container_compose_dir
         )
-        log(f"Resolved host compose dir: {host_path!r}", "debug", "updater")
+        log(f"Resolved host compose dir via inspect: {host_path!r}", "debug", "updater")
         return host_path
+
     except Exception as e:
-        log(f"Failed to resolve host compose dir: {e}, falling back to container path", "error", "updater")
-        return container_compose_dir
+        log(f"Failed to resolve host compose dir: {e}", "error", "updater")
+        raise RuntimeError(
+            f"Cannot determine host compose dir. "
+            f"Set HOST_COMPOSE_DIR env var in your docker-compose.yml. Error: {e}"
+        )
 
 def _hard_restart():
     log("Initiating hard restart", "debug", "updater")

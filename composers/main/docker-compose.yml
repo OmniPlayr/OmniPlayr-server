@@ -26,6 +26,7 @@ services:
       - ./:/compose
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - HOST_COMPOSE_DIR=${PWD}
     ports:
       - "8224:8224"
       - "8324:8224"
