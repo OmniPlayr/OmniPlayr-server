@@ -19,6 +19,16 @@ import tomllib
 
 import asyncio
 
+ROOT_PRESERVED = {
+    "backend",
+    "frontend",
+    ".git",
+    ".github",
+    ".gitignore",
+    ".gitattributes",
+    "README.md",
+}
+
 BACKEND_PRESERVED = {
     "plugins",
     "config",
@@ -109,16 +119,14 @@ def _get_frontend_info() -> dict:
 
 def _hard_restart():
     try:
+        compose_dir = get_config("paths.compose_dir", "/compose")
         if os.path.exists("/.dockerenv") or (
             os.path.exists("/proc/1/cgroup") and "docker" in open("/proc/1/cgroup").read()
         ):
-            subprocess.Popen([
-                "docker", "restart",
-                "omniplayr_backend",
-                "omniplayr_frontend",
-                "omniplayr_db",
-                "omniplayr_pgadmin"
-            ])
+            subprocess.Popen(
+                ["docker-compose", "up", "--build", "-d"],
+                cwd=compose_dir,
+            )
         else:
             subprocess.Popen(["reboot"])
     except Exception:
@@ -342,12 +350,17 @@ def apply_update() -> dict:
             if frontend_source.exists():
                 _copy_update(frontend_source, Path("/frontend"), preserved=FRONTEND_PRESERVED)
 
+            compose_dir = Path(get_config("paths.compose_dir", "/compose"))
+            if compose_dir.exists():
+                _copy_update(source_root, compose_dir, preserved=ROOT_PRESERVED)
+
         requirements = app_dir / "requirements.txt"
         if requirements.exists():
             subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(requirements)])
 
         log("Backend and Frontend sync completed, restarting system", "success", "updater")
-
+        
+        _clear_cache()
         _hard_restart()
         return {"status": "restarting"}
 
@@ -381,6 +394,14 @@ def _is_ignored(rel_path: str, patterns: list[str]) -> bool:
             return True
     return False
 
+def _clear_cache():
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM update_cache WHERE id = 1")
+            conn.commit()
+    except Exception as e:
+        log(f"Cache clear failed: {e}", "error", "updater")
 
 def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None = None, root: Path | None = None, preserved: set[str] | None = None, dest_inherited_patterns: list[str] | None = None, dest_root: Path | None = None):
     dest.mkdir(parents=True, exist_ok=True)
