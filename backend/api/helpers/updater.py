@@ -180,7 +180,7 @@ def _hard_restart():
 
             log(f"Spawning detached update container", "debug", "updater")
             subprocess.Popen([
-                "docker", "run", "rm",
+                "docker", "run", "--rm",
                 "--name", "omniplayr_updater",
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
                 "-v", f"{host_compose_dir}:{compose_dir}",
