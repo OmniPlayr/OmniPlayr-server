@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/src/config:/app/src/config
+    container_name: omniplayr_frontend
+    ports:
+      - "8223:8223"
+      - "8323:8223"
+      - "8523:8223"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: omniplayr_backend
+    volumes:
+      - ./db:/db
+      - ./backend/config:/app/config
+      - ./user_storage:/user_storage
+      - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./frontend/src:/frontend/src
+      - ./backend/plugins:/app/plugins
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-omniplayr}
+    ports:
+      - "8224:8224"
+      - "8324:8224"
+      - "8524:8224"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: omniplayr_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-omniplayr}
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
