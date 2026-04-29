@@ -141,28 +141,36 @@ def _hard_restart():
         log(f"Running in Docker: {in_docker}", "debug", "updater")
 
         if in_docker:
-            log(f"Building image via docker-compose build in {compose_dir!r}", "debug", "updater")
+            try:
+                subprocess.run(["docker", "compose", "version"], check=True, capture_output=True)
+                compose_cmd = ["docker", "compose"]
+                log("Using docker compose (v2)", "debug", "updater")
+            except Exception:
+                compose_cmd = ["docker-compose"]
+                log("Falling back to docker-compose (v1)", "debug", "updater")
+
+            log(f"Building image in {compose_dir!r}", "debug", "updater")
             result = subprocess.run(
-                ["docker-compose", "build"],
+                compose_cmd + ["build"],
                 cwd=compose_dir,
             )
-            log(f"docker-compose build exited with code {result.returncode}", "debug", "updater")
+            log(f"Build exited with code {result.returncode}", "debug", "updater")
 
             if result.returncode != 0:
-                log("docker-compose build failed, aborting restart", "error", "updater")
+                log("Build failed, aborting restart", "error", "updater")
                 return
 
-            log("Build complete, starting container via docker-compose up -d", "debug", "updater")
+            log("Build complete, starting containers", "debug", "updater")
             subprocess.Popen(
-                ["docker-compose", "up", "-d"],
+                compose_cmd + ["up", "-d"],
                 cwd=compose_dir,
             )
         else:
             log("Not in Docker, issuing system reboot", "debug", "updater")
             subprocess.Popen(["reboot"])
 
-    except Exception:
-        log("Hard restart failed, calling os._exit(1)", "error", "updater")
+    except Exception as e:
+        log(f"Hard restart failed: {e}", "error", "updater")
         os._exit(1)
 
 def _frontend_version_to_string(v: tuple) -> str:
