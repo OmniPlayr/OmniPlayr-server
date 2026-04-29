@@ -152,7 +152,6 @@ def _get_host_compose_dir(container_compose_dir: str) -> str:
         log(f"Failed to resolve host compose dir: {e}, falling back to container path", "error", "updater")
         return container_compose_dir
 
-
 def _hard_restart():
     log("Initiating hard restart", "debug", "updater")
     try:
@@ -169,9 +168,9 @@ def _hard_restart():
 
             update_cmd = (
                 f"cd {compose_dir} && "
-                f"docker-compose down && "
-                f"docker-compose build backend && "
-                f"docker-compose up -d"
+                f"docker compose down && "
+                f"docker compose build backend && "
+                f"docker compose up -d"
             )
 
             log(f"Spawning detached update container", "debug", "updater")
@@ -181,7 +180,7 @@ def _hard_restart():
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
                 "-v", f"{host_compose_dir}:{compose_dir}",
                 "--workdir", compose_dir,
-                "docker/compose:latest",
+                "docker:latest",
                 "sh", "-c", update_cmd,
             ])
             log("Detached update container spawned, backend will now shut down", "debug", "updater")
