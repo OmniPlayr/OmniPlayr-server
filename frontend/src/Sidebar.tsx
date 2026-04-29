@@ -8,6 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import { storeAccount } from './modules/account';
 import { usePlugins } from './modules/usePlugins';
 import { getTabs, onPluginsLoaded, type PluginTab } from './modules/plugins';
+import { makePopup } from '@wokki20/jspt';
 
 async function loadAccounts() {
     return await api("get_accounts") as any[];
@@ -35,6 +36,32 @@ async function loginAccount(id: string) {
     storeAccount(tokenInfo?.token);
     window.history.pushState({}, '', '/');
     window.dispatchEvent(new Event('account-switched'));
+}
+
+function showDevPopup() {
+    makePopup({
+        header: "Developer Mode",
+        content_type: "html",
+        content: `
+            <div class="dev-popup">
+                <h2 class="dev-popup-title">About Developer Mode</h2>
+                <p>Developer mode enables additional debugging tools and verbose logging throughout the application.</p>
+
+                <h3>Performance impact</h3>
+                <p>Because of the extra logging and instrumentation, <strong>your server may run slower</strong> than usual. Opening the log page in particular can also <strong>slow down your device</strong>, especially when a lot of log entries have accumulated.</p>
+
+                <h3>Stability</h3>
+                <p>This is a development build and it <strong>may be unstable</strong>. Bugs can and likely will appear. If you run into anything, please report it on <a href="https://github.com/OmniPlayr/OmniPlayr-server/issues" class="link" target="_blank" rel="noreferrer">GitHub</a>.</p>
+                <p>There is <strong>no warranty</strong> of any kind. For license details, go to <strong>Settings &gt; About</strong>. OmniPlayr is released under the MIT license.</p>
+
+                <h3>Live updates</h3>
+                <p>The frontend will <strong>hot-reload automatically</strong> when changes are made in the source, no manual refresh needed.</p>
+
+                <h3>Contributing</h3>
+                <p>Want to contribute? Make sure to read the <a href="https://omniplayr.wokki20.nl/legal/cla" class="link" target="_blank" rel="noreferrer">Contributor License Agreement</a> and the <a href="https://omniplayr.wokki20.nl/legal/code-of-conduct" class="link" target="_blank" rel="noreferrer">Code of Conduct</a> before submitting anything.</p>
+            </div>
+        `,
+    });
 }
 
 function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, updateAvailable }: SidebarProps) {
@@ -124,7 +151,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, updateAva
                             </>
                         }
                     </div>
-                    {isDev() && <p className="sidebar-dev">Dev Mode</p>}
+                    {isDev() && <p className="sidebar-dev" onClick={showDevPopup}>Dev Mode</p>}
                 </div>
             </div>
         </>

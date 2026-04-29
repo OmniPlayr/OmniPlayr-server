@@ -92,7 +92,6 @@ def _caller_info() -> str:
 
 _DEV_MODE: bool = os.environ.get("DEV_MODE", "").lower() == "true"
 
-
 def log(message: str, level: str = "info", source: str | None = None) -> None:
     if level == "debug" and not _DEV_MODE:
         return

@@ -37,6 +37,8 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
                         onClick={canGoForward ? onForward : undefined}
                     />
                 </div>
+            </div>
+            <div className="header-right">
                 {updateAvailable && (
                     <div className="header-update-badge" onClick={onUpdateClick}>
                         <RefreshCw size={12} className="spin-hover" />

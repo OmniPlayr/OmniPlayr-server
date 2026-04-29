@@ -129,6 +129,7 @@
     font-size: 12px;
     padding-top: 5px;
     user-select: none;
+    cursor: pointer;
 }
 
 .user-switch-account {
@@ -268,4 +269,44 @@
     align-items: center;
     justify-content: center;
     margin-left: auto;
+}
+
+.dev-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 2px;
+    max-width: 480px;
+}
+
+.dev-popup h2.dev-popup-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+}
+
+.dev-popup h3 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.5;
+    margin: 12px 0 2px 0;
+}
+
+.dev-popup h3:first-of-type {
+    margin-top: 4px;
+}
+
+.dev-popup p {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    opacity: 0.85;
+    margin: 0;
+}
+
+.dev-popup strong {
+    font-weight: 600;
+    opacity: 1;
+    color: inherit;
 }
