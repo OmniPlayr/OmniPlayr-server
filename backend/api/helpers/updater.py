@@ -143,28 +143,30 @@ def _hard_restart():
         if in_docker:
             try:
                 subprocess.run(["docker", "compose", "version"], check=True, capture_output=True)
-                compose_cmd = ["docker", "compose"]
+                compose_cmd = "docker compose"
                 log("Using docker compose (v2)", "debug", "updater")
             except Exception:
-                compose_cmd = ["docker-compose"]
+                compose_cmd = "docker-compose"
                 log("Falling back to docker-compose (v1)", "debug", "updater")
 
-            log(f"Building image in {compose_dir!r}", "debug", "updater")
-            result = subprocess.run(
-                compose_cmd + ["build"],
-                cwd=compose_dir,
+            update_cmd = (
+                f"cd {compose_dir} && "
+                f"{compose_cmd} down && "
+                f"{compose_cmd} build backend && "
+                f"{compose_cmd} up -d"
             )
-            log(f"Build exited with code {result.returncode}", "debug", "updater")
 
-            if result.returncode != 0:
-                log("Build failed, aborting restart", "error", "updater")
-                return
+            log(f"Spawning detached update container", "debug", "updater")
+            subprocess.Popen([
+                "docker", "run", "--rm",
+                "-v", "/var/run/docker.sock:/var/run/docker.sock",
+                "-v", f"{compose_dir}:{compose_dir}",
+                "--workdir", compose_dir,
+                "docker:cli",
+                "sh", "-c", update_cmd,
+            ])
+            log("Detached update container spawned, backend will now shut down", "debug", "updater")
 
-            log("Build complete, starting containers", "debug", "updater")
-            subprocess.Popen(
-                compose_cmd + ["up", "-d"],
-                cwd=compose_dir,
-            )
         else:
             log("Not in Docker, issuing system reboot", "debug", "updater")
             subprocess.Popen(["reboot"])
