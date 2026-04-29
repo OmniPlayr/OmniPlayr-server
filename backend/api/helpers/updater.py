@@ -159,10 +159,11 @@ def _hard_restart():
             log(f"Spawning detached update container", "debug", "updater")
             subprocess.Popen([
                 "docker", "run", "--rm",
+                "--name", "omniplayr_updater",
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
                 "-v", f"{compose_dir}:{compose_dir}",
                 "--workdir", compose_dir,
-                "docker:cli",
+                "ghcr.io/linuxserver/docker-compose",
                 "sh", "-c", update_cmd,
             ])
             log("Detached update container spawned, backend will now shut down", "debug", "updater")
