@@ -45,9 +45,8 @@ FRONTEND_PRESERVED = {
 }
 
 _OVERWRITE_ALWAYS = {
-    Path("frontend/src/config/version.toml"),
+    Path("src/config/version.toml"),
 }
-
 def _normalize_version_str(v: str) -> str:
     try:
         if not v:
