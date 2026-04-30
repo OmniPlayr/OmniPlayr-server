@@ -10,8 +10,10 @@ from api.helpers.config import load_configs
 from api.helpers.plugins import load_plugins, get_plugin_router
 from api.helpers.config_watcher import start_config_watcher
 from api.helpers.log import log
-from api.helpers.notifications import notify_sync
+from api.helpers.notifications import notify_sync, set_main_loop
 from api.helpers.account import list_accounts
+ 
+import asyncio
  
 _SAFE_MODE_FILE = ".safe_mode"
 _UPDATE_MARKER = ".update_applied"
@@ -46,6 +48,8 @@ def _notify_admins():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    set_main_loop(asyncio.get_event_loop())
+    
     # This loads the config files
     load_configs()
     
@@ -66,13 +70,15 @@ async def lifespan(app: FastAPI):
     
     log("Server started", "info", "main")
     
-    # This sends a notification to admins that the server has started
-    _notify_admins()
-    
-    # This sends a notification to admins that the update has been applied
-    _notify_admins_update()
+    # This sends a notification to admins that the server has started and that the update has been applied
+    asyncio.get_running_loop().create_task(_delayed_startup_notifications())
     yield
 
+
+async def _delayed_startup_notifications():
+    await asyncio.sleep(5)
+    _notify_admins()
+    _notify_admins_update()
 
 app = FastAPI(title="OmniPlayr API", lifespan=lifespan)
 

@@ -206,6 +206,11 @@ async def notify(
     log(f"Notification sent to account_id={account_id}: {title!r}", "debug", "notifications")
     return row
 
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
+    global _main_loop
+    _main_loop = loop
 
 def notify_sync(
     account_id: int,
@@ -215,8 +220,12 @@ def notify_sync(
     action_type: str | None = None,
     action_url: str | None = None,
 ) -> None:
+    coro = notify(account_id, icon, title, text, action_type, action_url)
     try:
         loop = asyncio.get_running_loop()
-        loop.create_task(notify(account_id, icon, title, text, action_type, action_url))
+        loop.create_task(coro)
     except RuntimeError:
-        asyncio.run(notify(account_id, icon, title, text, action_type, action_url))
+        if _main_loop is not None:
+            asyncio.run_coroutine_threadsafe(coro, _main_loop)
+        else:
+            asyncio.run(coro)

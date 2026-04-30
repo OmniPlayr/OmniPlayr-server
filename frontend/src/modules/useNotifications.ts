@@ -42,6 +42,7 @@ export interface UseNotificationsResult {
     connected: boolean;
     toastQueue: Notification[];
     dismissToast: (id: number) => void;
+    refreshNotifications: () => void;
 }
 
 export function useNotifications(): UseNotificationsResult {
@@ -50,6 +51,7 @@ export function useNotifications(): UseNotificationsResult {
     const [unreadDisplay, setUnreadDisplay] = useState('0');
     const [connected, setConnected] = useState(false);
     const [toastQueue, setToastQueue] = useState<Notification[]>([]);
+    const [refreshKey, setRefreshKey] = useState(0);
     const wsRef = useRef<WebSocket | null>(null);
 
     const applyUnread = (count: number, display: string) => {
@@ -109,10 +111,11 @@ export function useNotifications(): UseNotificationsResult {
             clearTimeout(reconnectTimeout);
             ws?.close();
         };
-    }, []);
+    }, [refreshKey]);
 
     const deleteNotification = useCallback((id: number) => {
         wsRef.current?.send(JSON.stringify({ action: 'delete', id }));
+        setNotifications(prev => prev.filter(n => n.id !== id));
     }, []);
 
     const markRead = useCallback((id: number) => {
@@ -123,5 +126,9 @@ export function useNotifications(): UseNotificationsResult {
         setToastQueue(prev => prev.filter(n => n.id !== id));
     }, []);
 
-    return { notifications, unreadCount, unreadDisplay, deleteNotification, markRead, connected, toastQueue, dismissToast };
+    const refreshNotifications = useCallback(() => {
+        setRefreshKey(k => k + 1);
+    }, []);
+
+    return { notifications, unreadCount, unreadDisplay, deleteNotification, markRead, connected, toastQueue, dismissToast, refreshNotifications };
 }

@@ -15,7 +15,10 @@ import hashlib
 from api.helpers.config import get_config
 from api.helpers.db import get_conn
 from api.helpers.log import log
+from api.helpers.account import list_accounts
 import tomllib
+
+from api.helpers.notifications import notify_sync
 
 import asyncio
 
@@ -382,6 +385,29 @@ def check_for_updates(force: bool = False) -> dict:
     backend_new = _is_newer(latest_backend, current_version)
     frontend_new = remote_frontend["version_tuple"] > frontend_current["version_tuple"]
     update_available = backend_new or frontend_new
+    
+    if update_available:
+        if backend_new and frontend_new:
+            update_target = "<highlight>server</highlight>"
+            version_text = f"(B{latest_backend} & F{remote_frontend['version']})"
+        elif backend_new:
+            update_target = "<highlight>backend</highlight>"
+            version_text = f"({latest_backend})"
+        else:
+            update_target = "<highlight>frontend</highlight>"
+            version_text = f"({remote_frontend['version']})"
+
+        for account in list_accounts():
+            if account["role"] != "admin":
+                continue
+            notify_sync(
+                account["id"],
+                "CircleFadingArrowUp",
+                "New update available",
+                f"There is a new update available for the {update_target} {version_text}",
+                action_type="internal",
+                action_url="/settings/about",
+            )
 
     log(f"Update check result: backend_new={backend_new} frontend_new={frontend_new} update_available={update_available}", "debug", "updater")
 
