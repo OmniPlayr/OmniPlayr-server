@@ -9,6 +9,10 @@ on:
       - 'backend/**'
       - '!backend/config.json'
 
+concurrency:
+  group: version-update-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   update-version:
     runs-on: ubuntu-latest
@@ -38,5 +42,6 @@ jobs:
           else
             git add backend/config.json
             git commit -m "chore: update backend version"
+            git pull --rebase origin ${{ github.ref_name }}
             git push
           fi
