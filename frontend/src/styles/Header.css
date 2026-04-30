@@ -100,3 +100,8 @@
 .header-update-badge:hover .spin-hover {
     transform: rotate(180deg);
 }
+
+.desktop-notification-badge {
+    color: var(--clr-text-a20);
+    cursor: pointer;
+}

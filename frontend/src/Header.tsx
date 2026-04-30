@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Menu, X, ShieldAlert, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, Menu, X, ShieldAlert, RefreshCw, Bell } from "lucide-react"
 import "./styles/Header.css"
 
 interface HeaderProps {
@@ -51,6 +51,9 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
                         Safe Mode
                     </div>
                 )}
+                <div className="header-notifications-badge">
+                    <Bell className="desktop-notification-badge" />
+                </div>
             </div>
         </div>
     )

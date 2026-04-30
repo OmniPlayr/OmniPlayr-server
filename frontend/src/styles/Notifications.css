@@ -2,8 +2,265 @@
     display: flex;
     flex-direction: column;
     padding: 20px;
+    height: 100%;
 }
 
 .mobile-notifications-title {
     color: var(--clr-text-a0);
+}
+
+.mobile-notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+    overflow-y: scroll;
+    align-items: center;
+    height: 100%;
+    max-height: 100%;
+}
+
+.mobile-no-notifications {
+    justify-content: center;
+}
+
+.mobile-notifications-text-empty {
+    color: var(--clr-text-a30);
+}
+
+.mobile-notification-swipe-wrapper {
+    position: relative;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    max-height: 300px;
+    opacity: 1;
+    transform: scale(1);
+    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
+}
+
+.mobile-notification-collapsing {
+    max-height: 0 !important;
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+.mobile-notification-delete-bg {
+    position: absolute;
+    right: 0;
+    top: 1px;
+    bottom: 0;
+    width: 88px;
+    background-color: var(--clr-danger-a0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: calc(100% - 2px);
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    transition: width 0.35s ease;
+}
+
+.mobile-notification-collapsing .mobile-notification-delete-bg {
+    width: 0;
+}
+
+.mobile-notification-delete-icon {
+    width: 22px;
+    height: 22px;
+    color: var(--clr-danger-a20);
+}
+
+.mobile-notification-item {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    color: var(--clr-text-a0);
+    align-items: center;
+    position: relative;
+    transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.mobile-notification-clickable {
+    cursor: pointer;
+}
+
+.mobile-notification-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-notification-title {
+    color: var(--clr-text-a0);
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.mobile-notification-text {
+    color: var(--clr-text-a30);
+    font-size: 14px;
+}
+
+.mobile-notification-external {
+    width: 18px;
+    height: 18px;
+    color: var(--clr-primary-a20);
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.mobile-notification-icon {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    padding: 10px;
+    border-radius: 50%;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    overflow: visible;
+    color: var(--clr-text-a0);
+}
+
+.mobile-notification-highlight {
+    color: var(--clr-primary-a0);
+    font-weight: 600;
+}
+
+.mobile-notification-link {
+    color: var(--clr-primary-a20);
+    text-decoration: underline;
+}
+
+.mobile-notification-unread {
+    border-left: 3px solid var(--clr-primary-a0);
+}
+
+.mobile-notification-highlighted {
+    animation: notification-highlight-pulse 2s ease forwards;
+}
+
+@keyframes notification-highlight-pulse {
+    0%   { background-color: color-mix(in srgb, var(--clr-primary-a0) 25%, transparent); }
+    100% { background-color: var(--clr-popup-a10); }
+}
+
+/* ── Toast ─────────────────────────────────────────────── */
+
+.notification-toast-container {
+    position: fixed;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+    top: 20px;
+    right: 20px;
+}
+
+.notification-toast {
+    pointer-events: all;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background-color: var(--clr-popup-a0);
+    border: 1px solid var(--clr-popup-a30);
+    color: var(--clr-text-a0);
+    cursor: pointer;
+    width: 300px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    animation: toast-enter-right 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    transition: background-color 0.2s ease;
+}
+
+.notification-toast:hover {
+    background-color: var(--clr-popup-a10);
+}
+
+.notification-toast-exit {
+    animation: toast-exit-right 0.32s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.notification-toast-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 7px;
+    border-radius: 50%;
+    background-color: var(--clr-surface-a10);
+    border: 1px solid var(--clr-surface-a30);
+    color: var(--clr-text-a0);
+    flex-shrink: 0;
+}
+
+.notification-toast-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.notification-toast-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--clr-text-a0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.notification-toast-text {
+    font-size: 12px;
+    color: var(--clr-text-a30);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes toast-enter-right {
+    from { transform: translateX(calc(100% + 20px)); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-exit-right {
+    from { transform: translateX(0); opacity: 1; }
+    to   { transform: translateX(calc(100% + 20px)); opacity: 0; }
+}
+
+@media (max-width: 768px) {
+    .notification-toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        align-items: stretch;
+    }
+
+    .notification-toast {
+        width: 100%;
+        animation: toast-enter-top 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .notification-toast-exit {
+        animation: toast-exit-top 0.32s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+}
+
+@keyframes toast-enter-top {
+    from { transform: translateY(calc(-100% - 20px)); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toast-exit-top {
+    from { transform: translateY(0); opacity: 1; }
+    to   { transform: translateY(calc(-100% - 20px)); opacity: 0; }
 }

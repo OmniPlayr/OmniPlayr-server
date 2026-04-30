@@ -227,7 +227,7 @@
         background-color: rgba(0, 0, 0, 0.5);
         z-index: 99;
         animation: overlay-in 0.2s ease forwards;
-        height: calc(100dvh - 60px);
+        height: calc(100dvh - 61px);
         width: calc(100dvw);
     }
 
@@ -242,7 +242,7 @@
         left: 0;
         width: 280px;
         min-width: unset;
-        height: calc(100% - 60px);
+        height: calc(100% - 61px);
         z-index: 100;
         border-radius: 0;
         transform: translateX(-100%);

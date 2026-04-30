@@ -10,11 +10,39 @@ from api.helpers.config import load_configs
 from api.helpers.plugins import load_plugins, get_plugin_router
 from api.helpers.config_watcher import start_config_watcher
 from api.helpers.log import log
+from api.helpers.notifications import notify_sync
+from api.helpers.account import list_accounts
  
 _SAFE_MODE_FILE = ".safe_mode"
+_UPDATE_MARKER = ".update_applied"
+
+def _notify_admins_update():
+    if not os.path.exists(_UPDATE_MARKER):
+        return
+    try:
+        os.remove(_UPDATE_MARKER)
+    except Exception:
+        pass
+    for account in list_accounts():
+        if account["role"] != "admin":
+            continue
+        notify_sync(
+            account["id"],
+            "RefreshCw",
+            "Update applied successfully",
+            "The server has been updated and restarted successfully.",
+            action_type="internal",
+            action_url="/settings/about",
+        )
 
 def _is_safe_mode() -> bool:
     return os.path.exists(_SAFE_MODE_FILE)
+
+def _notify_admins():
+    for account in list_accounts():
+        if account["role"] != "admin":
+            continue
+        notify_sync(account["id"], "Power", "Server started", "The server has started successfully!")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +65,12 @@ async def lifespan(app: FastAPI):
     app.include_router(get_plugin_router(), prefix="/api/plugin")
     
     log("Server started", "info", "main")
+    
+    # This sends a notification to admins that the server has started
+    _notify_admins()
+    
+    # This sends a notification to admins that the update has been applied
+    _notify_admins_update()
     yield
 
 

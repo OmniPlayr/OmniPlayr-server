@@ -25,6 +25,7 @@ import { initSafeMode } from './modules/safeMode';
 import Shutdown from './Shutdown.tsx';
 import { generateCssVars } from './modules/customColor.ts';
 import MobileNotifications from './MobileNotifications.tsx';
+import { NotificationsProvider } from './modules/NotificationsContext';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -232,71 +233,73 @@ function AppShell() {
     return (
         <>
             {showShell ? (
-                <div className="dashboard" data-component="Dashboard">
-                    {!isMobile && (
-                        <Header
-                            canGoBack={historyIndex > 0}
-                            canGoForward={historyIndex < navHistory.length - 1}
-                            onBack={goBack}
-                            onForward={goForward}
-                            safeMode={safeMode}
-                            updateAvailable={updateAvailable}
-                            onUpdateClick={() => navigate('/settings/about')}
-                        />
-                    )}
-                    <div className="dashboard-hor">
-                        {isMobile && (
-                            <>
-                            <BottomNav
-                                onMenuToggle={() => setSidebarOpen(prev => !prev)}
-                                onHome={() => handleTabChange(null)}
-                                onSettings={() => handleTabChange('__settings')}
-                                onNotifications={() => handleTabChange('__mobile_notifications')}
-                                activeTabId={resolvedTabId}
-                                isMenuOpen={sidebarOpen}
-                                updateAvailable={updateAvailable}
-                            />
-                            <Player />
-                            </>
-                        )}
+                <NotificationsProvider>
+                    <div className="dashboard" data-component="Dashboard">
                         {!isMobile && (
-                            <Sidebar
-                                account={account}
-                                activeTabId={resolvedTabId}
-                                onTabChange={handleTabChange}
+                            <Header
+                                canGoBack={historyIndex > 0}
+                                canGoForward={historyIndex < navHistory.length - 1}
+                                onBack={goBack}
+                                onForward={goForward}
+                                safeMode={safeMode}
                                 updateAvailable={updateAvailable}
+                                onUpdateClick={() => navigate('/settings/about')}
                             />
                         )}
-                        {isMobile && (
-                            <Sidebar
-                                account={account}
-                                activeTabId={resolvedTabId}
-                                onTabChange={handleTabChange}
-                                isOpen={sidebarOpen}
-                                onClose={() => setSidebarOpen(false)}
-                            />
-                        )}
-                        <div className="dashboard-main">
-                            {ActiveTabView ? (
-                                <ActiveTabView />
-                            ) : (
-                                <Routes>
-                                    <Route path="/" element={<Dashboard />} />
-                                    <Route path="/settings/*" element={<Settings account={account} updateAvailable={updateAvailable} onRefreshCheck={() => checkUpdates(true)} />} />
-                                    <Route path='/notifications' element={<MobileNotifications />} />
-                                    <Route path="/dashboard" element={<Dashboard />} />
-                                    {getRoutes().map(({ path, component: Component }) => (
-                                        <Route key={path} path={path} element={<Component />} />
-                                    ))}
-                                    <Route path="*" element={<Navigate to="/" />} />
-                                </Routes>
+                        <div className="dashboard-hor">
+                            {isMobile && (
+                                <>
+                                <BottomNav
+                                    onMenuToggle={() => setSidebarOpen(prev => !prev)}
+                                    onHome={() => handleTabChange(null)}
+                                    onSettings={() => handleTabChange('__settings')}
+                                    onNotifications={() => handleTabChange('__mobile_notifications')}
+                                    activeTabId={resolvedTabId}
+                                    isMenuOpen={sidebarOpen}
+                                    updateAvailable={updateAvailable}
+                                />
+                                <Player />
+                                </>
                             )}
+                            {!isMobile && (
+                                <Sidebar
+                                    account={account}
+                                    activeTabId={resolvedTabId}
+                                    onTabChange={handleTabChange}
+                                    updateAvailable={updateAvailable}
+                                />
+                            )}
+                            {isMobile && (
+                                <Sidebar
+                                    account={account}
+                                    activeTabId={resolvedTabId}
+                                    onTabChange={handleTabChange}
+                                    isOpen={sidebarOpen}
+                                    onClose={() => setSidebarOpen(false)}
+                                />
+                            )}
+                            <div className="dashboard-main">
+                                {ActiveTabView ? (
+                                    <ActiveTabView />
+                                ) : (
+                                    <Routes>
+                                        <Route path="/" element={<Dashboard />} />
+                                        <Route path="/settings/*" element={<Settings account={account} updateAvailable={updateAvailable} onRefreshCheck={() => checkUpdates(true)} />} />
+                                        <Route path='/notifications' element={<MobileNotifications />} />
+                                        <Route path="/dashboard" element={<Dashboard />} />
+                                        {getRoutes().map(({ path, component: Component }) => (
+                                            <Route key={path} path={path} element={<Component />} />
+                                        ))}
+                                        <Route path="*" element={<Navigate to="/" />} />
+                                    </Routes>
+                                )}
+                            </div>
                         </div>
+                        {!isMobile && (
+                            <Player />
+                        )}
                     </div>
-                    {!isMobile && (
-                        <Player /> 
-                    )}
-                </div>
+                </NotificationsProvider>
             ) : (
                 <Routes>
                     <Route path="/login" element={<Login />} />

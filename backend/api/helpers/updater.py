@@ -678,6 +678,12 @@ def apply_update() -> dict:
         log("Backend and Frontend sync completed, restarting system", "success", "updater")
 
         _clear_cache()
+
+        try:
+            Path(".update_applied").touch()
+        except Exception as e:
+            log(f"Failed to write update marker: {e}", "error", "updater")
+
         _hard_restart()
         return {"status": "restarting"}
 

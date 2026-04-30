@@ -54,7 +54,25 @@ SCHEMA = {
         "latest_frontend_version": "VARCHAR(50) NOT NULL DEFAULT '0.0.0'",
         "update_available": "BOOLEAN NOT NULL DEFAULT FALSE",
         "tarball_url": "TEXT"
-    }
+    },
+    "notifications": {
+        "id": "SERIAL PRIMARY KEY",
+        "account_id": "INT NOT NULL",
+        "notification_key": "VARCHAR(255)",
+        "icon": "VARCHAR(255) NOT NULL",
+        "title": "VARCHAR(255) NOT NULL",
+        "text": "TEXT NOT NULL",
+        "action_type": "VARCHAR(50)",
+        "action_url": "TEXT",
+        "read": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+    },
+    "initial_notifications_sent": {
+        "id": "SERIAL PRIMARY KEY",
+        "notification_key": "VARCHAR(255) NOT NULL",
+        "account_id": "INT NOT NULL",
+        "sent_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+    },
 }
 
 def get_conn():

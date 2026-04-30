@@ -147,13 +147,12 @@ button[data-type="secondary"] {
         top: 0;
         left: 0;
         right: 0;
-        bottom: 60px;
+        bottom: 61px;
     }
     .dashboard-main {
         margin-left: 0;
         border-radius: 0;
         border: none;
-        padding-bottom: 90px;
     }
 }
  
