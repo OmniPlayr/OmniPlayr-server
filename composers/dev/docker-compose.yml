@@ -40,7 +40,7 @@ services:
       - "8524:8224"
     depends_on:
       - db
-    restart: unless-stopped
+    restart: on-failure:5
 
   db:
     image: postgres:16

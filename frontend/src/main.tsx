@@ -26,6 +26,8 @@ import Shutdown from './Shutdown.tsx';
 import { generateCssVars } from './modules/customColor.ts';
 import MobileNotifications from './MobileNotifications.tsx';
 import { NotificationsProvider } from './modules/NotificationsContext';
+import Updating from './Updating.tsx';
+import Failure from './Fail.tsx';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -105,7 +107,7 @@ function AppShell() {
     const navigate = useNavigate();
     const [isAuth] = useState(() => isTokenValid());
     const [accountId, setAccountId] = useState<string | null>(getAccount);
-    const showShell = isAuth && !!accountId && location.pathname !== '/login' && location.pathname !== '/shutdown';
+    const showShell = isAuth && !!accountId && location.pathname !== '/login' && location.pathname !== '/shutdown' && location.pathname !== '/updating' && location.pathname !== '/failure';
     const [account, setAccount] = useState<any>(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const isMobile = useIsMobile();
@@ -304,6 +306,8 @@ function AppShell() {
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/shutdown" element={<Shutdown />} />
+                    <Route path="/updating" element={<Updating />} />     
+                    <Route path="/failure" element={<Failure />} />            
                     <Route path="/" element={
                         !isTokenValid()
                             ? <Navigate to="/login" />

@@ -3,6 +3,7 @@ import api from '../modules/api';
 import { useEffect, useRef, useState } from 'react';
 import { getConfig } from '../modules/config';
 import { ArrowRight, TriangleAlert, WifiOff, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const GITHUB_CACHE_KEY = 'omniplayr_github_info';
 
@@ -163,6 +164,8 @@ function About({ updateAvailable, onRefreshCheck }: any) {
     const githubFetched = useRef(false);
     const [loading, setLoading] = useState(false);
 
+    const navigate = useNavigate();
+
     const handleCheck = async () => {
         setLoading(true);
         await api("/update/check");
@@ -174,8 +177,7 @@ function About({ updateAvailable, onRefreshCheck }: any) {
         if (!confirm("The server will restart to apply the update. Proceed?")) return;
         setLoading(true);
         await api("/update/apply", {}, {});
-        alert("Update applied. The server is restarting.");
-        window.location.reload();
+        navigate("/updating");
     };
 
     useEffect(() => {

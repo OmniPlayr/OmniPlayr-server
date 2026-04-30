@@ -10,7 +10,7 @@ services:
       - "8523:8223"
     depends_on:
       - backend
-    restart: unless-stopped
+    restart: on-failure:2
 
   backend:
     build: ./backend
@@ -33,7 +33,7 @@ services:
       - "8524:8224"
     depends_on:
       - db
-    restart: unless-stopped
+    restart: on-failure:2
 
   db:
     image: postgres:16

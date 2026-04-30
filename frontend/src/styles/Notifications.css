@@ -387,7 +387,7 @@
 }
 
 .desktop-notification-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--clr-text-a0);
     white-space: nowrap;
@@ -396,7 +396,7 @@
 }
 
 .desktop-notification-text {
-    font-size: 16px;
+    font-size: 14px;
     color: var(--clr-text-a30);
     display: -webkit-box;
     -webkit-line-clamp: 2;
