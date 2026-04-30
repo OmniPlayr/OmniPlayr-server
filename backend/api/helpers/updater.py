@@ -44,6 +44,10 @@ BACKEND_PRESERVED = {
 FRONTEND_PRESERVED = {
 }
 
+_OVERWRITE_ALWAYS = {
+    Path("frontend/src/config/version.toml"),
+}
+
 def _normalize_version_str(v: str) -> str:
     try:
         if not v:
@@ -425,13 +429,14 @@ def _is_config_types_file(path: Path) -> bool:
     return "types" in stem or "config_types" in path.parts
 
 
-def _is_mergeable_config(path: Path) -> bool:
+def _is_mergeable_config(path: Path, root: Path) -> bool:
     if path.suffix not in (".toml", ".json"):
         return False
     if _is_config_types_file(path):
         return False
+    if path.relative_to(root) in _OVERWRITE_ALWAYS:
+        return False
     return _is_in_config_dir(path)
-
 
 def _toml_value(value) -> str:
     if isinstance(value, bool):
@@ -570,10 +575,10 @@ def _merge_json_file(source: Path, dest: Path):
     log(f"Merged config (JSON): {dest}", "info", "updater")
 
 
-def _merge_or_copy(source: Path, target: Path):
-    log(f"_merge_or_copy: source={source} target={target}", "debug", "updater")
+def _merge_or_copy(source: Path, target: Path, root: Path):
+    log(f"_merge_or_copy: source={source} target={target} root={root}", "debug", "updater")
 
-    if target.exists() and _is_mergeable_config(source):
+    if target.exists() and _is_mergeable_config(source, root):
         log(f"{source.name!r} is a mergeable config file, attempting merge", "debug", "updater")
         if source.suffix == ".toml":
             _merge_toml_file(source, target)
@@ -790,4 +795,4 @@ def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None 
                 log(f"New file: {item.name!r}", "debug", "updater")
 
             if should_copy:
-                _merge_or_copy(item, target)
+                _merge_or_copy(item, target, root)

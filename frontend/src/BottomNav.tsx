@@ -1,16 +1,17 @@
 import './styles/BottomNav.css';
-import { Menu, House, Settings, X } from 'lucide-react';
+import { Menu, House, Settings, X, Bell } from 'lucide-react';
 
 interface BottomNavProps {
     onMenuToggle: () => void;
     onHome: () => void;
     onSettings: () => void;
+    onNotifications: () => void;
     activeTabId: string | null;
     isMenuOpen: boolean;
     updateAvailable?: boolean;
 }
 
-function BottomNav({ onMenuToggle, onHome, onSettings, activeTabId, isMenuOpen, updateAvailable }: BottomNavProps) {
+function BottomNav({ onMenuToggle, onHome, onSettings, onNotifications, activeTabId, isMenuOpen, updateAvailable }: BottomNavProps) {
     return (
         <nav className="bottom-nav">
             <div className="bottom-nav-item" onClick={onMenuToggle}>
@@ -26,6 +27,13 @@ function BottomNav({ onMenuToggle, onHome, onSettings, activeTabId, isMenuOpen, 
                 onClick={onHome}
             >
                 <House className="bottom-nav-icon" />
+            </div>
+
+            <div
+                className={`bottom-nav-item${activeTabId === '__mobile_notifications' ? ' active' : ''}`}
+                onClick={onNotifications}
+            >
+                <Bell className="bottom-nav-icon" />
             </div>
     
             <div className={`bottom-nav-item${activeTabId === '__settings' ? ' active' : ''}`} onClick={onSettings}>

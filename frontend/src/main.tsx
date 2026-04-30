@@ -24,6 +24,7 @@ import Settings from './Settings.tsx';
 import { initSafeMode } from './modules/safeMode';
 import Shutdown from './Shutdown.tsx';
 import { generateCssVars } from './modules/customColor.ts';
+import MobileNotifications from './MobileNotifications.tsx';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -81,6 +82,7 @@ function NavigateSetter() {
 
 function resolveActiveTabFromPath(pathname: string): string | null {
     if (pathname.startsWith('/settings')) return '__settings';
+    if (pathname.startsWith('/notifications')) return '__mobile_notifications';
     const tab = getTabByUrl(pathname);
     if (tab) return tab.id;
     return null;
@@ -196,6 +198,10 @@ function AppShell() {
             navigate('/settings');
             return;
         }
+        if (tabId === '__mobile_notifications') {
+            navigate('/notifications');
+            return;
+        }
         const tab = getTab(tabId);
         if (tab?.url) {
             navigate(tab.url);
@@ -245,6 +251,7 @@ function AppShell() {
                                 onMenuToggle={() => setSidebarOpen(prev => !prev)}
                                 onHome={() => handleTabChange(null)}
                                 onSettings={() => handleTabChange('__settings')}
+                                onNotifications={() => handleTabChange('__mobile_notifications')}
                                 activeTabId={resolvedTabId}
                                 isMenuOpen={sidebarOpen}
                                 updateAvailable={updateAvailable}
@@ -276,6 +283,7 @@ function AppShell() {
                                 <Routes>
                                     <Route path="/" element={<Dashboard />} />
                                     <Route path="/settings/*" element={<Settings account={account} updateAvailable={updateAvailable} onRefreshCheck={() => checkUpdates(true)} />} />
+                                    <Route path='/notifications' element={<MobileNotifications />} />
                                     <Route path="/dashboard" element={<Dashboard />} />
                                     {getRoutes().map(({ path, component: Component }) => (
                                         <Route key={path} path={path} element={<Component />} />

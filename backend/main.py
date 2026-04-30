@@ -18,9 +18,11 @@ def _is_safe_mode() -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
     # This loads the config files
     load_configs()
+    
+    # This sets up the database, but needs to be after the configs are loaded, because the database also logs, and else you are going to get a lot of duplicate logs (I think)
+    init_db()
 
     # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
     start_config_watcher()

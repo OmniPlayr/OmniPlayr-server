@@ -1,0 +1,9 @@
+.mobile-notifications {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.mobile-notifications-title {
+    color: var(--clr-text-a0);
+}
