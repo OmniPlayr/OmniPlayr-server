@@ -389,7 +389,7 @@ def check_for_updates(force: bool = False) -> dict:
     if update_available:
         if backend_new and frontend_new:
             update_target = "<highlight>server</highlight>"
-            version_text = f"(B{latest_backend} & F{remote_frontend['version']})"
+            version_text = f"(B{latest_backend} & F{remote_frontend.get('safe_version')!r})"
         elif backend_new:
             update_target = "<highlight>backend</highlight>"
             version_text = f"({latest_backend})"
