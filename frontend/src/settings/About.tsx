@@ -201,17 +201,42 @@ function About({ updateAvailable, onRefreshCheck }: any) {
                 }
             });
     }, [serverInfo]);
+    
 
     const frontendSafeVersion = getConfig("version.frontend.safeVersion") as string;
     const frontendYear = getConfig("version.frontend.year") as number;
     const frontendMonth = getConfig("version.frontend.month") as number;
     const frontendBugfix = getConfig("version.frontend.bugfix") as number;
-
     const githubFrontend = githubInfo?.versionToml
         ? parseToml(githubInfo.versionToml)?.version?.frontend
         : null;
 
     const githubBackend = githubInfo?.backendConfig ?? null;
+
+    const frontendCurrent = {
+        year: frontendYear,
+        month: frontendMonth,
+        bugfix: frontendBugfix
+    };
+
+    const backendCurrent = serverInfo
+        ? {
+            year: serverInfo.year,
+            month: serverInfo.month,
+            bugfix: serverInfo.bugfix
+        }
+        : null;
+
+    const frontendHasUpdate = githubFrontend
+        ? getUpdateLevel(frontendCurrent, githubFrontend) !== null
+        : false;
+
+    const backendHasUpdate = githubBackend && backendCurrent
+        ? getUpdateLevel(backendCurrent, githubBackend) !== null
+        : false;
+
+    const anyUpdateAvailable =
+        updateAvailable || frontendHasUpdate || backendHasUpdate;
 
     return (
         <>
@@ -220,14 +245,14 @@ function About({ updateAvailable, onRefreshCheck }: any) {
                 <div className="about-version-divider" />
                 <div className="about-version-value">
                     <b>Status:</b> 
-                    {updateAvailable ? (
+                    {anyUpdateAvailable ? (
                         <span className="about-version-update month">Update Available</span>
                     ) : (
                         "Up to date"
                     )}
                 </div>
                 <div className="about-update-controls">
-                    {updateAvailable ? (
+                    {anyUpdateAvailable ? (
                         <button className="btn-update primary" onClick={handleApply} disabled={loading}>
                             {loading && <RefreshCw className="loading-icon" size={14} />}
                             Install Now
