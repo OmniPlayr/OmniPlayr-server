@@ -16,21 +16,27 @@ export default function Updating() {
         if (force) return;
 
         let stopped = false;
+        let intervalId: number | undefined;
 
-        const interval = setInterval(async () => {
-            try {
-                const res = await loadServerInfo();
+        const timeoutId = window.setTimeout(() => {
+            if (stopped) return;
 
-                if (res && !stopped) {
-                    clearInterval(interval);
-                    navigate('/dashboard');
-                }
-            } catch (e) {}
-        }, 1000);
+            intervalId = window.setInterval(async () => {
+                try {
+                    const res = await loadServerInfo();
+
+                    if (res && !stopped) {
+                        if (intervalId) window.clearInterval(intervalId);
+                        navigate('/dashboard');
+                    }
+                } catch (e) {}
+            }, 1000);
+        }, 10000);
 
         return () => {
             stopped = true;
-            clearInterval(interval);
+            window.clearTimeout(timeoutId);
+            if (intervalId) window.clearInterval(intervalId);
         };
     }, [navigate, force]);
 
