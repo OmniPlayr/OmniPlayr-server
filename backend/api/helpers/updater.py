@@ -395,7 +395,7 @@ def check_for_updates(force: bool = False) -> dict:
             version_text = f"({latest_backend})"
         else:
             update_target = "<highlight>frontend</highlight>"
-            version_text = f"({remote_frontend['version']})"
+            version_text = f"({remote_frontend['version_tuple']})"
 
         for account in list_accounts():
             if account["role"] != "admin":
