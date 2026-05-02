@@ -627,19 +627,14 @@ def _merge_or_copy(source: Path, target: Path, root: Path):
 def apply_update() -> dict:
     log("apply_update called", "debug", "updater")
 
-    cache = _load_cache()
-    if not cache:
-        log("No cache found, cannot apply update", "debug", "updater")
-        return {"error": "No update info available"}
+    log("Forcing fresh update check before applying", "debug", "updater")
+    fresh = check_for_updates(force=True)
+    if "error" in fresh:
+        log(f"Fresh update check failed: {fresh['error']}", "error", "updater")
+        return {"error": fresh["error"]}
 
-    update_available = cache.get("update_available") if isinstance(cache, dict) else cache[4]
-    tarball_url = cache.get("tarball_url") if isinstance(cache, dict) else cache[5]
-
-    log(f"Cache state: update_available={update_available} tarball_url={tarball_url!r}", "debug", "updater")
-
-    if not update_available:
-        log("No update available in cache, aborting", "debug", "updater")
-        return {"error": "No update available"}
+    tarball_url = fresh.get("tarball_url")
+    log(f"Tarball URL from fresh check: {tarball_url!r}", "debug", "updater")
 
     raw_compose_dir = get_config("paths.compose_dir", "/compose")
     compose_dir = Path(_to_linux_path(raw_compose_dir))
