@@ -1,7 +1,9 @@
 import os
 import re
 import psycopg2
+import psycopg2.pool
 from psycopg2.extras import RealDictCursor
+from contextlib import contextmanager
 from api.helpers.userwarn import user_warn
 from api.helpers.log import log
 
@@ -76,9 +78,34 @@ SCHEMA = {
     },
 }
 
+_pool: psycopg2.pool.ThreadedConnectionPool | None = None
+
+def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        log("Creating database connection pool", "debug", "db")
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=2,
+            maxconn=10,
+            dsn=DATABASE_URL,
+            cursor_factory=RealDictCursor,
+        )
+        log("Database connection pool created", "debug", "db")
+    return _pool
+
+@contextmanager
 def get_conn():
-    log("Opening new database connection", "debug", "db")
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    pool = _get_pool()
+    conn = pool.getconn()
+    log("Acquired connection from pool", "debug", "db")
+    try:
+        yield conn
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        pool.putconn(conn)
+        log("Released connection back to pool", "debug", "db")
 
 # This checks if the sql is safe, because we dont want sql injection
 def is_safe_sql_identifier(name):
@@ -184,116 +211,114 @@ def can_convert_column(cur, table, col, from_type, to_type):
 def init_db():
     log("Initializing database schema", "debug", "db")
     try:
-        conn = get_conn()
-        cur = conn.cursor()
-        
-        log(f"Processing {len(SCHEMA)} table(s): {list(SCHEMA.keys())}", "debug", "db")
-        
-        for table, columns in SCHEMA.items():
-            log(f"Processing table: {table!r}", "debug", "db")
-            if not is_safe_sql_identifier(table):
-                log(f"Unsafe table name rejected: {table!r}", "critical", "db")
-                raise ValueError(f"Unsafe table name detected: {table}")
+        with get_conn() as conn:
+            cur = conn.cursor()
+            
+            log(f"Processing {len(SCHEMA)} table(s): {list(SCHEMA.keys())}", "debug", "db")
+            
+            for table, columns in SCHEMA.items():
+                log(f"Processing table: {table!r}", "debug", "db")
+                if not is_safe_sql_identifier(table):
+                    log(f"Unsafe table name rejected: {table!r}", "critical", "db")
+                    raise ValueError(f"Unsafe table name detected: {table}")
 
-            cur.execute(f"CREATE TABLE IF NOT EXISTS {table} (id SERIAL PRIMARY KEY)")
-            log(f"Table {table!r} ensured to exist", "debug", "db")
+                cur.execute(f"CREATE TABLE IF NOT EXISTS {table} (id SERIAL PRIMARY KEY)")
+                log(f"Table {table!r} ensured to exist", "debug", "db")
 
-            cur.execute("""
-                SELECT column_name, data_type, column_default, is_nullable
-                FROM information_schema.columns
-                WHERE table_name = %s
-            """, (table,))
-            existing = {row['column_name']: row for row in cur.fetchall()}
-            log(f"Table {table!r} has {len(existing)} existing column(s): {list(existing.keys())}", "debug", "db")
+                cur.execute("""
+                    SELECT column_name, data_type, column_default, is_nullable
+                    FROM information_schema.columns
+                    WHERE table_name = %s
+                """, (table,))
+                existing = {row['column_name']: row for row in cur.fetchall()}
+                log(f"Table {table!r} has {len(existing)} existing column(s): {list(existing.keys())}", "debug", "db")
 
-            for col, definition in columns.items():
-                if not is_safe_sql_identifier(col):
-                    log(f"Unsafe column name rejected: {table}.{col}", "critical", "db")
-                    raise ValueError(f"Unsafe column name detected: {table}.{col}")
-                if ";" in definition:
-                    log(f"Semicolon detected in column definition for {table}.{col}, rejecting", "critical", "db")
-                    raise ValueError(f"Unsafe column definition detected for {table}.{col}")
+                for col, definition in columns.items():
+                    if not is_safe_sql_identifier(col):
+                        log(f"Unsafe column name rejected: {table}.{col}", "critical", "db")
+                        raise ValueError(f"Unsafe column name detected: {table}.{col}")
+                    if ";" in definition:
+                        log(f"Semicolon detected in column definition for {table}.{col}, rejecting", "critical", "db")
+                        raise ValueError(f"Unsafe column definition detected for {table}.{col}")
 
-                if col not in existing:
-                    log(f"Column {table}.{col} does not exist, adding: {definition}", "debug", "db")
-                    cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
-                    log(f"Column {table}.{col} added", "debug", "db")
-                else:
-                    existing_type = existing[col]['data_type']
-                    target_type = parse_column_type(definition)
-                    
-                    if existing_type != target_type:
-                        log(f"Type mismatch on {table}.{col}: existing={existing_type!r} target={target_type!r}", "debug", "db")
-                        if can_convert_column(cur, table, col, existing_type, target_type):
-                            try:
-                                cur.execute("SAVEPOINT type_migration")
-                                using_clause = f"USING {col}::{target_type}"
-                                cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} TYPE {target_type} {using_clause}")
-                                cur.execute("RELEASE SAVEPOINT type_migration")
-                                log(f"Successfully migrated {table}.{col} from {existing_type} to {target_type}", "info")
-                            except Exception as e:
-                                cur.execute("ROLLBACK TO SAVEPOINT type_migration")
-                                log(f"Failed to migrate {table}.{col} from {existing_type} to {target_type}: {e}", "error")
-                        else:
-                            log(f"Cannot safely migrate {table}.{col} from {existing_type} to {target_type} - data would be lost", "warning")
+                    if col not in existing:
+                        log(f"Column {table}.{col} does not exist, adding: {definition}", "debug", "db")
+                        cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
+                        log(f"Column {table}.{col} added", "debug", "db")
                     else:
-                        log(f"Column {table}.{col} type matches ({existing_type}), no migration needed", "debug", "db")
-                    
-                    is_primary_key = "PRIMARY KEY" in definition.upper()
-                    schema_requires_not_null = "NOT NULL" in definition.upper()
-                    column_is_not_null = existing[col]['is_nullable'] == 'NO'
-                    
-                    if not is_primary_key:
-                        if schema_requires_not_null and not column_is_not_null:
-                            log(f"Schema requires NOT NULL on {table}.{col} but column is nullable, checking rows", "debug", "db")
-                            cur.execute(f"""
-                                SELECT COUNT(*) as nulls
-                                FROM {table}
-                                WHERE {col} IS NULL
-                            """)
-                            null_count = cur.fetchone()['nulls']
-                            log(f"{table}.{col} has {null_count} NULL row(s)", "debug", "db")
-                            if null_count == 0:
+                        existing_type = existing[col]['data_type']
+                        target_type = parse_column_type(definition)
+                        
+                        if existing_type != target_type:
+                            log(f"Type mismatch on {table}.{col}: existing={existing_type!r} target={target_type!r}", "debug", "db")
+                            if can_convert_column(cur, table, col, existing_type, target_type):
                                 try:
-                                    cur.execute("SAVEPOINT not_null_add")
-                                    cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} SET NOT NULL")
-                                    cur.execute("RELEASE SAVEPOINT not_null_add")
-                                    log(f"Set NOT NULL constraint on {table}.{col}", "info")
+                                    cur.execute("SAVEPOINT type_migration")
+                                    using_clause = f"USING {col}::{target_type}"
+                                    cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} TYPE {target_type} {using_clause}")
+                                    cur.execute("RELEASE SAVEPOINT type_migration")
+                                    log(f"Successfully migrated {table}.{col} from {existing_type} to {target_type}", "info")
                                 except Exception as e:
-                                    cur.execute("ROLLBACK TO SAVEPOINT not_null_add")
-                                    log(f"Failed to set NOT NULL on {table}.{col}: {e}", "error")
+                                    cur.execute("ROLLBACK TO SAVEPOINT type_migration")
+                                    log(f"Failed to migrate {table}.{col} from {existing_type} to {target_type}: {e}", "error")
                             else:
-                                log(f"Cannot set NOT NULL on {table}.{col} - column contains NULL values", "warning")
-                        elif not schema_requires_not_null and column_is_not_null:
-                            log(f"Schema does not require NOT NULL on {table}.{col} but column has it, dropping constraint", "debug", "db")
-                            try:
-                                cur.execute("SAVEPOINT not_null_drop")
-                                cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} DROP NOT NULL")
-                                cur.execute("RELEASE SAVEPOINT not_null_drop")
-                                log(f"Dropped NOT NULL constraint on {table}.{col}", "info")
-                            except Exception as e:
-                                cur.execute("ROLLBACK TO SAVEPOINT not_null_drop")
-                                log(f"Failed to drop NOT NULL on {table}.{col}: {e}", "error")
+                                log(f"Cannot safely migrate {table}.{col} from {existing_type} to {target_type} - data would be lost", "warning")
+                        else:
+                            log(f"Column {table}.{col} type matches ({existing_type}), no migration needed", "debug", "db")
+                        
+                        is_primary_key = "PRIMARY KEY" in definition.upper()
+                        schema_requires_not_null = "NOT NULL" in definition.upper()
+                        column_is_not_null = existing[col]['is_nullable'] == 'NO'
+                        
+                        if not is_primary_key:
+                            if schema_requires_not_null and not column_is_not_null:
+                                log(f"Schema requires NOT NULL on {table}.{col} but column is nullable, checking rows", "debug", "db")
+                                cur.execute(f"""
+                                    SELECT COUNT(*) as nulls
+                                    FROM {table}
+                                    WHERE {col} IS NULL
+                                """)
+                                null_count = cur.fetchone()['nulls']
+                                log(f"{table}.{col} has {null_count} NULL row(s)", "debug", "db")
+                                if null_count == 0:
+                                    try:
+                                        cur.execute("SAVEPOINT not_null_add")
+                                        cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} SET NOT NULL")
+                                        cur.execute("RELEASE SAVEPOINT not_null_add")
+                                        log(f"Set NOT NULL constraint on {table}.{col}", "info")
+                                    except Exception as e:
+                                        cur.execute("ROLLBACK TO SAVEPOINT not_null_add")
+                                        log(f"Failed to set NOT NULL on {table}.{col}: {e}", "error")
+                                else:
+                                    log(f"Cannot set NOT NULL on {table}.{col} - column contains NULL values", "warning")
+                            elif not schema_requires_not_null and column_is_not_null:
+                                log(f"Schema does not require NOT NULL on {table}.{col} but column has it, dropping constraint", "debug", "db")
+                                try:
+                                    cur.execute("SAVEPOINT not_null_drop")
+                                    cur.execute(f"ALTER TABLE {table} ALTER COLUMN {col} DROP NOT NULL")
+                                    cur.execute("RELEASE SAVEPOINT not_null_drop")
+                                    log(f"Dropped NOT NULL constraint on {table}.{col}", "info")
+                                except Exception as e:
+                                    cur.execute("ROLLBACK TO SAVEPOINT not_null_drop")
+                                    log(f"Failed to drop NOT NULL on {table}.{col}: {e}", "error")
 
-        # This makes sure there is something in the setup_state table
-        log("Ensuring setup_state default row exists", "debug", "db")
-        cur.execute("""
-            INSERT INTO setup_state (id, current_step, completed)
-            VALUES (1, 0, FALSE)
-            ON CONFLICT (id) DO NOTHING
-        """)
-        
-        # This makes sure that there is something in the server table
-        log("Ensuring server default row exists", "debug", "db")
-        cur.execute("""
-            INSERT INTO server (id, password, pass_https)
-            VALUES (1, NULL, FALSE)
-            ON CONFLICT (id) DO NOTHING
-        """)
-        
-        conn.commit()
-        cur.close()
-        conn.close()
+            # This makes sure there is something in the setup_state table
+            log("Ensuring setup_state default row exists", "debug", "db")
+            cur.execute("""
+                INSERT INTO setup_state (id, current_step, completed)
+                VALUES (1, 0, FALSE)
+                ON CONFLICT (id) DO NOTHING
+            """)
+            
+            log("Ensuring server default row exists", "debug", "db")
+            cur.execute("""
+                INSERT INTO server (id, password, pass_https)
+                VALUES (1, NULL, FALSE)
+                ON CONFLICT (id) DO NOTHING
+            """)
+            
+            conn.commit()
+            cur.close()
         log("Database initialization completed successfully", "debug", "db")
     except Exception as e:
         log(f"Database initialization failed: {e}", "critical", "db")

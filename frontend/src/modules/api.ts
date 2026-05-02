@@ -7,24 +7,32 @@ interface RouteInfo {
     name: string;
 }
 
-let _routeCache: Promise<RouteInfo[]> | null = null;
+let _routeMap: Map<string, RouteInfo> | null = null;
+let _routePromise: Promise<Map<string, RouteInfo>> | null = null;
 
-function fetchRoutes(): Promise<RouteInfo[]> {
-    if (_routeCache) return _routeCache;
+function fetchRoutes(): Promise<Map<string, RouteInfo>> {
+    if (_routePromise) return _routePromise;
     const baseUrl = getConfig<string>("api.apiUrl") ?? "";
     const token = localStorage.getItem("access_token");
-    return (_routeCache = fetch(`${baseUrl}/api/endpoints/`, {
+    _routePromise = fetch(`${baseUrl}/api/endpoints/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-    }).then((res) => {
-        if (!res.ok) throw new Error(`Failed to fetch endpoints: ${res.status}`);
-        return res.json();
-    }));
+    })
+        .then((res) => {
+            if (!res.ok) throw new Error(`Failed to fetch endpoints: ${res.status}`);
+            return res.json() as Promise<RouteInfo[]>;
+        })
+        .then((routes) => {
+            _routeMap = new Map(routes.map((r) => [r.name, r]));
+            return _routeMap;
+        });
+    return _routePromise;
 }
 
 fetchRoutes();
 
 export function invalidateRouteCache() {
-    _routeCache = null;
+    _routeMap = null;
+    _routePromise = null;
     fetchRoutes();
 }
 
@@ -39,12 +47,16 @@ function replaceUrlParams(url: string, params?: object): string {
 function buildHeaders(): Record<string, string> {
     const token = localStorage.getItem("access_token");
     const accountToken = getAccount();
-
     return {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(accountToken ? { "X-Account-Token": String(accountToken) } : {}),
     };
+}
+
+async function getRouteMap(): Promise<Map<string, RouteInfo>> {
+    if (_routeMap) return _routeMap;
+    return fetchRoutes();
 }
 
 async function api(
@@ -63,8 +75,8 @@ async function api(
         method = data ? "POST" : "GET";
         url = `${baseUrl}/api${replaceUrlParams(idOrPath, params)}`;
     } else {
-        const routes = await fetchRoutes();
-        const route = routes.find((r) => r.name === idOrPath);
+        const routeMap = await getRouteMap();
+        const route = routeMap.get(idOrPath);
         if (!route) throw new Error(`No route found with name "${idOrPath}"`);
         method = route.methods[0];
         url = `${baseUrl}${replaceUrlParams(route.path, params)}`;
