@@ -25,6 +25,7 @@ class AccountUpdate(BaseModel):
     name: str | None = None
     role: str | None = None
     avatar_b64: str | None = None
+    nickname: str | None = None
     
 class AccountLogin(BaseModel):
     user_id: int
@@ -129,7 +130,7 @@ def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(v
         raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
     
     log(f"PATCH /accounts/{account_id}: all checks passed, updating", "debug", "module.account")
-    updated = update_account(account_id, body.name, body.role, body.avatar_b64)
+    updated = update_account(account_id, body.name, body.role, body.avatar_b64, body.nickname)
     log(f"PATCH /accounts/{account_id}: update complete", "debug", "module.account")
     return updated
 

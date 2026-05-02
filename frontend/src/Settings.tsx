@@ -23,6 +23,7 @@ import PowerOptions from "./settings/PowerOptions";
 import TerminalPage from "./settings/Terminal";
 import Colors from "./settings/Colors";
 import Plugins from "./settings/Plugins";
+import Profile from "./settings/Profile";
 
 function Settings({ account, updateAvailable, onRefreshCheck }: any) {
     const navigate = useNavigate();
@@ -137,7 +138,7 @@ function Settings({ account, updateAvailable, onRefreshCheck }: any) {
                 icon: User,
                 title: "Profile",
                 description: "Edit your profile",
-                component: () => <div>Profile</div>
+                component: () => <Profile />
             },
             {
                 id: "other-people",

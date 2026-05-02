@@ -114,6 +114,7 @@ function AppShell() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [safeMode, setSafeMode] = useState(false);
     const [updateAvailable, setUpdateAvailable] = useState(false);
+    const [pluginsLoaded, setPluginsLoaded] = useState(false);
 
     const [activeTabId, setActiveTabId] = useState<string | null>(() =>
         resolveActiveTabFromPath(location.pathname)
@@ -140,11 +141,13 @@ function AppShell() {
         initSafeMode().then(sm => {
             setSafeMode(sm);
             if (!sm) {
-                loadPlugins().catch(console.error);
+                loadPlugins().catch(console.error).finally(() => setPluginsLoaded(true));
+            } else {
+                setPluginsLoaded(true);
             }
         }).catch(() => {
             setSafeMode(false);
-            loadPlugins().catch(console.error);
+            loadPlugins().catch(console.error).finally(() => setPluginsLoaded(true));
         });
     }, [isAuth]);
 
@@ -292,7 +295,7 @@ function AppShell() {
                                         {getRoutes().map(({ path, component: Component }) => (
                                             <Route key={path} path={path} element={<Component />} />
                                         ))}
-                                        <Route path="*" element={<Navigate to="/" />} />
+                                        {pluginsLoaded && <Route path="*" element={<Navigate to="/" />} />}
                                     </Routes>
                                 )}
                             </div>

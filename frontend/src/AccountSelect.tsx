@@ -48,7 +48,7 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                         onClick={() => loadAccount(a.id)}
                     >
                         <img src={a.avatar_b64 || defaultPfp} alt={a.name} />
-                        <span>{a.name}</span>
+                        <span>{a.nickname || a.name}</span>
                     </div>
                 ))}
             </div>

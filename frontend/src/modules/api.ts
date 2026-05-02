@@ -7,22 +7,25 @@ interface RouteInfo {
     name: string;
 }
 
-let _routeCache: RouteInfo[] | null = null;
+let _routeCache: Promise<RouteInfo[]> | null = null;
 
-async function fetchRoutes(): Promise<RouteInfo[]> {
+function fetchRoutes(): Promise<RouteInfo[]> {
     if (_routeCache) return _routeCache;
     const baseUrl = getConfig<string>("api.apiUrl") ?? "";
     const token = localStorage.getItem("access_token");
-    const res = await fetch(`${baseUrl}/api/endpoints/`, {
+    return (_routeCache = fetch(`${baseUrl}/api/endpoints/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error(`Failed to fetch endpoints: ${res.status}`);
-    _routeCache = await res.json();
-    return _routeCache!;
+    }).then((res) => {
+        if (!res.ok) throw new Error(`Failed to fetch endpoints: ${res.status}`);
+        return res.json();
+    }));
 }
+
+fetchRoutes();
 
 export function invalidateRouteCache() {
     _routeCache = null;
+    fetchRoutes();
 }
 
 function replaceUrlParams(url: string, params?: object): string {
@@ -32,6 +35,7 @@ function replaceUrlParams(url: string, params?: object): string {
         return encodeURIComponent(String((params as Record<string, unknown>)[key]));
     });
 }
+
 function buildHeaders(): Record<string, string> {
     const token = localStorage.getItem("access_token");
     const accountToken = getAccount();
@@ -51,35 +55,31 @@ async function api(
     stream = false
 ): Promise<unknown> {
     const baseUrl = getConfig<string>("api.apiUrl") ?? "";
-    const headers = buildHeaders();
+
+    let method: string;
+    let url: string;
 
     if (idOrPath.startsWith("/")) {
-        const url = `${baseUrl}/api${replaceUrlParams(idOrPath, params)}`;
-        const res = await fetch(url, {
-            method: data ? "POST" : "GET",
-            headers,
-            body: data ? JSON.stringify(data) : undefined,
-        });
-        if (!res.ok && throwErrors)
-            throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-        if (stream) return res;
-        return res.json();
+        method = data ? "POST" : "GET";
+        url = `${baseUrl}/api${replaceUrlParams(idOrPath, params)}`;
+    } else {
+        const routes = await fetchRoutes();
+        const route = routes.find((r) => r.name === idOrPath);
+        if (!route) throw new Error(`No route found with name "${idOrPath}"`);
+        method = route.methods[0];
+        url = `${baseUrl}${replaceUrlParams(route.path, params)}`;
     }
 
-    const routes = await fetchRoutes();
-    const route = routes.find((r) => r.name === idOrPath);
-    if (!route) throw new Error(`No route found with name "${idOrPath}"`);
-    const method = route.methods[0];
-    const url = `${baseUrl}${replaceUrlParams(route.path, params)}`;
     const res = await fetch(url, {
         method,
-        headers,
+        headers: buildHeaders(),
         body: data ? JSON.stringify(data) : undefined,
     });
+
     if (!res.ok && throwErrors)
         throw new Error(`Request failed: ${res.status} ${res.statusText}`);
-    if (stream) return res;
-    return res.json();
+
+    return stream ? res : res.json();
 }
 
 export default api;

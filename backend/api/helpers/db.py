@@ -13,6 +13,7 @@ SCHEMA = {
     "accounts": {
         "id": "SERIAL PRIMARY KEY",
         "name": "VARCHAR(255) NOT NULL",
+        "nickname": "VARCHAR(255) DEFAULT NULL",
         "role": "VARCHAR(50) NOT NULL DEFAULT 'user'",
         "avatar_b64": "TEXT",
         "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
