@@ -93,6 +93,19 @@ button[data-type="secondary"] {
     margin: revert;
     padding: revert;
 }
+
+.toast-container {
+    bottom: 90px !important;
+    right: 20px !important;
+}
+
+@media screen and (max-width: 768px) {
+    .toast-container {
+        bottom: 70px !important;
+        right: 10px !important;
+    }
+}
+
 /* Custom stling for JSPT */
 .popup-container {
     background-color: rgba(0, 0, 0, 0.5);
