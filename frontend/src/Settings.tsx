@@ -222,32 +222,34 @@ function Settings({ account, updateAvailable, onRefreshCheck }: any) {
             )}
 
             {stack.length === 1 && hasSubTabs(currentSection) && (
-                <div className="settings-tabs">
+                <>
                     <button className="settings-back" onClick={goBack} data-type="secondary">
                         <ArrowLeft size={16} /> Back
                     </button>
+                    <div className="settings-tabs">
 
-                    {currentSubTabs.filter(isVisible).map(tab => {
-                        const Icon = tab.icon;
+                        {currentSubTabs.filter(isVisible).map(tab => {
+                            const Icon = tab.icon;
 
-                        return (
-                            <div
-                                key={tab.id}
-                                className="settings-tab"
-                                id={tab.id}
-                                onClick={() => openSubTab(tab.id)}
-                            >
-                                {Icon && <Icon className="settings-option-icon" />}
-                                <div className="settings-tab-info">
-                                    <p className="settings-tab-title">{tab.title}</p>
-                                    {tab.description && (
-                                        <p className="settings-tab-description">{tab.description}</p>
-                                    )}
+                            return (
+                                <div
+                                    key={tab.id}
+                                    className="settings-tab"
+                                    id={tab.id}
+                                    onClick={() => openSubTab(tab.id)}
+                                >
+                                    {Icon && <Icon className="settings-option-icon" />}
+                                    <div className="settings-tab-info">
+                                        <p className="settings-tab-title">{tab.title}</p>
+                                        {tab.description && (
+                                            <p className="settings-tab-description">{tab.description}</p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                </>
             )}
 
             {ActiveComponent && (
