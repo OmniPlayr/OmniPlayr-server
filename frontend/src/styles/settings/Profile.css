@@ -65,3 +65,13 @@
     color: var(--clr-text-a30);
     cursor: pointer;
 }
+
+.profile-section-about-bio {
+    margin-top: 10px;
+    font-size: 16px;
+}
+
+.profile-section-about-bio.empty {
+    color: var(--clr-text-a30);
+    font-style: italic;
+}

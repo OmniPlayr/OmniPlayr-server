@@ -1,2 +1,2 @@
 [paths]
-compose_dir = "str"
+compose_dir = "str # comment: Directory that the docker compose file is in"

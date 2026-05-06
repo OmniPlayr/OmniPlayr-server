@@ -395,6 +395,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        height: max-content;
     }
 
     .player-fullscreen-bottom {

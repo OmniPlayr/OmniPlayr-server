@@ -1,4 +1,4 @@
 [github]
-owner = "str"
-repo = "str"
-check_interval_hours = "int"
+owner = "str # comment: The owner of the GitHub repository to check for updates"
+repo = "str # comment: The name of the GitHub repository to check for updates"
+check_interval_hours = "int # comment: How often to check for updates in hours"

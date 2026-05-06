@@ -44,12 +44,137 @@ function extractAverageColor(img: HTMLImageElement): string {
     }
 }
 
+type AnalyserState = { analyser: AnalyserNode; data: Uint8Array };
+
+function useAudioAnalyser() {
+    const ref = useRef<AnalyserState | null>(null);
+
+    useEffect(() => {
+        const attempt = (): boolean => {
+            if (ref.current) return true;
+            const el =
+                (player as any).audioElement ??
+                (player as any).audio ??
+                (player as any)._audio ??
+                document.querySelector<HTMLAudioElement>('audio');
+            if (!el) return false;
+            try {
+                const actx = new AudioContext();
+                const analyser = actx.createAnalyser();
+                analyser.fftSize = 128;
+                analyser.smoothingTimeConstant = 0.82;
+                actx.createMediaElementSource(el).connect(analyser);
+                analyser.connect(actx.destination);
+                ref.current = { analyser, data: new Uint8Array(analyser.frequencyBinCount) };
+                return true;
+            } catch {
+                return false;
+            }
+        };
+
+        if (!attempt()) {
+            const id = setInterval(() => { if (attempt()) clearInterval(id); }, 800);
+            return () => clearInterval(id);
+        }
+    }, []);
+
+    return ref;
+}
+
+function VisualizerCanvas({ analyserRef }: { analyserRef: React.MutableRefObject<AnalyserState | null> }) {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const rafRef = useRef<number>(0);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const S = 200;
+        canvas.width = S;
+        canvas.height = S;
+
+        const cx = S / 2;
+        const cy = S / 2;
+        const BAR_COUNT = 44;
+        const INNER_R = S * 0.19;
+        const MAX_BAR = S * 0.27;
+
+        let t = 0;
+
+        const draw = () => {
+            rafRef.current = requestAnimationFrame(draw);
+            t += 0.016;
+            ctx.clearRect(0, 0, S, S);
+
+            const state = analyserRef.current;
+            if (state) state.analyser.getByteFrequencyData(state.data as any);
+
+            for (let i = 0; i < BAR_COUNT; i++) {
+                const angle = (i / BAR_COUNT) * Math.PI * 2 - Math.PI / 2;
+
+                let val: number;
+                if (state && state.data.length > 0) {
+                    const idx = Math.floor((i / BAR_COUNT) * state.data.length * 0.72);
+                    val = state.data[idx] / 255;
+                } else {
+                    val = 0.08 + 0.09 * Math.sin(t * 2.2 + i * 0.44) + 0.04 * Math.sin(t * 1.1 + i * 0.9);
+                }
+
+                const barLen = val * MAX_BAR;
+                const x1 = cx + Math.cos(angle) * INNER_R;
+                const y1 = cy + Math.sin(angle) * INNER_R;
+                const x2 = cx + Math.cos(angle) * (INNER_R + barLen);
+                const y2 = cy + Math.sin(angle) * (INNER_R + barLen);
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.strokeStyle = `rgba(185, 145, 255, ${0.35 + val * 0.65})`;
+                ctx.lineWidth = 2.8;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+
+            let bassVal: number;
+            if (state && state.data.length > 1) {
+                bassVal = (state.data[0] + state.data[1] + state.data[2]) / (255 * 3);
+            } else {
+                bassVal = 0.18 + 0.1 * Math.sin(t * 1.4);
+            }
+
+            const orbR = INNER_R * (0.78 + bassVal * 0.52);
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, orbR);
+            grad.addColorStop(0, `rgba(235, 210, 255, ${0.88 + bassVal * 0.12})`);
+            grad.addColorStop(0.45, `rgba(155, 105, 240, 0.72)`);
+            grad.addColorStop(1, `rgba(90, 45, 195, 0)`);
+            ctx.beginPath();
+            ctx.arc(cx, cy, orbR, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+        };
+
+        draw();
+        return () => cancelAnimationFrame(rafRef.current);
+    }, []);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            style={{ width: '100%', height: '100%', display: 'block', borderRadius: 'inherit' }}
+        />
+    );
+}
+
 function AlbumArt({
     metadata,
     onColorChange,
+    analyserRef,
 }: {
     metadata: TrackMetadata | {} | null;
     onColorChange: (color: string | null) => void;
+    analyserRef?: React.MutableRefObject<AnalyserState | null>;
 }) {
     const [valid, setValid] = useState(true);
     const src = (metadata as TrackMetadata)?.album_art ?? undefined;
@@ -64,7 +189,7 @@ function AlbumArt({
                 className="player-album-art-placeholder"
                 ref={(el) => { if (el) onColorChange(null); }}
             >
-                <Music size={22} />
+                {analyserRef ? <VisualizerCanvas analyserRef={analyserRef} /> : <Music size={22} />}
             </div>
         );
     }
@@ -108,6 +233,7 @@ function Player() {
     const [accentColor, setAccentColor] = useState<string | null>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const isMobile = useIsMobile();
+    const analyserRef = useAudioAnalyser();
 
     const [displayProgress, setDisplayProgress] = useState(0);
     const [displayTime, setDisplayTime] = useState(0);
@@ -315,7 +441,7 @@ function Player() {
                     data-playing-id={player.currentSongId}
                     data-source-type={player.currentSourceType}
                 >
-                    <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
+                    <AlbumArt metadata={metadata} onColorChange={setAccentColor} analyserRef={analyserRef} />
                     <div className="player-mini-info">
                         {metadata?.title ? (
                             <span className="player-mini-title">{metadata.title}</span>
@@ -357,7 +483,7 @@ function Player() {
                     </div>
 
                     <div className="player-fullscreen-art-area">
-                        <AlbumArt metadata={metadata} onColorChange={setAccentColor} />
+                        <AlbumArt metadata={metadata} onColorChange={setAccentColor} analyserRef={analyserRef} />
                     </div>
 
                     <div className="player-fullscreen-bottom">

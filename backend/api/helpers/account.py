@@ -6,7 +6,7 @@ def list_accounts():
     log("Listing all accounts", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, nickname, role, avatar_b64, created_at FROM accounts ORDER BY id")
+            cur.execute("SELECT id, name, nickname, role, avatar_b64, created_at, about FROM accounts ORDER BY id")
             rows = cur.fetchall()
             log(f"Found {len(rows)} account(s)", "debug", "account")
             return rows
@@ -17,7 +17,7 @@ def get_account(account_id: int):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, name, nickname, role, avatar_b64, created_at FROM accounts WHERE id = %s",
+                "SELECT id, name, nickname, role, avatar_b64, created_at, about FROM accounts WHERE id = %s",
                 (account_id,),
             )
             row = cur.fetchone()
@@ -46,8 +46,8 @@ def create_account(name: str, role: str, avatar_b64: str | None):
     return row
 
 
-def update_account(account_id: int, name: str | None, role: str | None, avatar_b64: str | None, nickname: str | None = None):
-    log(f"Updating account id={account_id} name={name!r} role={role!r} has_avatar={avatar_b64 is not None}", "debug", "account")
+def update_account(account_id: int, name: str | None, role: str | None, avatar_b64: str | None, nickname: str | None = None, about: str | None = None):
+    log(f"Updating account id={account_id} name={name!r} nickname={nickname!r} about={about!r} role={role!r} has_avatar={avatar_b64 is not None}", "debug", "account")
     fields = []
     values = []
     if name is not None:
@@ -62,6 +62,9 @@ def update_account(account_id: int, name: str | None, role: str | None, avatar_b
     if nickname is not None:
         fields.append("nickname = %s")
         values.append(nickname)
+    if about is not None:
+        fields.append("about = %s")
+        values.append(about)
     if not fields:
         log(f"No fields to update for account id={account_id}, returning current data", "debug", "account")
         return get_account(account_id)
@@ -71,7 +74,7 @@ def update_account(account_id: int, name: str | None, role: str | None, avatar_b
         with conn.cursor() as cur:
             cur.execute(
                 f"UPDATE accounts SET {', '.join(fields)} WHERE id = %s "
-                "RETURNING id, name, nickname, role, avatar_b64, created_at",
+                "RETURNING id, name, nickname, about, role, avatar_b64, created_at",
                 values,
             )
             row = cur.fetchone()

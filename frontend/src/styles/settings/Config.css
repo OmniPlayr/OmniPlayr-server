@@ -1,0 +1,64 @@
+.config-section {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    height: 100%;
+    margin-top: 10px;
+}
+
+.config-section-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 230px;
+    max-width: 100%;
+    padding: 10px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 12px;
+    min-width: 0;
+    height: 100%;
+}
+
+.config-section-sidebar-item {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background-color 0.2s ease-in-out, border 0.2s ease-in-out;
+    color: var(--clr-text-a0);
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    position: relative;
+}
+
+.config-section-sidebar-item:hover {
+    color: var(--clr-text-a0);
+    background-color: var(--clr-popup-a30);
+    border: 1px solid var(--clr-popup-a30);
+}
+
+.config-section-sidebar-item-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.config-section-sidebar-item-info-filename {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.config-section-sidebar-item-info-file {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.config-icon {
+    width: 26px;
+    height: 26px;
+    color: var(--clr-text-a30);
+}

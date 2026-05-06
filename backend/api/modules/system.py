@@ -14,6 +14,9 @@ from pydantic import BaseModel
 from api.helpers.admin import verify_admin, get_admin_status
 from api.helpers.log import log
 from api.helpers.server import verify_token, get_token_user
+from api.helpers.config import flatten_configs, CONFIG_DIR
+from pathlib import Path
+import toml
 
 router = APIRouter()
 
@@ -192,3 +195,56 @@ def disable_safe_mode(admin=Depends(verify_admin)):
         os.remove(_SAFE_MODE_FILE)
 
     return {"status": "safe_mode_disabled", "note": "Restart required"}
+
+@router.get("/configs")
+def get_configs():
+    result = []
+
+    for file in CONFIG_DIR.glob("*.toml"):
+        try:
+            data = toml.load(file)
+        except Exception:
+            continue
+
+        result.append({
+            "file": file.stem,
+            "data": data
+        })
+
+    return result
+
+@router.get("/config_search")
+def config_search(
+    query: str,
+    admin=Depends(verify_admin)
+):
+    query = query.lower()
+    results = []
+
+    for item in flatten_configs():
+        values = [
+            item["key"],
+            item["type"],
+            item["value"],
+            item["default"],
+            item["comment"],
+            item["min"],
+            item["max"],
+            item["step"],
+            item["in_values"],
+        ]
+
+        for v in values:
+            if v is None:
+                continue
+
+            if isinstance(v, list):
+                if any(query in str(x).lower() for x in v):
+                    results.append(item)
+                    break
+            else:
+                if query in str(v).lower():
+                    results.append(item)
+                    break
+
+    return results

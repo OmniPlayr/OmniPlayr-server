@@ -40,9 +40,16 @@ function Profile() {
                             <div className='profile-section-about-pills'>
                                 <Tooltip id="pill-tooltip" />
                                 <span className='profile-section-about-pill' data-tooltip-id="pill-tooltip" data-tooltip-content="This is your role on OmniPlayr" >{account?.role}</span>
+                                <span className='profile-section-about-pill' data-tooltip-id="pill-tooltip" data-tooltip-content="This is when you created your account" >{account?.created_at && new Date(account.created_at).toLocaleDateString(undefined, {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                })}</span>
                             </div>
+                            <p className={'profile-section-about-bio' + (account?.about ? "" : " empty")}>{account?.about || "No bio set"}</p>
                         </div>
                     </div>
+                    
                 </div>
             }
         </>

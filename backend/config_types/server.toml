@@ -1,3 +1,3 @@
 [auth]
-access_token_lifetime = "str # liveupdate:true"
-refresh_token_lifetime = "str # liveupdate:true"
+access_token_lifetime = "str # liveupdate:true # comment: How long the access token is valid for, formatted like '1 day', '2 months' or '3 years'"
+refresh_token_lifetime = "str # liveupdate:true # comment: How long the refresh token is valid for, formatted like '1 day', '2 months' or '3 years'"

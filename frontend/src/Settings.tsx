@@ -24,6 +24,7 @@ import TerminalPage from "./settings/Terminal";
 import Colors from "./settings/Colors";
 import Plugins from "./settings/Plugins";
 import Profile from "./settings/Profile";
+import Config from "./settings/Config";
 
 function Settings({ account, updateAvailable, onRefreshCheck }: any) {
     const navigate = useNavigate();
@@ -128,7 +129,7 @@ function Settings({ account, updateAvailable, onRefreshCheck }: any) {
                 icon: FileText,
                 title: "Config",
                 description: "Edit configuration files",
-                component: () => <div>Config</div>,
+                component: () => <Config />,
                 condition: () => account?.role === "admin"
             }
         ],

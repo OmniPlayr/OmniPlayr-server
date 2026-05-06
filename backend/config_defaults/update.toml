@@ -1,0 +1,4 @@
+[github]
+owner = "OmniPlayr"
+repo = "OmniPlayr-server"
+check_interval_hours = 24

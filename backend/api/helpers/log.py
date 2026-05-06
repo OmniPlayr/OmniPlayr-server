@@ -41,15 +41,14 @@ def _init_from_config():
         return
     try:
         from api.helpers.config import get_config
-        log_dir_str = get_config("logging.log_dir", "logs")
+        log_dir_str = get_config("logging.log_dir", Path("logs"))
         _retention_days = get_config("logging.retention_days", 7)
         _max_file_size_mb = get_config("logging.max_file_size_mb", 10)
     except Exception:
-        log_dir_str = "logs"
+        log_dir_str = Path("logs")
         _retention_days = 7
         _max_file_size_mb = 10
-    _log_dir = Path(log_dir_str)
-    _log_dir.mkdir(parents=True, exist_ok=True)
+    _log_dir = log_dir_str
     _initialized = True
 
 
