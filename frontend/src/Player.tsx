@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import './styles/Player.css';
 import {
     Shuffle, SkipBack, SkipForward, Play, Pause, Loader,
-    Repeat, Music, Volume, Volume2, VolumeX, Volume1, ChevronDown
+    Repeat, Repeat1, Music, Volume, Volume2, VolumeX, Volume1, ChevronDown
 } from 'lucide-react';
-import { player, type TrackMetadata } from './modules/player';
+import { player, type TrackMetadata, type RepeatMode } from './modules/player';
 import { usePlugins } from './modules/usePlugins';
 
 function formatTime(seconds: number): string {
@@ -19,6 +19,11 @@ function VolumeIcon({ volume, onClick }: { volume: number; onClick?: () => void 
     if (volume < 0.33) return <Volume className="option-icon" onClick={onClick} />;
     if (volume < 0.66) return <Volume1 className="option-icon" onClick={onClick} />;
     return <Volume2 className="option-icon" onClick={onClick} />;
+}
+
+function RepeatIcon({ mode, className, onClick }: { mode: RepeatMode; className?: string; onClick?: () => void }) {
+    if (mode === 'one') return <Repeat1 className={className} onClick={onClick} />;
+    return <Repeat className={className} onClick={onClick} />;
 }
 
 function extractAverageColor(img: HTMLImageElement): string {
@@ -232,6 +237,10 @@ function Player() {
     const [metadata, setMetadata] = useState<TrackMetadata | null>(null);
     const [accentColor, setAccentColor] = useState<string | null>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [shuffle, setShuffle] = useState(false);
+    const [repeat, setRepeat] = useState<RepeatMode>('off');
+    const [hasPrev, setHasPrev] = useState(false);
+    const [hasNext, setHasNext] = useState(false);
     const isMobile = useIsMobile();
     const analyserRef = useAudioAnalyser();
 
@@ -268,6 +277,10 @@ function Player() {
             setCurrentTime(player.currentTime);
             setDuration(player.duration);
             setMetadata(player.currentMetadata);
+            setShuffle(player.shuffle);
+            setRepeat(player.repeat);
+            setHasPrev(player.hasPrev);
+            setHasNext(player.hasNext);
 
             if (!isDragging.current) {
                 const frac = player.duration > 0 ? player.currentTime / player.duration : 0;
@@ -329,7 +342,8 @@ function Player() {
     }, [isFullscreen]);
 
     const handleFsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-        if ((e.target as HTMLElement).closest('.fs-progress-bar')) return;
+        const target = e.target as HTMLElement;
+        if (target.closest('.fs-progress-bar') || target.closest('.player-fullscreen-controls') || target.closest('.player-fullscreen-close') || target.closest('.fs-play-btn')) return;
         fsIsDragging.current = true;
         fsDragStart.current = e.clientY;
         fsDragY.current = 0;
@@ -364,12 +378,9 @@ function Player() {
 
     const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!progressBarRef.current) return;
-
         progressBarRef.current.setPointerCapture(e.pointerId);
-
         const rect = progressBarRef.current.getBoundingClientRect();
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-
         isDragging.current = true;
         dragFraction.current = frac;
         setDisplayProgress(frac);
@@ -378,12 +389,9 @@ function Player() {
 
     const handleVolumeMouseDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!volumeSliderRef.current) return;
-
         volumeSliderRef.current.setPointerCapture(e.pointerId);
-
         const rect = volumeSliderRef.current.getBoundingClientRect();
         const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-
         isVolumeDragging.current = true;
         volumeDragFrac.current = frac;
         setDisplayVolume(frac);
@@ -429,8 +437,8 @@ function Player() {
             : undefined;
 
         const fullscreenBg = accentColor
-            ? `linear-gradient(to bottom, ${accentColor} 0%, #0c0c0c 65%)`
-            : '#0c0c0c';
+            ? `linear-gradient(to bottom, ${accentColor} 0%, var(--clr-surface-a0) 65%)`
+            : 'var(--clr-surface-a0)';
 
         return (
             <>
@@ -502,8 +510,14 @@ function Player() {
                         <div className="player-fullscreen-empty-slot" />
 
                         <div className="player-fullscreen-controls">
-                            <Shuffle className="fs-control-icon" />
-                            <SkipBack className="fs-control-icon" />
+                            <Shuffle
+                                className={`fs-control-icon${shuffle ? ' fs-control-icon--active' : ''}`}
+                                onClick={() => player.toggleShuffle()}
+                            />
+                            <SkipBack
+                                className={`fs-control-icon${!hasPrev ? ' fs-control-icon--disabled' : ''}`}
+                                onClick={() => player.prev()}
+                            />
                             <div
                                 className="fs-play-btn"
                                 onClick={() => player.togglePlay()}
@@ -515,8 +529,15 @@ function Player() {
                                     : <Play className="fs-play-icon" />
                                 }
                             </div>
-                            <SkipForward className="fs-control-icon" />
-                            <Repeat className="fs-control-icon" />
+                            <SkipForward
+                                className={`fs-control-icon${!hasNext && repeat === 'off' ? ' fs-control-icon--disabled' : ''}`}
+                                onClick={() => player.skip()}
+                            />
+                            <RepeatIcon
+                                mode={repeat}
+                                className={`fs-control-icon${repeat !== 'off' ? ' fs-control-icon--active' : ''}`}
+                                onClick={() => player.cycleRepeat()}
+                            />
                         </div>
 
                         <div className="player-fullscreen-progress">
@@ -569,8 +590,14 @@ function Player() {
 
             <div className="player-controls">
                 <div className="player-control-options">
-                    <Shuffle className="control-option-icon" />
-                    <SkipBack className="control-option-icon" />
+                    <Shuffle
+                        className={`control-option-icon${shuffle ? ' control-option-icon--active' : ''}`}
+                        onClick={() => player.toggleShuffle()}
+                    />
+                    <SkipBack
+                        className={`control-option-icon${!hasPrev ? ' control-option-icon--disabled' : ''}`}
+                        onClick={() => player.prev()}
+                    />
                     <div className="control-option-icon play-option" onClick={() => player.togglePlay()}>
                         {isLoading
                             ? <Loader className="play-icon spinning" />
@@ -579,8 +606,15 @@ function Player() {
                             : <Play className="play-icon" />
                         }
                     </div>
-                    <SkipForward className="control-option-icon" />
-                    <Repeat className="control-option-icon" />
+                    <SkipForward
+                        className={`control-option-icon${!hasNext && repeat === 'off' ? ' control-option-icon--disabled' : ''}`}
+                        onClick={() => player.skip()}
+                    />
+                    <RepeatIcon
+                        mode={repeat}
+                        className={`control-option-icon${repeat !== 'off' ? ' control-option-icon--active' : ''}`}
+                        onClick={() => player.cycleRepeat()}
+                    />
                 </div>
                 <div className="player-progress-bar">
                     <span className="progress-time">{formatTime(displayTime)}</span>
