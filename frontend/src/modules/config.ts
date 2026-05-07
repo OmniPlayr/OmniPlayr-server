@@ -5,9 +5,70 @@ type TomlObject = { [key: string]: TomlValue };
 
 let _loadedConfigs: Record<string, TomlObject> = {};
 
-function convertType(value: TomlValue, typeStr: string): TomlValue {
-    const t = typeStr.toLowerCase().trim();
-    switch (t) {
+interface ParsedType {
+    baseType: string;
+    liveupdate: boolean;
+    comment?: string;
+    minmax?: [number, number];
+    step?: number;
+    inValues?: string[];
+}
+
+function deepMerge(base: TomlObject, override: TomlObject): TomlObject {
+    const result: TomlObject = { ...base };
+    for (const [key, val] of Object.entries(override)) {
+        if (
+            key in result &&
+            typeof result[key] === "object" &&
+            !Array.isArray(result[key]) &&
+            typeof val === "object" &&
+            !Array.isArray(val)
+        ) {
+            result[key] = deepMerge(result[key] as TomlObject, val as TomlObject);
+        } else {
+            result[key] = val;
+        }
+    }
+    return result;
+}
+
+function parseTypeString(typeStr: string): ParsedType {
+    let s = typeStr;
+
+    const liveupdate = s.includes("# liveupdate:true");
+    if (liveupdate) s = s.replace("# liveupdate:true", "").trim();
+
+    let comment: string | undefined;
+    const commentMatch = s.match(/#\s*comment:\s*(.+)/);
+    if (commentMatch) {
+        comment = commentMatch[1].trim();
+        s = s.slice(0, commentMatch.index!).trim();
+    }
+
+    let minmax: [number, number] | undefined;
+    let step: number | undefined;
+    const minmaxMatch = s.match(/<minmax\s*\[([^\]]+)\]\s*step\s*\[([^\]]+)\]>/);
+    if (minmaxMatch) {
+        const [min, max] = minmaxMatch[1].split(",").map(x => parseFloat(x.trim()));
+        minmax = [min, max];
+        step = parseFloat(minmaxMatch[2].trim());
+        s = s.slice(0, minmaxMatch.index!).trim();
+    }
+
+    let inValues: string[] | undefined;
+    const inMatch = s.match(/<in\s*\[([^\]]+)\]>/);
+    if (inMatch) {
+        inValues = inMatch[1].split(",").map(v => v.trim().replace(/^['"]|['"]$/g, ""));
+        s = s.slice(0, inMatch.index!).trim();
+    }
+
+    const baseType = s.split("#")[0].trim().toLowerCase();
+
+    return { baseType, liveupdate, comment, minmax, step, inValues };
+}
+
+function convertType(value: TomlValue, baseType: string): TomlValue {
+    switch (baseType) {
         case "string": case "str":
             return String(value);
         case "int": case "integer": {
@@ -30,10 +91,7 @@ function convertType(value: TomlValue, typeStr: string): TomlValue {
                 throw new Error(`Expected dict, got ${typeof value}`);
             return value;
         case "eval": {
-            if (typeof value !== "string") {
-                throw new Error(`Expected string for eval, got ${typeof value}`);
-            }
-
+            if (typeof value !== "string") throw new Error(`Expected string for eval, got ${typeof value}`);
             try {
                 return Function(`return (${value})`)();
             } catch (e) {
@@ -41,18 +99,8 @@ function convertType(value: TomlValue, typeStr: string): TomlValue {
             }
         }
         default:
-            throw new Error(`Unknown type: ${t}`);
+            throw new Error(`Unknown type: ${baseType}`);
     }
-}
-
-function parseTypeString(typeStr: string): { baseType: string; allowedValues?: TomlValue[] } {
-    const cleaned = typeStr.split("#")[0].trim();
-    const match = cleaned.match(/^(\S+)\s*<in\s*(\[.*?\])>/);
-    if (match) {
-        const allowedValues = JSON.parse(match[2].replace(/'/g, '"')) as TomlValue[];
-        return { baseType: match[1], allowedValues };
-    }
-    return { baseType: cleaned };
 }
 
 function validateAgainstTypes(configData: TomlObject, typeData: TomlObject, keyPath = ""): void {
@@ -68,11 +116,22 @@ function validateAgainstTypes(configData: TomlObject, typeData: TomlObject, keyP
                 throw new Error(`Expected dict for '${fullKey}'`);
             validateAgainstTypes(val as TomlObject, typeVal as TomlObject, fullKey);
         } else if (typeof typeVal === "string") {
-            const { baseType, allowedValues } = parseTypeString(typeVal);
-            const converted = convertType(val, baseType);
-            if (allowedValues !== undefined && !allowedValues.includes(converted)) {
-                throw new Error(`Invalid value '${converted}' for '${fullKey}'. Must be one of: ${allowedValues.join(", ")}`);
+            const parsed = parseTypeString(typeVal);
+            const converted = convertType(val, parsed.baseType);
+
+            if (parsed.minmax !== undefined) {
+                const [min, max] = parsed.minmax;
+                if (typeof converted !== "number" || converted < min || converted > max) {
+                    throw new Error(`Value ${converted} out of range [${min}, ${max}] for '${fullKey}'`);
+                }
             }
+
+            if (parsed.inValues !== undefined && !parsed.inValues.includes(String(converted))) {
+                throw new Error(
+                    `Invalid value '${converted}' for '${fullKey}'. Must be one of: ${parsed.inValues.join(", ")}`
+                );
+            }
+
             configData[key] = converted;
         }
     }
@@ -89,55 +148,49 @@ function resolvePlaceholdersObject(value: TomlObject): TomlObject {
                 try {
                     return String(Function(`return (${expr})`)());
                 } catch (e) {
-                    throw new Error(
-                        `Eval failed in {${expr}} -> ${(e as Error).message}`
-                    );
+                    throw new Error(`Eval failed in {${expr}} -> ${(e as Error).message}`);
                 }
             });
         }
-
-        if (Array.isArray(v)) {
-            return v.map(resolve);
-        }
-
+        if (Array.isArray(v)) return v.map(resolve);
         if (v && typeof v === "object") {
             const out: TomlObject = {};
-            for (const k in v) {
-                out[k] = resolve(v[k]);
-            }
+            for (const k in v) out[k] = resolve(v[k]);
             return out;
         }
-
         return v;
     };
 
     const out: TomlObject = {};
-    for (const k in value) {
-        out[k] = resolve(value[k]);
-    }
+    for (const k in value) out[k] = resolve(value[k]);
     return out;
 }
+
 function shouldResolveEval(typeData: TomlObject): boolean {
     return JSON.stringify(typeData).includes('"eval"');
 }
+
 export function loadConfigs(): void {
     _loadedConfigs = {};
 
     const configs = import.meta.glob("/src/config/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
     const types = import.meta.glob("/src/config_types/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
+    const defaults = import.meta.glob("/src/config_defaults/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 
     for (const [cfgPath, raw] of Object.entries(configs)) {
         const stem = stemFromPath(cfgPath);
-
         let configData = toml.parse(raw) as TomlObject;
 
-        const typePath = `/src/config_types/${stem}.toml`;
+        const defaultPath = `/src/config_defaults/${stem}.toml`;
+        if (defaultPath in defaults) {
+            const defaultData = toml.parse(defaults[defaultPath]) as TomlObject;
+            configData = deepMerge(defaultData, configData);
+        }
 
+        const typePath = `/src/config_types/${stem}.toml`;
         if (typePath in types) {
             const typeData = toml.parse(types[typePath]) as TomlObject;
-
             validateAgainstTypes(configData, typeData);
-
             if (shouldResolveEval(typeData)) {
                 configData = resolvePlaceholdersObject(configData);
             }
@@ -145,6 +198,70 @@ export function loadConfigs(): void {
 
         _loadedConfigs[stem] = configData;
     }
+}
+
+export interface FlatConfigItem {
+    key: string;
+    type: string;
+    value: TomlValue | null;
+    default: TomlValue | null;
+    comment: string | null;
+    liveupdate: boolean;
+    min: number | null;
+    max: number | null;
+    step: number | null;
+    in_values: string[] | null;
+    file: string;
+}
+
+export function flattenConfigs(): FlatConfigItem[] {
+    const results: FlatConfigItem[] = [];
+
+    const types = import.meta.glob("/src/config_types/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
+    const defaults = import.meta.glob("/src/config_defaults/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
+
+    for (const [typePath, typeRaw] of Object.entries(types)) {
+        const stem = stemFromPath(typePath);
+        const typeData = toml.parse(typeRaw) as TomlObject;
+
+        const defaultPath = `/src/config_defaults/${stem}.toml`;
+        const defaultData = defaultPath in defaults ? (toml.parse(defaults[defaultPath]) as TomlObject) : {};
+        const configData = _loadedConfigs[stem] ?? {};
+
+        function walk(prefix: string, typeNode: TomlObject, configNode: TomlObject, defaultNode: TomlObject) {
+            for (const [key, val] of Object.entries(typeNode)) {
+                const fullKey = prefix ? `${prefix}.${key}` : key;
+
+                if (typeof val === "object" && !Array.isArray(val)) {
+                    walk(
+                        fullKey,
+                        val as TomlObject,
+                        (configNode[key] ?? {}) as TomlObject,
+                        (defaultNode[key] ?? {}) as TomlObject
+                    );
+                } else if (typeof val === "string") {
+                    const parsed = parseTypeString(val);
+                    results.push({
+                        key: fullKey,
+                        type: parsed.baseType,
+                        value: configNode[key] ?? null,
+                        default: defaultNode[key] ?? null,
+                        comment: parsed.comment ?? null,
+                        liveupdate: parsed.liveupdate,
+                        min: parsed.minmax ? parsed.minmax[0] : null,
+                        max: parsed.minmax ? parsed.minmax[1] : null,
+                        step: parsed.step ?? null,
+                        in_values: parsed.inValues ?? null,
+                        file: stem,
+                    });
+                }
+            }
+        }
+
+        walk("", typeData, configData, defaultData);
+    }
+
+    return results;
 }
 
 export function getConfig<T = TomlValue>(keyPath: string, defaultValue?: T): T | undefined {

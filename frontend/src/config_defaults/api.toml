@@ -3,4 +3,4 @@ apiUrl = "'http://' + (location.hostname || 'localhost') + ':8224'"
 terminalUrl = "'ws://' + (location.hostname || 'localhost') + ':8224'"
 
 [accounts]
-accountStore = "localStorage"
+accountStore = "sessionStorage"

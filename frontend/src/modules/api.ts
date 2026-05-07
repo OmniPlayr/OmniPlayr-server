@@ -64,7 +64,8 @@ async function api(
     data?: object,
     params?: object,
     throwErrors = true,
-    stream = false
+    stream = false,
+    methodOverride?: string
 ): Promise<unknown> {
     const baseUrl = getConfig<string>("api.apiUrl") ?? "";
 
@@ -72,13 +73,13 @@ async function api(
     let url: string;
 
     if (idOrPath.startsWith("/")) {
-        method = data ? "POST" : "GET";
+        method = methodOverride ?? (data ? "POST" : "GET");
         url = `${baseUrl}/api${replaceUrlParams(idOrPath, params)}`;
     } else {
         const routeMap = await getRouteMap();
         const route = routeMap.get(idOrPath);
         if (!route) throw new Error(`No route found with name "${idOrPath}"`);
-        method = route.methods[0];
+        method = methodOverride ?? route.methods[0];
         url = `${baseUrl}${replaceUrlParams(route.path, params)}`;
     }
 

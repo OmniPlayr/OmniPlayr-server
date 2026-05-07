@@ -14,7 +14,15 @@ from pydantic import BaseModel
 from api.helpers.admin import verify_admin, get_admin_status
 from api.helpers.log import log
 from api.helpers.server import verify_token, get_token_user
-from api.helpers.config import flatten_configs, CONFIG_DIR
+from api.helpers.config import (
+    flatten_configs,
+    flatten_frontend_configs,
+    CONFIG_DIR,
+    CONFIG_TYPES_DIR,
+    FRONTEND_CONFIG_DIR,
+    FRONTEND_CONFIG_TYPES_DIR,
+    _parse_type_string,
+)
 from pathlib import Path
 import toml
 
@@ -196,55 +204,197 @@ def disable_safe_mode(admin=Depends(verify_admin)):
 
     return {"status": "safe_mode_disabled", "note": "Restart required"}
 
-@router.get("/configs")
-def get_configs():
-    result = []
 
-    for file in CONFIG_DIR.glob("*.toml"):
-        try:
-            data = toml.load(file)
-        except Exception:
-            continue
+def _parse_field_meta(raw_meta: any) -> dict:
+    if isinstance(raw_meta, dict):
+        return raw_meta
 
-        result.append({
-            "file": file.stem,
-            "data": data
-        })
+    if not isinstance(raw_meta, str):
+        return {}
+
+    parsed = _parse_type_string(raw_meta)
+    result: dict = {"type": parsed["base_type"]}
+
+    if parsed["liveupdate"]:
+        result["liveupdate"] = True
+    if parsed["comment"] is not None:
+        result["comment"] = parsed["comment"]
+    if parsed["minmax"] is not None:
+        result["min"] = parsed["minmax"][0]
+        result["max"] = parsed["minmax"][1]
+    if parsed["step"] is not None:
+        result["step"] = parsed["step"]
+    if parsed["in_values"] is not None:
+        result["in_values"] = parsed["in_values"]
 
     return result
+
+
+_FIELD_META_KEYS = ("type", "default", "comment", "min", "max", "step", "in_values", "liveupdate")
+
+
+def _enrich_value(val: any, meta: any) -> dict:
+    enriched = {"value": val}
+    meta_dict = _parse_field_meta(meta)
+    for k in _FIELD_META_KEYS:
+        if k in meta_dict:
+            enriched[k] = meta_dict[k]
+    return enriched
+
+
+def _get_file_contents(stem: str, config_dir: Path, types_dir: Path, source: str = "backend") -> dict:
+    config_file = config_dir / f"{stem}.toml"
+    if not config_file.exists():
+        raise HTTPException(status_code=404, detail=f"Config file '{stem}' not found")
+
+    try:
+        data = toml.load(config_file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    type_data = {}
+    type_file = types_dir / f"{stem}.toml"
+    if type_file.exists():
+        try:
+            type_data = toml.load(type_file)
+        except Exception:
+            pass
+
+    def enrich_node(data_node: dict, type_node: dict) -> dict:
+        result = {}
+        for key, val in data_node.items():
+            meta = type_node.get(key, {}) if isinstance(type_node, dict) else {}
+
+            if isinstance(val, dict) and (not meta or isinstance(meta, dict)):
+                result[key] = enrich_node(val, meta if isinstance(meta, dict) else {})
+            else:
+                result[key] = _enrich_value(val, meta)
+
+        return result
+
+    return {
+        "file": stem,
+        "source": source,
+        "data": enrich_node(data, type_data),
+    }
+
+
+def _extract_plain_values(enriched_data: dict) -> dict:
+    plain = {}
+    for section_key, section_val in enriched_data.items():
+        if isinstance(section_val, dict) and "value" in section_val:
+            plain[section_key] = section_val["value"]
+        elif isinstance(section_val, dict):
+            plain[section_key] = _extract_plain_values(section_val)
+        else:
+            plain[section_key] = section_val
+    return plain
+
+
+@router.get("/configs")
+def get_configs(file: str = None, source: str = None):
+    if file is not None:
+        if source == "frontend":
+            if file == "version":
+                raise HTTPException(status_code=403, detail="Access denied")
+
+            return _get_file_contents(
+                file,
+                FRONTEND_CONFIG_DIR,
+                FRONTEND_CONFIG_TYPES_DIR,
+                "frontend"
+            )
+
+        return _get_file_contents(file, CONFIG_DIR, CONFIG_TYPES_DIR, "backend")
+
+    backend_files = sorted(f.stem for f in CONFIG_DIR.glob("*.toml")) if CONFIG_DIR.exists() else []
+
+    frontend_files = []
+    if FRONTEND_CONFIG_DIR.exists():
+        frontend_files = sorted(
+            f.stem
+            for f in FRONTEND_CONFIG_DIR.glob("*.toml")
+            if f.stem != "version"
+        )
+
+    return {
+        "backend": backend_files,
+        "frontend": frontend_files,
+    }
+
+
+class ConfigSaveRequest(BaseModel):
+    file: str
+    source: str = "backend"
+    data: dict
+
+
+@router.put("/configs")
+def save_config(body: ConfigSaveRequest, admin=Depends(verify_admin)):
+    if body.source == "frontend" and body.file == "version":
+        raise HTTPException(status_code=403, detail="Updating version config is not allowed")
+
+    config_dir = FRONTEND_CONFIG_DIR if body.source == "frontend" else CONFIG_DIR
+    config_file = config_dir / f"{body.file}.toml"
+
+    if not config_file.exists():
+        raise HTTPException(status_code=404, detail=f"Config file '{body.file}' not found")
+
+    plain_data = _extract_plain_values(body.data)
+
+    try:
+        with open(config_file, "w") as f:
+            toml.dump(plain_data, f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    log(f"Config '{body.file}' saved by admin", "info", "system")
+
+    return {"status": "saved"}
+
+
+_SEARCH_FIELDS = {"type", "value", "default", "comment", "min", "max", "step", "in_values", "liveupdate"}
+
 
 @router.get("/config_search")
 def config_search(
     query: str,
-    admin=Depends(verify_admin)
+    file: str = None,
+    source: str = None,
+    admin=Depends(verify_admin),
 ):
-    query = query.lower()
-    results = []
+    field = None
+    search_val = query.lower()
 
-    for item in flatten_configs():
-        values = [
-            item["key"],
-            item["type"],
-            item["value"],
-            item["default"],
-            item["comment"],
-            item["min"],
-            item["max"],
-            item["step"],
-            item["in_values"],
-        ]
+    for prefix in _SEARCH_FIELDS:
+        if search_val.startswith(f"{prefix}:"):
+            field = prefix
+            search_val = search_val[len(prefix) + 1:]
+            break
 
-        for v in values:
+    items = flatten_frontend_configs() if source == "frontend" else flatten_configs()
+
+    if file:
+        items = [i for i in items if i["file"] == file]
+
+    results_by_file: dict[str, dict] = {}
+
+    for item in items:
+        if field:
+            v = item.get(field)
             if v is None:
-                continue
-
-            if isinstance(v, list):
-                if any(query in str(x).lower() for x in v):
-                    results.append(item)
-                    break
+                match = search_val == ""
+            elif isinstance(v, list):
+                match = any(search_val in str(x).lower() for x in v)
             else:
-                if query in str(v).lower():
-                    results.append(item)
-                    break
+                match = search_val in str(v).lower()
+        else:
+            match = search_val in item["key"].lower()
 
-    return results
+        if match:
+            f = item["file"]
+            if f not in results_by_file:
+                results_by_file[f] = {"file": f, "matches": []}
+            results_by_file[f]["matches"].append(item)
+
+    return list(results_by_file.values())

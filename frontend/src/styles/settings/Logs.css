@@ -3,7 +3,7 @@
     flex-direction: column;
     gap: 10px;
     margin-top: 10px;
-    height: calc(100dvh - 220px);
+    height: calc(100dvh - 260px);
     min-height: 300px;
 }
 

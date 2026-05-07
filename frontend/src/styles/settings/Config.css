@@ -1,23 +1,39 @@
 .config-section {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 20px;
-    height: 100%;
+    height: calc(100% - 40px);
     margin-top: 10px;
+}
+
+.config-section-content {
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
+    flex: 1;
+    min-height: 0;
 }
 
 .config-section-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
     width: 230px;
-    max-width: 100%;
+    min-width: 230px;
     padding: 10px;
     background-color: var(--clr-popup-a10);
     border: 1px solid var(--clr-popup-a30);
     border-radius: 12px;
-    min-width: 0;
-    height: 100%;
+    overflow-y: auto;
+}
+
+.config-sidebar-group-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--clr-text-a30);
+    padding: 6px 5px 2px;
 }
 
 .config-section-sidebar-item {
@@ -28,37 +44,354 @@
     cursor: pointer;
     padding: 5px;
     border-radius: 10px;
-    border: 1px solid transparent;
     transition: background-color 0.2s ease-in-out, border 0.2s ease-in-out;
     color: var(--clr-text-a0);
     background-color: var(--clr-popup-a10);
     border: 1px solid var(--clr-popup-a30);
-    position: relative;
 }
 
 .config-section-sidebar-item:hover {
-    color: var(--clr-text-a0);
     background-color: var(--clr-popup-a30);
-    border: 1px solid var(--clr-popup-a30);
+    border-color: var(--clr-popup-a30);
+}
+
+.config-section-sidebar-item.active {
+    background-color: var(--clr-popup-a30);
+    border-color: var(--clr-popup-a50);
 }
 
 .config-section-sidebar-item-info {
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .config-section-sidebar-item-info-filename {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .config-section-sidebar-item-info-file {
-    font-size: 14px;
+    font-size: 12px;
     color: var(--clr-text-a30);
 }
 
 .config-icon {
     width: 26px;
     height: 26px;
+    flex-shrink: 0;
     color: var(--clr-text-a30);
+}
+
+.config-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background-color: var(--clr-popup-a20);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 8px;
+    padding: 0 10px;
+    gap: 7px;
+    margin-bottom: 4px;
+}
+
+.config-search-icon {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: var(--clr-text-a30);
+}
+
+.config-search {
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    padding: 7px 0;
+    font-size: 13px;
+    color: var(--clr-text-a0);
+}
+
+.config-search::placeholder {
+    color: var(--clr-text-a40);
+}
+
+.config-autocomplete {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.config-autocomplete-item {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 7px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.config-autocomplete-item:hover {
+    background-color: var(--clr-popup-a30);
+}
+
+.config-autocomplete-field {
+    color: var(--clr-primary-a0);
+    font-weight: 600;
+}
+
+.config-autocomplete-colon {
+    color: var(--clr-text-a30);
+}
+
+.config-main {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    border-radius: 12px;
+}
+
+.config-main-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 12px;
+}
+
+.config-empty-icon {
+    width: 40px;
+    height: 40px;
+    color: var(--clr-text-a40);
+}
+
+.config-empty-text {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.config-warning {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: var(--clr-warning-a0);
+    border: 1px solid var(--clr-warning-a20);
+    border-radius: 12px;
+    width: max-content;
+}
+
+.config-warning-text {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.config-warning-icon {
+    height: 100%;
+    width: auto;
+    flex-shrink: 0;
+}
+
+.config-editor-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+.config-main {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.config-group-title {
+    font-size: 20px;
+    color: var(--clr-text-a0);
+    margin-top: 20px;
+    margin-bottom: 10px;
+    width: 100%;
+    text-align: center;
+}
+
+.config-group-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 10px 15px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 12px;
+}
+
+.config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.config-field-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
+.config-field-default-badge,
+.config-field-type,
+.config-field-live-badge {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 6px;
+    background-color: var(--clr-primary-a10);
+    border: 1px solid var(--clr-primary-a30);
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.config-field-live-badge {
+    background-color: var(--clr-success-a0);
+    border: 1px solid var(--clr-success-a20);
+}
+
+.config-field-type {
+    background-color: var(--clr-warning-a0);
+    border: 1px solid var(--clr-warning-a20);
+}
+
+.config-field-key {
+    font-size: 18px;
+    color: var(--clr-text-a0);
+}
+
+.config-field-comment {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.config-editor-title {
+    font-size: 18px;
+    color: var(--clr-text-a0);
+}
+
+.config-editor-subtitle {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.config-slider-wrapper {
+    width: 100%;
+}
+
+.config-field-input {
+    width: 100%;
+}
+
+.config-slider-labels {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.config-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.config-slider-value {
+    min-width: 40px;
+    text-align: right;
+}
+
+.config-field-input {
+    width: 100%;
+    background-color: var(--clr-surface-a10);
+    color: var(--clr-text-a0);
+    border: 1px solid var(--clr-surface-a50);
+    border-radius: 9px;
+    padding: 10px;
+    translate: border-color 0.2s ease-in-out;
+}
+
+.config-field-input:focus {
+    outline: none;
+    border-color: var(--clr-primary-a0);
+}
+
+.config-field-button-group {
+    background-color: transparent;
+    border: none;
+    padding: 0px;
+    border-radius: 0px;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+}
+
+.config-field-button {
+    width: 100%;
+    background-color: var(--clr-surface-a10);
+    color: var(--clr-text-a0);
+    border: 1px solid var(--clr-surface-a50);
+    padding: 10px;
+    transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    border-radius: 0;
+}
+
+.config-field-button:first-child {
+    border-radius: 9px 0 0 9px;
+    border-right: 1px solid var(--clr-surface-a50);
+}
+
+.config-field-button:not(:first-child):not(:last-child) {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+}
+
+.config-field-button:last-child {
+    border-radius: 0 9px 9px 0;
+    border-left: 0;
+}
+
+.config-field-button:hover {
+    border-color: var(--clr-popup-a50);
+    background-color: var(--clr-surface-a20);
+}
+
+.config-field-button.active {
+    border-color: var(--clr-popup-a50);
+    background-color: var(--clr-popup-a30);
+}
+
+.config-save-btn {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    justify-content: center;
 }

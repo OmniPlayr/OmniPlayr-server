@@ -1,8 +1,6 @@
 import toml
 import re
 from pathlib import Path
-import time
-import threading
 
 # You can change things in the config, and they will be safely requested over here
 CONFIG_DIR = Path("config")
@@ -10,7 +8,12 @@ CONFIG_DIR = Path("config")
 # These are the types for each config, for example one needs to be a string, you define that in here.
 CONFIG_TYPES_DIR = Path("config_types")
 
+# This is the folder you can define the defaults for each config file in
 CONFIG_DEFAULTS_DIR = Path("config_defaults")
+
+FRONTEND_CONFIG_DIR = Path("/frontend/src/config")
+FRONTEND_CONFIG_TYPES_DIR = Path("/frontend/src/config_types")
+FRONTEND_CONFIG_DEFAULTS_DIR = Path("/frontend/src/config_defaults")
 
 _loaded_configs = {}
 _live_keys = {}
@@ -236,18 +239,28 @@ def get_config(key_path, default=None):
     log(f"Config key={key_path!r} not found in any config, returning default={default!r}", "debug", "config")
     return default
 
-def flatten_configs():
+
+def _flatten_configs_from(types_dir, defaults_dir, loaded_configs):
     results = []
 
-    for file in CONFIG_TYPES_DIR.glob("*.toml"):
-        type_data = toml.load(file)
+    if not types_dir.exists():
+        return results
+
+    for file in types_dir.glob("*.toml"):
+        try:
+            type_data = toml.load(file)
+        except Exception:
+            continue
 
         default_data = {}
-        default_file = CONFIG_DEFAULTS_DIR / file.name
+        default_file = defaults_dir / file.name
         if default_file.exists():
-            default_data = toml.load(default_file)
+            try:
+                default_data = toml.load(default_file)
+            except Exception:
+                pass
 
-        config_data = _loaded_configs.get(file.stem, {})
+        config_data = loaded_configs.get(file.stem, {})
 
         def walk(prefix, type_node, config_node, default_node):
             for key, val in type_node.items():
@@ -280,3 +293,18 @@ def flatten_configs():
         walk("", type_data, config_data, default_data)
 
     return results
+
+
+def flatten_configs():
+    return _flatten_configs_from(CONFIG_TYPES_DIR, CONFIG_DEFAULTS_DIR, _loaded_configs)
+
+
+def flatten_frontend_configs():
+    loaded = {}
+    if FRONTEND_CONFIG_DIR.exists():
+        for f in FRONTEND_CONFIG_DIR.glob("*.toml"):
+            try:
+                loaded[f.stem] = toml.load(f)
+            except Exception:
+                pass
+    return _flatten_configs_from(FRONTEND_CONFIG_TYPES_DIR, FRONTEND_CONFIG_DEFAULTS_DIR, loaded)

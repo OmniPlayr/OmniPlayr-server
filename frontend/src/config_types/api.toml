@@ -1,6 +1,6 @@
 [api]
-apiUrl = "eval"
-terminalUrl = "eval"
+apiUrl = "eval # comment: The URL that the backend API is running on"
+terminalUrl = "eval # comment: The URL that the backend terminal is running on (Websockets)"
 
 [accounts]
-accountStore = "string <in ['sessionStorage', 'localStorage']>"
+accountStore = "string <in ['sessionStorage', 'localStorage']> # comment: Where to store the account token in the browser"

@@ -74,7 +74,7 @@ function Terminal() {
         };
     }, []);
 
-    return <div style={{ height: '100%', width: '100%' }} ref={terminalRef} />;
+    return <div className='terminal-section' ref={terminalRef} />;
 }
 
 export default Terminal;
