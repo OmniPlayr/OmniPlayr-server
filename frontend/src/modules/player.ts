@@ -21,6 +21,10 @@ class AudioPlayer {
     private audio = new Audio();
     private listeners = new Set<PlayerListener>();
 
+    private ctx: AudioContext | null = null;
+    private gainNode: GainNode | null = null;
+    private sourceNode: MediaElementAudioSourceNode | null = null;
+
     private queue: { songId: string; sourceType: string }[] = [];
     private isTransitioning = false;
 
@@ -41,6 +45,19 @@ class AudioPlayer {
         this.audio.addEventListener('ended', () => {
             this.nextInQueue();
         });
+
+        this.initAudioGraph();
+    }
+
+    private initAudioGraph() {
+        this.ctx = new AudioContext();
+        this.gainNode = this.ctx.createGain();
+        this.sourceNode = this.ctx.createMediaElementSource(this.audio);
+
+        this.sourceNode.connect(this.gainNode);
+        this.gainNode.connect(this.ctx.destination);
+
+        this.gainNode.gain.value = 1;
     }
 
     subscribe(cb: PlayerListener): () => void {
@@ -115,6 +132,10 @@ class AudioPlayer {
             this.isLoading = false;
             this.notify();
 
+            if (this.ctx && this.ctx.state === 'suspended') {
+                await this.ctx.resume();
+            }
+
             await this.audio.play();
         } finally {
             this.isLoading = false;
@@ -143,7 +164,16 @@ class AudioPlayer {
     }
 
     setVolume(fraction: number) {
-        this.audio.volume = Math.max(0, Math.min(1, fraction));
+        const f = Math.max(0, Math.min(1, fraction));
+
+        if (!this.gainNode || !this.ctx) return;
+
+        const minDb = -60;
+
+        const db = minDb + f * Math.abs(minDb);
+        const gain = Math.pow(10, db / 20);
+
+        this.gainNode.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.01);
     }
 
     subscribeToTrackChange(cb: TrackChangeListener): () => void {
@@ -172,7 +202,8 @@ class AudioPlayer {
     }
 
     get volume() {
-        return this.audio.volume;
+        if (!this.gainNode) return 1;
+        return this.gainNode.gain.value;
     }
 }
 

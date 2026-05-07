@@ -15,7 +15,7 @@ function formatTime(seconds: number): string {
 }
 
 function VolumeIcon({ volume, onClick }: { volume: number; onClick?: () => void }) {
-    if (volume === 0) return <VolumeX className="option-icon" onClick={onClick} />;
+    if (volume <= 0.001) return <VolumeX className="option-icon" onClick={onClick} />;
     if (volume < 0.33) return <Volume className="option-icon" onClick={onClick} />;
     if (volume < 0.66) return <Volume1 className="option-icon" onClick={onClick} />;
     return <Volume2 className="option-icon" onClick={onClick} />;
@@ -237,7 +237,7 @@ function Player() {
 
     const [displayProgress, setDisplayProgress] = useState(0);
     const [displayTime, setDisplayTime] = useState(0);
-    const [displayVolume, setDisplayVolume] = useState(player.volume);
+    const [displayVolume, setDisplayVolume] = useState(1);
 
     const progressBarRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
@@ -245,9 +245,9 @@ function Player() {
 
     const volumeSliderRef = useRef<HTMLDivElement>(null);
     const isVolumeDragging = useRef(false);
-    const volumeDragFrac = useRef(player.volume);
+    const volumeDragFrac = useRef(1);
 
-    const prevVolume = useRef(player.volume > 0 ? player.volume : 1);
+    const prevVolume = useRef(1);
 
     const fsRef = useRef<HTMLDivElement>(null);
     const fsDragStart = useRef(0);
@@ -396,8 +396,9 @@ function Player() {
             setDisplayVolume(0);
             player.setVolume(0);
         } else {
-            setDisplayVolume(prevVolume.current);
-            player.setVolume(prevVolume.current);
+            const newVol = prevVolume.current;
+            setDisplayVolume(newVol);
+            player.setVolume(newVol);
         }
     };
 

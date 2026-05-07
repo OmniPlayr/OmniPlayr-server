@@ -1,6 +1,6 @@
 import api from "../modules/api";
-import { useEffect, useState, useRef } from "react";
-import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, TriangleAlert, Search, Link, History, Save, RotateCcw, Zap } from "lucide-react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, TriangleAlert, Search, Link, Save, RotateCcw, Zap } from "lucide-react";
 import "../styles/settings/Config.css";
 import { Tooltip } from "react-tooltip";
 import { makeToast } from "@wokki20/jspt";
@@ -44,7 +44,6 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
             <div className="config-field-input config-field-button-group">
                 {inValues.map(v => {
                     const isActive = String(value ?? "") === String(v);
-
                     return (
                         <button
                             key={v}
@@ -102,10 +101,7 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
 
         if (hasRange) {
             const range = max - min;
-
-            const effectiveStep =
-                step ??
-                (type === "float" ? Math.max(range / 100, 0.0001) : 1);
+            const effectiveStep = step ?? (type === "float" ? Math.max(range / 100, 0.0001) : 1);
 
             const numericValue =
                 typeof value === "number"
@@ -118,29 +114,59 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
 
             const clampedValue = Math.min(max, Math.max(min, numericValue));
 
+            const numPossibleSteps = Math.round((max - min) / effectiveStep);
+            const MAX_TICKS = 7;
+            const tickValues: number[] = [];
+
+            if (numPossibleSteps + 1 <= MAX_TICKS) {
+                for (let i = 0; i <= numPossibleSteps; i++) {
+                    tickValues.push(Math.round((min + i * effectiveStep) * 1e9) / 1e9);
+                }
+            } else {
+                const interval = numPossibleSteps / (MAX_TICKS - 1);
+                for (let i = 0; i < MAX_TICKS; i++) {
+                    const idx = Math.round(i * interval);
+                    const v = Math.round((min + idx * effectiveStep) * 1e9) / 1e9;
+                    tickValues.push(Math.min(v, max));
+                }
+                tickValues[tickValues.length - 1] = max;
+            }
+
             return (
                 <div className="config-slider-wrapper">
                     <div className="config-slider-row">
-                        <input
-                            className="config-field-input"
-                            type="range"
-                            min={min}
-                            max={max}
-                            step={effectiveStep}
-                            value={clampedValue}
-                            onChange={e => {
-                                const v =
-                                    type === "float"
+                        <div className="config-slider-track-area">
+                            <input
+                                type="range"
+                                min={min}
+                                max={max}
+                                step={effectiveStep}
+                                value={clampedValue}
+                                className="config-slider-input"
+                                onChange={e => {
+                                    const v = type === "float"
                                         ? parseFloat(e.target.value)
                                         : parseInt(e.target.value, 10);
-
-                                onChange(v);
-                            }}
-                        />
-
-                        <span className="config-slider-value">
-                            {clampedValue}
-                        </span>
+                                    onChange(v);
+                                }}
+                            />
+                            <div className="config-slider-ticks-row">
+                                {tickValues.map(v => {
+                                    const pct = (v - min) / (max - min);
+                                    return (
+                                        <span
+                                            key={v}
+                                            className="config-slider-tick"
+                                            style={{ left: `calc(8px + (100% - 16px) * ${pct})` }}
+                                        >
+                                            <span className="config-slider-tick-mark">|</span>
+                                            <span className="config-slider-tick-label">{v}</span>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <span className="config-slider-value">({clampedValue})</span>
                     </div>
                 </div>
             );
@@ -184,19 +210,15 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
     );
 }
 
-function isFieldDefault(fieldData: any): boolean {
-    if (!("default" in fieldData)) return true;
-    const val = fieldData.value;
-    const def = fieldData.default;
-    if (Array.isArray(val) && Array.isArray(def)) {
-        return val.length === def.length && val.every((v: any, i: number) => v === def[i]);
-    }
-    return val === def;
-}
-
 function ConfigEditor({ data }: { data: any }) {
     const [localData, setLocalData] = useState<any>(data.data);
+    const [originalData] = useState<any>(() => JSON.parse(JSON.stringify(data.data)));
     const [saving, setSaving] = useState(false);
+
+    const isDirty = useMemo(
+        () => JSON.stringify(localData) !== JSON.stringify(originalData),
+        [localData, originalData]
+    );
 
     function handleChange(section: string, key: string | null, value: any) {
         setLocalData((prev: any) => {
@@ -213,23 +235,30 @@ function ConfigEditor({ data }: { data: any }) {
         });
     }
 
-    function handleRestore(section: string, key: string | null) {
+    function handleRestore(section: string, key: string | null, fieldData: any) {
+        const restoreVal = "default" in fieldData
+            ? fieldData.default
+            : key === null
+                ? originalData[section]?.value
+                : originalData[section]?.[key]?.value;
+
         setLocalData((prev: any) => {
+            if (restoreVal === undefined) return prev;
             if (key === null) {
-                const def = prev[section]?.default;
-                if (def === undefined) return prev;
-                return { ...prev, [section]: { ...prev[section], value: def } };
+                return { ...prev, [section]: { ...prev[section], value: restoreVal } };
             }
-            const def = prev[section]?.[key]?.default;
-            if (def === undefined) return prev;
             return {
                 ...prev,
                 [section]: {
                     ...prev[section],
-                    [key]: { ...prev[section][key], value: def },
+                    [key]: { ...prev[section][key], value: restoreVal },
                 },
             };
         });
+    }
+
+    function handleResetAll() {
+        setLocalData(JSON.parse(JSON.stringify(originalData)));
     }
 
     async function handleSave() {
@@ -247,7 +276,7 @@ function ConfigEditor({ data }: { data: any }) {
                 false,
                 "PUT"
             );
-            makeToast({ message: "Saved successfully, please restart your system for changes to take effect", style: "default"});
+            makeToast({ message: "Saved successfully, please restart your system for changes to take effect", style: "default" });
         } catch (e: any) {
             makeToast({ message: e?.message ?? "Failed to save", style: "default-error" });
         } finally {
@@ -255,8 +284,20 @@ function ConfigEditor({ data }: { data: any }) {
         }
     }
 
+    function isFieldModified(fieldData: any): boolean {
+        const currVal = fieldData.value;
+        if ("default" in fieldData) {
+            const def = fieldData.default;
+            if (Array.isArray(currVal) && Array.isArray(def)) {
+                return !(currVal.length === def.length && currVal.every((v: any, i: number) => v === def[i]));
+            }
+            return currVal !== def;
+        }
+        return fieldData.is_default === false;
+    }
+
     function renderField(fieldKey: string, fieldData: any, section: string, key: string | null) {
-        const isDefault = isFieldDefault(fieldData);
+        const isModified = isFieldModified(fieldData);
         const isLive: boolean = !!fieldData.liveupdate;
         const displayType: string = fieldData.type ?? (Array.isArray(fieldData.value) ? "array" : typeof fieldData.value);
 
@@ -272,10 +313,10 @@ function ConfigEditor({ data }: { data: any }) {
                             live
                         </span>
                     )}
-                    {isDefault ? (
+                    {!isModified ? (
                         <span className="config-field-default-badge">default</span>
                     ) : (
-                        <button className="config-field-restore" onClick={() => handleRestore(section, key)}>
+                        <button className="config-field-restore" onClick={() => handleRestore(section, key, fieldData)}>
                             <RotateCcw size={12} />
                             Restore
                         </button>
@@ -295,12 +336,6 @@ function ConfigEditor({ data }: { data: any }) {
                 <div className="config-editor-header-left">
                     <div className="config-editor-title">{data.file}</div>
                     <div className="config-editor-subtitle">{data.file}.toml</div>
-                </div>
-                <div className="config-editor-header-right">
-                    <button className="config-save-btn" onClick={handleSave} disabled={saving}>
-                        <Save size={14} />
-                        {saving ? "Saving…" : "Save"}
-                    </button>
                 </div>
             </div>
             <div className="config-editor-body">
@@ -332,6 +367,19 @@ function ConfigEditor({ data }: { data: any }) {
 
                     return null;
                 })}
+            </div>
+
+            <div className={`config-unsaved-banner${isDirty ? " visible" : ""}`}>
+                <span className="config-unsaved-text">Careful, you have unsaved changes</span>
+                <div className="config-unsaved-actions">
+                    <button className="config-unsaved-reset" onClick={handleResetAll} disabled={saving}>
+                        Reset all
+                    </button>
+                    <button className="config-unsaved-save" onClick={handleSave} disabled={saving}>
+                        <Save size={14} />
+                        {saving ? "Saving…" : "Save changes"}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -530,7 +578,7 @@ function Config() {
             </div>
         );
     } else {
-        mainContent = <ConfigEditor data={configData} />;
+        mainContent = <ConfigEditor key={`${selected.file}-${selected.source}`} data={configData} />;
     }
 
     return (

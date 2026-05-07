@@ -19,8 +19,10 @@ from api.helpers.config import (
     flatten_frontend_configs,
     CONFIG_DIR,
     CONFIG_TYPES_DIR,
+    CONFIG_DEFAULTS_DIR,
     FRONTEND_CONFIG_DIR,
     FRONTEND_CONFIG_TYPES_DIR,
+    FRONTEND_CONFIG_DEFAULTS_DIR,
     _parse_type_string,
 )
 from pathlib import Path
@@ -230,6 +232,12 @@ def _parse_field_meta(raw_meta: any) -> dict:
     return result
 
 
+def _values_equal(a, b) -> bool:
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(x == y for x, y in zip(a, b))
+    return a == b
+
+
 _FIELD_META_KEYS = ("type", "default", "comment", "min", "max", "step", "in_values", "liveupdate")
 
 
@@ -239,6 +247,8 @@ def _enrich_value(val: any, meta: any) -> dict:
     for k in _FIELD_META_KEYS:
         if k in meta_dict:
             enriched[k] = meta_dict[k]
+    if "default" in meta_dict:
+        enriched["is_default"] = _values_equal(val, meta_dict["default"])
     return enriched
 
 

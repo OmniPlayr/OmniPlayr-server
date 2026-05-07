@@ -160,6 +160,9 @@
     min-width: 0;
     overflow-y: auto;
     border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .config-main-empty {
@@ -220,13 +223,10 @@
     margin-bottom: 10px;
 }
 
-.config-main {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
 .config-group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 20px;
     color: var(--clr-text-a0);
     margin-top: 20px;
@@ -292,6 +292,25 @@
     color: var(--clr-text-a30);
 }
 
+.config-field-restore {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid var(--clr-popup-a50);
+    border-radius: 5px;
+    color: var(--clr-text-a30);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.config-field-restore:hover {
+    background-color: var(--clr-popup-a30);
+    color: var(--clr-text-a0);
+}
+
 .config-editor-title {
     font-size: 18px;
     color: var(--clr-text-a0);
@@ -306,25 +325,57 @@
     width: 100%;
 }
 
-.config-field-input {
-    width: 100%;
-}
-
-.config-slider-labels {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
 .config-slider-row {
     display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.config-slider-track-area {
+    flex: 1;
+    position: relative;
+}
+
+.config-slider-input {
+    width: 100%;
+    display: block;
+}
+
+.config-slider-ticks-row {
+    position: relative;
+    height: 30px;
+    margin-top: 2px;
+}
+
+.config-slider-tick {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.config-slider-tick-mark {
+    font-size: 10px;
+    line-height: 1;
+    color: var(--clr-text-a40);
+}
+
+.config-slider-tick-label {
+    font-size: 10px;
+    color: var(--clr-text-a30);
+    white-space: nowrap;
+    line-height: 1.4;
 }
 
 .config-slider-value {
-    min-width: 40px;
+    min-width: 50px;
     text-align: right;
+    font-size: 14px;
+    color: var(--clr-text-a30);
+    white-space: nowrap;
+    padding-top: 2px;
 }
 
 .config-field-input {
@@ -334,7 +385,7 @@
     border: 1px solid var(--clr-surface-a50);
     border-radius: 9px;
     padding: 10px;
-    translate: border-color 0.2s ease-in-out;
+    transition: border-color 0.2s ease-in-out;
 }
 
 .config-field-input:focus {
@@ -360,6 +411,7 @@
     padding: 10px;
     transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
     border-radius: 0;
+    cursor: pointer;
 }
 
 .config-field-button:first-child {
@@ -388,10 +440,79 @@
     background-color: var(--clr-popup-a30);
 }
 
-.config-save-btn {
+.config-unsaved-banner {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(calc(100% + 40px));
+    opacity: 0;
+    transition: transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.25s ease;
     display: flex;
-    flex-direction: row;
-    gap: 5px;
     align-items: center;
-    justify-content: center;
+    gap: 16px;
+    padding: 12px 16px 12px 20px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a50);
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    backdrop-filter: blur(12px);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.config-unsaved-banner.visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: all;
+}
+
+.config-unsaved-text {
+    font-size: 14px;
+    color: var(--clr-text-a0);
+}
+
+.config-unsaved-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.config-unsaved-reset {
+    padding: 7px 14px;
+    background: transparent;
+    border: 1px solid var(--clr-popup-a50);
+    border-radius: 8px;
+    color: var(--clr-text-a0);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.config-unsaved-reset:hover {
+    background-color: var(--clr-popup-a30);
+}
+
+.config-unsaved-save {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background-color: var(--clr-primary-a0);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.config-unsaved-save:hover {
+    opacity: 0.85;
+}
+
+.config-unsaved-save:disabled,
+.config-unsaved-reset:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
