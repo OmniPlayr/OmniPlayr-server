@@ -87,12 +87,21 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
     if (type === "bool" || (type === undefined && typeof value === "boolean")) {
         const checked = typeof value === "boolean" ? value : value === "true" || value === "1";
         return (
-            <label className="config-toggle">
-                <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
-                <span className="config-toggle-track">
-                    <span className="config-toggle-thumb" />
-                </span>
-            </label>
+            <div className="config-field-input config-field-button-group">
+                {(["True", "False"] as const).map(label => {
+                    const isActive = checked === (label === "True");
+                    return (
+                        <button
+                            key={label}
+                            type="button"
+                            className={`config-field-button ${isActive ? "active" : ""}`}
+                            onClick={() => onChange(label === "True")}
+                        >
+                            {label}
+                        </button>
+                    );
+                })}
+            </div>
         );
     }
 
@@ -143,6 +152,13 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
                                 step={effectiveStep}
                                 value={clampedValue}
                                 className="config-slider-input"
+                                style={
+                                    {
+                                        "--value": clampedValue,
+                                        "--min": min,
+                                        "--max": max
+                                    } as React.CSSProperties
+                                }
                                 onChange={e => {
                                     const v = type === "float"
                                         ? parseFloat(e.target.value)

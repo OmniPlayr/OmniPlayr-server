@@ -246,7 +246,7 @@ function Player() {
 
     const [displayProgress, setDisplayProgress] = useState(0);
     const [displayTime, setDisplayTime] = useState(0);
-    const [displayVolume, setDisplayVolume] = useState(1);
+    const [displayVolume, setDisplayVolume] = useState(() => player.volumeFraction);
 
     const progressBarRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
@@ -254,9 +254,9 @@ function Player() {
 
     const volumeSliderRef = useRef<HTMLDivElement>(null);
     const isVolumeDragging = useRef(false);
-    const volumeDragFrac = useRef(1);
+    const volumeDragFrac = useRef(player.volumeFraction);
 
-    const prevVolume = useRef(1);
+    const prevVolume = useRef(player.volumeFraction);
 
     const fsRef = useRef<HTMLDivElement>(null);
     const fsDragStart = useRef(0);
@@ -286,6 +286,10 @@ function Player() {
                 const frac = player.duration > 0 ? player.currentTime / player.duration : 0;
                 setDisplayProgress(frac);
                 setDisplayTime(player.currentTime);
+            }
+
+            if (!isVolumeDragging.current) {
+                setDisplayVolume(player.volumeFraction);
             }
         });
     }, []);
@@ -401,12 +405,9 @@ function Player() {
     const handleVolumeIconClick = () => {
         if (displayVolume > 0) {
             prevVolume.current = displayVolume;
-            setDisplayVolume(0);
             player.setVolume(0);
         } else {
-            const newVol = prevVolume.current;
-            setDisplayVolume(newVol);
-            player.setVolume(newVol);
+            player.setVolume(prevVolume.current);
         }
     };
 

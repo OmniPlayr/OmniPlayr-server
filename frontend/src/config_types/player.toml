@@ -1,0 +1,15 @@
+[navigation]
+prev_restart_threshold = "float <minmax [0, 30] step [0.5]> # comment: Seconds into a track before pressing previous restarts it instead of going back"
+prev_include_priority_queue = "bool # comment: When enabled, back-navigation also steps through priority queue history"
+
+[volume]
+default_volume = "float <minmax [0, 1] step [0.01]> # comment: Volume to use on first launch or when persistence is off"
+volume_persistence = "string <in ['localStorage', 'sessionStorage', 'none']> # liveupdate:true # comment: Where to save and restore the last used volume across sessions"
+
+[buffering]
+prefetch_enabled = "bool # comment: Fetch the next track in the background so switching to it is instant"
+prefetch_delay_ms = "int <minmax [0, 10000] step [100]> # comment: Milliseconds to wait after playback starts before the background prefetch begins"
+
+[history]
+max_history_size = "int <minmax [0, 500] step [1]> # comment: How many tracks to keep in back-navigation history; 0 means unlimited"
+history_persistence = "string <in ['localStorage', 'sessionStorage', 'none']> # comment: Where to save and restore play history for back-navigation across sessions"

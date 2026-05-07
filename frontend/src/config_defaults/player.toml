@@ -1,0 +1,15 @@
+[navigation]
+prev_restart_threshold = 3.0
+prev_include_priority_queue = false
+
+[volume]
+default_volume = 1
+volume_persistence = "localStorage"
+
+[buffering]
+prefetch_enabled = true
+prefetch_delay_ms = 1500
+
+[history]
+max_history_size = 100
+history_persistence = "localStorage"
