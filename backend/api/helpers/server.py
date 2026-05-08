@@ -33,7 +33,7 @@ def verify_token(access_token: str):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT access_token FROM access_tokens WHERE access_token = %s AND access_token_expires > NOW()",
+                "SELECT access_token FROM access_tokens WHERE access_token = %s AND access_token_expires > NOW() AND revoked = false",
                 (access_token,)
             )
 

@@ -49,7 +49,9 @@ SCHEMA = {
         "token": "VARCHAR(255) NOT NULL",
         "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
         "password_protected": "BOOLEAN NOT NULL",
-        "revoked": "BOOLEAN NOT NULL DEFAULT FALSE"
+        "revoked": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "user_agent": "VARCHAR(255)",
+        "ip_address": "VARCHAR(255)"
     },
     "update_cache": {
         "id": "INT PRIMARY KEY DEFAULT 1",

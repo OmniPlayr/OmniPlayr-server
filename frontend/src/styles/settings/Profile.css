@@ -5,7 +5,8 @@
     margin-top: 10px;
 }
 
-.profile-preview {
+.profile-preview,
+.profile-tokens {
     display: flex;
     flex-direction: row;
     gap: 30px;
@@ -74,4 +75,131 @@
 .profile-section-about-bio.empty {
     color: var(--clr-text-a30);
     font-style: italic;
+}
+
+.profile-tokens-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.profile-tokens {
+    flex-direction: column;
+    gap: 0px;
+}
+
+.profile-tokens-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.profile-tokens-table thead tr {
+    border-bottom: 2px solid var(--clr-popup-a30);
+}
+
+.profile-tokens-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--clr-text-a30);
+}
+
+.profile-tokens-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--clr-popup-a20);
+    vertical-align: middle;
+}
+
+.profile-tokens-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.profile-tokens-table tbody tr:hover td {
+    background-color: var(--clr-popup-a10);
+}
+
+.profile-tokens-token {
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--clr-text-a30);
+}
+
+.profile-tokens-device {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.profile-tokens-device-name {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.profile-tokens-device-ip {
+    font-size: 12px;
+    color: var(--clr-text-a30);
+    font-family: monospace;
+}
+
+.profile-tokens-th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.profile-tokens-th:hover {
+    color: var(--clr-text-a50);
+}
+
+.profile-tokens-sort-icon {
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+.profile-tokens-revoke {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--clr-danger-a0);
+    background: transparent;
+    color: var(--clr-danger-a10);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.profile-tokens-revoke:hover:not(:disabled) {
+    background: var(--clr-danger-a0);
+    border: 1px solid var(--clr-danger-a0);
+    color: var(--clr-text-light-a0);
+}
+
+.profile-tokens-revoke.revoked {
+    border-color: var(--clr-popup-a30);
+    color: var(--clr-text-a30);
+    cursor: default;
+    white-space: nowrap;
+    color: var(--clr-text-a30);
+    font-size: 13px;
+}
+
+.profile-tokens-revoke-cell {
+    width: max-content;
+}
+
+@media (max-width: 925px) {
+    .profile-tokens {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .profile-tokens-table {
+        min-width: 700px;
+    }
+
+    .profile-tokens-table th,
+    .profile-tokens-table td {
+        white-space: nowrap;
+    }
 }

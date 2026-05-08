@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from pydantic import BaseModel
 
 from api.helpers.server import verify_auth, match_account, get_token_user
 from api.helpers.log import log
+
+from api.helpers.config import get_config
 
 from api.helpers.account import (
     list_accounts,
@@ -11,6 +13,7 @@ from api.helpers.account import (
     update_account,
     delete_account,
     create_account_token,
+    revoke_token,
 )
 
 router = APIRouter()
@@ -29,6 +32,9 @@ class AccountUpdate(BaseModel):
     
 class AccountLogin(BaseModel):
     user_id: int
+    
+class AccountRevoke(BaseModel):
+    token: str
 
 @router.get("/", name="get_accounts")
 def get_accounts(auth=Depends(verify_auth)):
@@ -42,14 +48,44 @@ def get_accounts(auth=Depends(verify_auth)):
     return result
 
 @router.post("/login")
-def login(body: AccountLogin, auth=Depends(verify_auth)):
+def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
+    
     log(f"POST /accounts/login requested for user_id={body.user_id}", "debug", "module.account")
+
     if not auth:
         log("POST /accounts/login: auth check failed", "debug", "module.account")
         raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    useragent = ""
+    ip_address = ""
+    
+    if get_config("user_authentication.log_ip_adresses"):
+        ip_address = request.client.host if request.client else ""
+    
+    if get_config("user_authentication.log_user_agents"):
+        useragent = request.headers.get("user-agent", "")
+        
     log(f"POST /accounts/login: auth ok, creating token for user_id={body.user_id}", "debug", "module.account")
-    result = create_account_token(body.user_id)
+    result = create_account_token(
+        body.user_id,
+        False,
+        useragent,
+        ip_address
+    )
+
     log(f"POST /accounts/login: token created for user_id={body.user_id}", "debug", "module.account")
+
+    return result
+
+@router.post("/revoke")
+def revoke(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    log("POST /accounts/revoke requested", "debug", "module.account")
+    if not auth:
+        log("POST /accounts/revoke: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    log("POST /accounts/revoke: auth ok, revoking token", "debug", "module.account")
+    result = revoke_token(get_token_user(x_account_token), body.token)
+    log("POST /accounts/revoke: token revoked", "debug", "module.account")
     return result
 
 @router.get("/{account_id}", name="get_account")

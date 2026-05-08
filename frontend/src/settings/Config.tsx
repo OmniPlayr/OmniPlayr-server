@@ -371,7 +371,7 @@ function ConfigEditor({ data }: { data: any }) {
                     if (typeof sectionVal === "object" && !Array.isArray(sectionVal) && sectionVal !== null) {
                         return (
                             <div key={sectionKey} className="config-group">
-                                <div className="config-group-title">{sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1).replaceAll(".", " ")}</div>
+                                <div className="config-group-title">{sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1).replaceAll("_", " ")}</div>
                                 <div className="config-group-fields">
                                     {Object.entries(sectionVal).map(([fieldKey, fieldData]: [string, any]) =>
                                         renderField(fieldKey, fieldData, sectionKey, fieldKey)
@@ -445,7 +445,7 @@ function SearchResults({ groups, source }: { groups: SearchGroup[]; source: stri
                             return (
                                 <div key={match.key} className="config-field config-field-readonly">
                                     <div className="config-field-header">
-                                        <div className="config-field-key">{match.key.charAt(0).toUpperCase() + match.key.slice(1).replaceAll(".", " ")}</div>
+                                        <div className="config-field-key">{match.key.charAt(0).toUpperCase() + match.key.slice(1).replaceAll("_", " ")}</div>
                                         <div className="config-field-type">{displayType}</div>
                                         {match.liveupdate && (
                                             <span className="config-field-live-badge" title="Changes apply without restart">

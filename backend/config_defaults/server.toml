@@ -1,3 +1,7 @@
 [auth]
 access_token_lifetime = "1 month"
 refresh_token_lifetime = "2 months"
+
+[user_authentication]
+log_ip_adresses = true
+log_user_agents = true

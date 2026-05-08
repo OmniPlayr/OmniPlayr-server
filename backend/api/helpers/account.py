@@ -21,10 +21,25 @@ def get_account(account_id: int):
                 (account_id,),
             )
             row = cur.fetchone()
+            
+            cur.execute(
+                "SELECT token, password_protected, revoked, user_agent, ip_address, created_at FROM account_tokens WHERE account_id = %s",
+                (account_id,)
+            )
+            tokens = cur.fetchall()
+
+            for token in tokens:
+                value = token["token"]
+                token["token"] = f"{value[:4]}*****{value[-4:]}" if len(value) > 8 else "*****"
+
+            if row is not None:
+                row["tokens"] = tokens
+
     if row is None:
         log(f"Account id={account_id} not found", "debug", "account")
     else:
         log(f"Account id={account_id} found: name={row['name']!r} role={row['role']!r}", "debug", "account")
+
     return row
 
 
@@ -98,15 +113,15 @@ def delete_account(account_id: int) -> bool:
         log(f"Account id={account_id} not found, nothing deleted", "debug", "account")
     return deleted is not None
 
-def create_account_token(account_id: int):
+def create_account_token(account_id: int, password_protected: bool = False, user_agent: str | None = None, ip_address: str | None = None):
     log(f"Creating account token for account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
             token = secrets.token_hex(32)
             log(f"Token hex generated for account id={account_id}, inserting into db", "debug", "account")
             cur.execute(
-                "INSERT INTO account_tokens (account_id, token, password_protected) VALUES (%s, %s, %s) RETURNING token",
-                (account_id, token, False),
+                "INSERT INTO account_tokens (account_id, token, password_protected, user_agent, ip_address) VALUES (%s, %s, %s, %s, %s) RETURNING token",
+                (account_id, token, password_protected, user_agent, ip_address),
             )
             row = cur.fetchone()
         conn.commit()
@@ -120,3 +135,38 @@ def create_account_token(account_id: int):
         "password_protected": False,
         "message": "Account token created successfully",
     }
+    
+def revoke_token(account_id: int, token: str):
+    log(f"Revoking token for account id={account_id}", "debug", "account")
+
+    def mask(value: str):
+        return f"{value[:4]}*****{value[-4:]}" if len(value) > 8 else "*****"
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT token FROM account_tokens WHERE account_id = %s AND revoked = false",
+                (account_id,),
+            )
+            rows = cur.fetchall()
+
+            match = None
+            for row in rows:
+                db_token = row["token"]
+                if mask(db_token) == token:
+                    match = db_token
+                    break
+
+            if not match:
+                log(f"No matching token found for account id={account_id}", "warn", "account")
+                return False
+
+            cur.execute(
+                "UPDATE account_tokens SET revoked = true WHERE account_id = %s AND token = %s",
+                (account_id, match),
+            )
+
+        conn.commit()
+
+    log(f"Token revoked for account id={account_id}", "debug", "account")
+    return True
