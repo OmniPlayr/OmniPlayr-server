@@ -3,6 +3,8 @@ import api from '../modules/api';
 import { useEffect, useState } from 'react';
 import defaultPfp from '../assets/images/default-pfp-dark.svg';
 import { Tooltip } from 'react-tooltip';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { getAccount } from '../modules/account';
 
 let cachedAccount: any = null;
 let fetchPromise: Promise<any> | null = null;
@@ -76,6 +78,7 @@ type SortKey = 'token' | 'device' | 'date' | 'protected' | 'revoked';
 function Profile() {
     const [account, setAccount] = useState<any>(cachedAccount);
     const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
+    const [deletingTokens, setDeletingTokens] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (account) return;
@@ -87,6 +90,20 @@ function Profile() {
         cachedAccount = { ...cachedAccount, tokens: cachedAccount.tokens.map((t: any) => t.token === tokenStr ? { ...t, revoked: true } : t) };
         setAccount(cachedAccount);
     };
+
+    const deleteToken = async (tokenStr: string) => {
+        await api("/accounts/delete_token", { token: tokenStr });
+        setDeletingTokens(prev => new Set(prev).add(tokenStr));
+        setTimeout(() => {
+            cachedAccount = { ...cachedAccount, tokens: cachedAccount.tokens.filter((t: any) => t.token !== tokenStr) };
+            setAccount(cachedAccount);
+            setDeletingTokens(prev => { const next = new Set(prev); next.delete(tokenStr); return next; });
+        }, 1000);
+    };
+
+    const maskToken = (value: string): string => value.length > 8 ? `${value.slice(0, 4)}*****${value.slice(-4)}` : "*****";
+
+    const checkToken = (masked: string): boolean => maskToken(String(getAccount())) === masked;
 
     const toggleSort = (key: SortKey) =>
         setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
@@ -139,10 +156,8 @@ function Profile() {
                                 <tr>
                                     {(['token', 'device', 'date', 'protected', 'revoked'] as SortKey[]).map(col => (
                                         <th key={col} className='profile-tokens-th' onClick={() => toggleSort(col)}>
-                                            {col.charAt(0).toUpperCase() + col.slice(1)}
-                                            <span className='profile-tokens-sort-icon'>
-                                                {sort.key === col ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
-                                            </span>
+                                            <span>{col.charAt(0).toUpperCase() + col.slice(1)}</span>
+                                            {sort.key === col ? (sort.dir === 'asc' ? <ArrowUp className='sort-icon' /> : <ArrowDown className='sort-icon' />) : <ArrowUpDown className='sort-icon' />}
                                         </th>
                                     ))}
                                     <th></th>
@@ -151,12 +166,16 @@ function Profile() {
                             <tbody>
                                 {sortedTokens?.map((token: any) => {
                                     const device = parseDevice(token.user_agent);
+                                    const isDeleting = deletingTokens.has(token.token);
                                     return (
                                         <tr key={token.token}>
                                             <td className='profile-tokens-token'>{token.token}</td>
                                             <td className='profile-tokens-device'>
-                                                <span className='profile-tokens-device-name'>{device.name} · {device.browser}</span>
-                                                <span className='profile-tokens-device-ip'>{token.ip_address ?? 'No IP'}</span>
+                                                <div className='profile-tokens-device-info'>
+                                                    <span className='profile-tokens-device-name'>{device.name} · {device.browser}</span>
+                                                    <span className='profile-tokens-device-ip'>{token.ip_address ?? 'No IP'}</span>
+                                                </div>
+                                                {checkToken(token.token) && <span className='profile-tokens-this-device'>This device</span>}
                                             </td>
                                             <td className='profile-tokens-date'>
                                                 {new Date(token.created_at).toLocaleDateString(undefined, {
@@ -169,11 +188,11 @@ function Profile() {
                                             <td>{token.revoked ? 'Yes' : 'No'}</td>
                                             <td className='profile-tokens-revoke-cell'>
                                                 <button
-                                                    className={'profile-tokens-revoke' + (token.revoked ? ' revoked' : '')}
-                                                    disabled={token.revoked}
-                                                    onClick={() => revokeToken(token.token)}
+                                                    className={'profile-tokens-revoke' + (isDeleting ? ' deleted' : token.revoked ? ' delete' : '')}
+                                                    disabled={isDeleting}
+                                                    onClick={token.revoked && !isDeleting ? () => deleteToken(token.token) : !token.revoked ? () => revokeToken(token.token) : undefined}
                                                 >
-                                                    {token.revoked ? 'Revoked' : 'Revoke'}
+                                                    {isDeleting ? 'Deleted' : token.revoked ? 'Delete' : 'Revoke'}
                                                 </button>
                                             </td>
                                         </tr>

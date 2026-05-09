@@ -170,3 +170,38 @@ def revoke_token(account_id: int, token: str):
 
     log(f"Token revoked for account id={account_id}", "debug", "account")
     return True
+
+def delete_account_token(account_id: int, token: str):
+    log(f"Deleting revoked token for account id={account_id}", "debug", "account")
+
+    def mask(value: str):
+        return f"{value[:4]}*****{value[-4:]}" if len(value) > 8 else "*****"
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT token FROM account_tokens WHERE account_id = %s AND revoked = true",
+                (account_id,),
+            )
+            rows = cur.fetchall()
+
+            match = None
+            for row in rows:
+                db_token = row["token"]
+                if mask(db_token) == token:
+                    match = db_token
+                    break
+
+            if not match:
+                log(f"No matching token found for account id={account_id}", "warn", "account")
+                return False
+
+            cur.execute(
+                "DELETE FROM account_tokens WHERE account_id = %s AND token = %s AND revoked = true",
+                (account_id, match),
+            )
+
+        conn.commit()
+
+    log(f"Revoked token deleted for account id={account_id}", "debug", "account")
+    return True

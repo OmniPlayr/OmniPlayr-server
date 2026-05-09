@@ -14,6 +14,7 @@ from api.helpers.account import (
     delete_account,
     create_account_token,
     revoke_token,
+    delete_account_token,
 )
 
 router = APIRouter()
@@ -86,6 +87,17 @@ def revoke(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str 
     log("POST /accounts/revoke: auth ok, revoking token", "debug", "module.account")
     result = revoke_token(get_token_user(x_account_token), body.token)
     log("POST /accounts/revoke: token revoked", "debug", "module.account")
+    return result
+
+@router.post("/delete_token")
+def delete_token(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    log("POST /accounts/delete_token requested", "debug", "module.account")
+    if not auth:
+        log("POST /accounts/delete_token: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    log("POST /accounts/delete_token: auth ok, deleting revoked token", "debug", "module.account")
+    result = delete_account_token(get_token_user(x_account_token), body.token)
+    log("POST /accounts/delete_token: revoked token deleted", "debug", "module.account")
     return result
 
 @router.get("/{account_id}", name="get_account")
