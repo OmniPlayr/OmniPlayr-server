@@ -1,9 +1,9 @@
 import '../styles/settings/Profile.css';
 import api from '../modules/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import defaultPfp from '../assets/images/default-pfp-dark.svg';
 import { Tooltip } from 'react-tooltip';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, Pencil, Upload, X } from 'lucide-react';
 import { getAccount } from '../modules/account';
 
 let cachedAccount: any = null;
@@ -79,11 +79,57 @@ function Profile() {
     const [account, setAccount] = useState<any>(cachedAccount);
     const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
     const [deletingTokens, setDeletingTokens] = useState<Set<string>>(new Set());
+    const [editing, setEditing] = useState(false);
+    const [saving, setSaving ] = useState(false);
+
+    const [editNickname, setEditNickname] = useState('');
+    const [editAbout, setEditAbout] = useState('');
+    const [editAvatar, setEditAvatar] = useState<string | null>(null);
+
+    const avatarInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (account) return;
         loadAccount().then(setAccount);
     }, []);
+
+    const startEditing = () => {
+        setEditNickname(account?.nickname || '');
+        setEditAbout(account?.about || '');
+        setEditAvatar(null);
+        setEditing(true);
+    };
+
+    const cancelEditing = () => {
+        setEditing(false);
+        setEditAvatar(null);
+    };
+
+    const saveEditing = async () => {
+        setSaving(true);
+        try {
+            const payload: Record<string, string | null> = {
+                nickname: editNickname || '',
+                about: editAbout || '',
+            };
+            if (editAvatar !== null) payload.avatar_b64 = editAvatar;
+            const updated = await api("/accounts/" + account?.id, payload, undefined, true, false, 'PATCH') as object;
+            cachedAccount = { ...cachedAccount, ...updated };
+            setAccount(cachedAccount);
+            setEditing(false);
+            setEditAvatar(null);
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setEditAvatar(reader.result as string);
+        reader.readAsDataURL(file);
+    };
 
     const revokeToken = async (tokenStr: string) => {
         await api("/accounts/revoke", { token: tokenStr });
@@ -124,6 +170,8 @@ function Profile() {
         }
     });
 
+    const displayAvatar = editAvatar ?? account?.avatar_b64 ?? defaultPfp;
+
     return (
         <>
             {!account && <div>Loading...</div>}
@@ -131,8 +179,28 @@ function Profile() {
                 <div className='profile-section'>
                     <div className='profile-preview'>
                         <div className='profile-section-info'>
-                            <img draggable="false" className="profile-section-avatar" src={account?.avatar_b64 || defaultPfp} alt={account?.name} />
-                            <div className='profile-section-info-nickname'>{account.nickname || account.name}</div>
+                            <div className='profile-avatar-wrapper' onClick={editing ? () => avatarInputRef.current?.click() : undefined} data-editing={editing}>
+                                <img draggable="false" className="profile-section-avatar" src={displayAvatar} alt={account?.name} />
+                                
+                                {editing && <div className='profile-avatar-overlay'><Upload className='profile-avatar-overlay-icon' /></div>}
+                            </div>
+                            <input 
+                                ref={avatarInputRef}
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={handleAvatarChange}
+                            />
+                            {editing 
+                                ? <input
+                                    className='profile-edit-nickname'
+                                    value={editNickname}
+                                    onChange={e => setEditNickname(e.target.value)}
+                                    placeholder='Display name'
+                                    maxLength={64}
+                                />
+                                : <div className='profile-section-info-nickname'>{account.nickname || account.name}</div>
+                            }
                             <div className='profile-section-info-name'>@{account.name}</div>
                         </div>
                         <div className='profile-section-about'>
@@ -146,7 +214,26 @@ function Profile() {
                                     day: 'numeric'
                                 })}</span>
                             </div>
-                            <p className={'profile-section-about-bio' + (account?.about ? "" : " empty")}>{account?.about || "No bio set"}</p>
+                            {editing 
+                                ? <textarea
+                                    className='profile-edit-bio'
+                                    value={editAbout}
+                                    onChange={e => setEditAbout(e.target.value)}
+                                    placeholder='Write something about yourself...'
+                                    maxLength={300}
+                                    rows={4}
+                                />
+                                : <p className={'profile-section-about-bio' + (account?.about ? "" : " empty")}>{account?.about || "No bio set"}</p>
+                            }
+                        </div>
+                        <div className='profile-section-edit-buttons'>
+                            {!editing 
+                                ? <button className='profile-section-edit-button' onClick={startEditing}><Pencil className='profile-section-edit-icon' /></button>
+                                : <>
+                                    <button className='profile-section-edit-button cancel' onClick={cancelEditing}><X className='profile-section-edit-icon' /></button>
+                                    <button className='profile-section-edit-button save' onClick={saveEditing}><Check className='profile-section-edit-icon' /></button>
+                                </>
+                            }
                         </div>
                     </div>
                     <div className='profile-tokens'>

@@ -26,10 +26,10 @@ class AccountCreate(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    name: str | None = None
     role: str | None = None
     avatar_b64: str | None = None
     nickname: str | None = None
+    about: str | None = None
     
 class AccountLogin(BaseModel):
     user_id: int
@@ -161,24 +161,34 @@ def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(v
     if not x_account_token:
         log(f"PATCH /accounts/{account_id}: missing account token header", "debug", "module.account")
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
+
     log(f"PATCH /accounts/{account_id}: checking account exists", "debug", "module.account")
     existing = get_account(account_id)
     if not existing:
         log(f"PATCH /accounts/{account_id}: account not found", "debug", "module.account")
         raise HTTPException(status_code=404, detail="Account not found")
-    
+
     log(f"PATCH /accounts/{account_id}: checking match_account", "debug", "module.account")
     if not match_account(account_id, x_account_token, True):
         log(f"PATCH /accounts/{account_id}: match_account failed", "debug", "module.account")
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
-    if body.role is not None and body.role not in ("user", "admin"):
-        log(f"PATCH /accounts/{account_id}: invalid role={body.role!r}", "debug", "module.account")
-        raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
-    
+
+    caller_id = get_token_user(x_account_token)
+    caller = get_account(caller_id)
+
+    if body.role is not None:
+        if body.role not in ("user", "admin"):
+            log(f"PATCH /accounts/{account_id}: invalid role={body.role!r}", "debug", "module.account")
+            raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
+        if caller["role"] != "admin":
+            log(f"PATCH /accounts/{account_id}: non-admin attempted role update", "debug", "module.account")
+            raise HTTPException(status_code=403, detail="Forbidden")
+        if caller_id == account_id:
+            log(f"PATCH /accounts/{account_id}: attempted self role update", "debug", "module.account")
+            raise HTTPException(status_code=403, detail="Forbidden")
+
     log(f"PATCH /accounts/{account_id}: all checks passed, updating", "debug", "module.account")
-    updated = update_account(account_id, body.name, body.role, body.avatar_b64, body.nickname)
+    updated = update_account(account_id, None, body.role, body.avatar_b64, body.nickname, body.about)
     log(f"PATCH /accounts/{account_id}: update complete", "debug", "module.account")
     return updated
 

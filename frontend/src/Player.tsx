@@ -406,8 +406,10 @@ function Player() {
         if (displayVolume > 0) {
             prevVolume.current = displayVolume;
             player.setVolume(0);
+            setDisplayVolume(0);
         } else {
             player.setVolume(prevVolume.current);
+            setDisplayVolume(prevVolume.current);
         }
     };
 

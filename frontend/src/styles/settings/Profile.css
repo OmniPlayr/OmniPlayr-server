@@ -16,6 +16,10 @@
     border-radius: 12px;
 }
 
+.profile-preview {
+    position: relative;
+}
+
 .profile-section-avatar {
     width: 150px;
     height: 150px;
@@ -33,6 +37,7 @@
 .profile-section-about {
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 .profile-section-info-nickname {
@@ -242,4 +247,119 @@
     .profile-tokens-table td {
         white-space: nowrap;
     }
+}
+
+.profile-section-edit-buttons {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.profile-section-edit-button {
+    padding: 5px 10px;
+    background-color: transparent;
+    border: 1px solid var(--clr-surface-a40);
+    border-radius: 8px;
+    color: var(--clr-text-a30);
+    cursor: pointer;
+}
+
+.profile-section-edit-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.profile-section-edit-button.save {
+    background-color: var(--clr-primary-a0);
+    border: 1px solid var(--clr-primary-a20);
+    color: var(--clr-text-light-a0);
+}
+
+.profile-section-edit-button:hover {
+    background-color: var(--clr-surface-a40);
+    color: var(--clr-text-light-a0);
+    border: 1px solid var(--clr-surface-a50);
+}
+
+.profile-section-edit-button.save:hover {
+    background-color: var(--clr-primary-a10);
+    border: 1px solid var(--clr-primary-a30);
+}
+
+.profile-avatar-wrapper {
+    position: relative;
+    display: inline-flex;
+    border-radius: 24px;
+}
+
+.profile-avatar-wrapper[data-editing='true'] {
+    cursor: pointer;
+}
+
+.profile-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--clr-text-light-a0);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.profile-avatar-wrapper[data-editing='true']:hover .profile-avatar-overlay {
+    opacity: 1;
+}
+
+.profile-avatar-overlay-icon {
+    width: 30px;
+    height: 30px;
+}
+
+.profile-edit-nickname {
+    width: 150px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    border-radius: 9px;
+    border: 1px solid var(--clr-popup-a30);
+    padding: 5px 10px;
+    color: var(--clr-text-a0);
+    background-color: var(--clr-popup-a0);
+    transition: border-color 0.2s ease;
+}
+
+.profile-edit-nickname::placeholder {
+    color: var(--clr-text-a30);
+}
+
+.profile-edit-nickname:focus {
+    outline: none;
+    border: 1px solid var(--clr-popup-a50);
+}
+
+.profile-edit-bio {
+    height: 100%;
+    width: 100%;
+    margin-top: 5px;
+    border-radius: 9px;
+    border: 1px solid var(--clr-popup-a30);
+    padding: 5px 10px;
+    color: var(--clr-text-a0);
+    background-color: var(--clr-popup-a0);
+    transition: border-color 0.2s ease;
+    resize: none;
+}
+
+.profile-edit-bio::placeholder {
+    color: var(--clr-text-a30);
+}
+
+.profile-edit-bio:focus {
+    outline: none;
+    border: 1px solid var(--clr-popup-a50);
 }
