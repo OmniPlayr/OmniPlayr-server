@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from api.helpers.server import verify_auth, match_account, get_token_user
 from api.helpers.log import log
+from api.helpers.admin import verify_admin
 
 from api.helpers.config import get_config
 
@@ -136,7 +137,7 @@ def get_one_account(account_id: str, auth=Depends(verify_auth), x_account_token:
     return account
 
 @router.post("/", status_code=201)
-def create_new_account(body: AccountCreate, auth=Depends(verify_auth)):
+def create_new_account(body: AccountCreate, auth=Depends(verify_admin)):
     log(f"POST /accounts requested name={body.name!r} role={body.role!r} has_avatar={body.avatar_b64 is not None}", "debug", "module.account")
     if not auth:
         log("POST /accounts: auth check failed", "debug", "module.account")
