@@ -3,10 +3,11 @@ import '../styles/settings/Fonts.css';
 import fontsCSS from '../styles/fonts/default-fonts.css?raw';
 
 const CATEGORIES: Record<string, string[]> = {
-    'Sans-serif': ['inter', 'dm-sans', 'helvetica', 'neue-haas-grotesk', 'cabinet-grotesk', 'lato', 'source-sans-pro', 'comic-sans'],
+    'Sans-serif': ['inter', 'dm-sans', 'helvetica', 'neue-haas-grotesk', 'cabinet-grotesk', 'lato', 'source-sans-pro'],
     'Serif': ['garamond', 'georgia', 'playfair-display', 'canela', 'fraunces'],
     'Monospace': ['jetbrains-mono', 'fira-code', 'commit-mono'],
-    'System': ['system-ui', 'wingdings'],
+    'System': ['system-ui'],
+    'Playful': ['comic-sans', 'pacifico', 'lobster', 'fredoka-one', 'bubblegum-sans', 'caveat', 'permanent-marker', 'indie-flower', 'wingdings'],
 };
 
 function parseFonts(css: string) {
@@ -40,6 +41,13 @@ const DISPLAY_NAMES: Record<string, string> = {
     'source-sans-pro': 'Source Sans',
     'comic-sans': 'Comic Sans',
     'wingdings': 'Wingdings',
+    'pacifico': 'Pacifico',
+    'lobster': 'Lobster',
+    'fredoka-one': 'Fredoka One',
+    'bubblegum-sans': 'Bubblegum Sans',
+    'caveat': 'Caveat',
+    'permanent-marker': 'Permanent Marker',
+    'indie-flower': 'Indie Flower',
 };
 
 function applyFont(key: string) {

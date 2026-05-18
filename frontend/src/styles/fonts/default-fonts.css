@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=EB+Garamond&family=Playfair+Display&family=Inter&family=DM+Sans&family=JetBrains+Mono&family=Fira+Code&family=Fraunces&family=Lato&family=Source+Sans+3&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond&family=Playfair+Display&family=Inter&family=DM+Sans&family=JetBrains+Mono&family=Fira+Code&family=Fraunces&family=Lato&family=Source+Sans+3&family=Pacifico&family=Lobster&family=Fredoka+One&family=Bubblegum+Sans&family=Caveat&family=Permanent+Marker&family=Indie+Flower&display=swap');
 
 :root {
     --font-family: 'Inter', sans-serif;
@@ -21,6 +21,13 @@
     --font-source-sans-pro-family: 'Source Sans 3', sans-serif;
     --font-comic-sans-family: 'Comic Sans MS', 'Comic Sans', cursive;
     --font-wingdings-family: 'Wingdings', 'Wingdings 2', 'Wingdings 3', fantasy;
+    --font-pacifico-family: 'Pacifico', cursive;
+    --font-lobster-family: 'Lobster', cursive;
+    --font-fredoka-one-family: 'Fredoka One', cursive;
+    --font-bubblegum-sans-family: 'Bubblegum Sans', cursive;
+    --font-caveat-family: 'Caveat', cursive;
+    --font-permanent-marker-family: 'Permanent Marker', cursive;
+    --font-indie-flower-family: 'Indie Flower', cursive;
 }
 
 :root[data-font='inter'] { --font-family: var(--font-inter-family); }
@@ -41,3 +48,10 @@
 :root[data-font='source-sans-pro'] { --font-family: var(--font-source-sans-pro-family); }
 :root[data-font='comic-sans'] { --font-family: var(--font-comic-sans-family); }
 :root[data-font='wingdings'] { --font-family: var(--font-wingdings-family); }
+:root[data-font='pacifico'] { --font-family: var(--font-pacifico-family); }
+:root[data-font='lobster'] { --font-family: var(--font-lobster-family); }
+:root[data-font='fredoka-one'] { --font-family: var(--font-fredoka-one-family); }
+:root[data-font='bubblegum-sans'] { --font-family: var(--font-bubblegum-sans-family); }
+:root[data-font='caveat'] { --font-family: var(--font-caveat-family); }
+:root[data-font='permanent-marker'] { --font-family: var(--font-permanent-marker-family); }
+:root[data-font='indie-flower'] { --font-family: var(--font-indie-flower-family); }
