@@ -6,7 +6,7 @@ const CATEGORIES: Record<string, string[]> = {
     'Sans-serif': ['inter', 'dm-sans', 'helvetica', 'neue-haas-grotesk', 'cabinet-grotesk', 'lato', 'source-sans-pro', 'comic-sans'],
     'Serif': ['garamond', 'georgia', 'playfair-display', 'canela', 'fraunces'],
     'Monospace': ['jetbrains-mono', 'fira-code', 'commit-mono'],
-    'System': ['system-ui'],
+    'System': ['system-ui', 'wingdings'],
 };
 
 function parseFonts(css: string) {
@@ -39,6 +39,7 @@ const DISPLAY_NAMES: Record<string, string> = {
     'lato': 'Lato',
     'source-sans-pro': 'Source Sans',
     'comic-sans': 'Comic Sans',
+    'wingdings': 'Wingdings',
 };
 
 function applyFont(key: string) {
