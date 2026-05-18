@@ -10,6 +10,7 @@ from api.helpers.plugins import get_plugin_router
 from api.modules.server_info import router as server_info
 from api.modules.update import router as update_router
 from api.modules.notifications import router as notifications_router
+from api.modules.plugins import router as plugins_router
 
 router = APIRouter()
 router.include_router(account_router, prefix="/accounts", tags=["accounts"])
@@ -22,3 +23,4 @@ router.include_router(logs_router, prefix="/logs", tags=["logs"])
 router.include_router(system_router, prefix="/system", tags=["system"])
 router.include_router(update_router, prefix="/update", tags=["update"])
 router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
+router.include_router(plugins_router, prefix="/plugins", tags=["plugins"])

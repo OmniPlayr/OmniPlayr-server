@@ -3,7 +3,7 @@ import '../styles/settings/Fonts.css';
 import fontsCSS from '../styles/fonts/default-fonts.css?raw';
 
 const CATEGORIES: Record<string, string[]> = {
-    'Sans-serif': ['inter', 'dm-sans', 'helvetica', 'neue-haas-grotesk', 'cabinet-grotesk', 'lato', 'source-sans-pro'],
+    'Sans-serif': ['inter', 'dm-sans', 'helvetica', 'neue-haas-grotesk', 'cabinet-grotesk', 'lato', 'source-sans-pro', 'comic-sans'],
     'Serif': ['garamond', 'georgia', 'playfair-display', 'canela', 'fraunces'],
     'Monospace': ['jetbrains-mono', 'fira-code', 'commit-mono'],
     'System': ['system-ui'],
@@ -38,6 +38,7 @@ const DISPLAY_NAMES: Record<string, string> = {
     'system-ui': 'System UI',
     'lato': 'Lato',
     'source-sans-pro': 'Source Sans',
+    'comic-sans': 'Comic Sans',
 };
 
 function applyFont(key: string) {

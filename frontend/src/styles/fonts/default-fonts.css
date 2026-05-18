@@ -19,6 +19,7 @@
     --font-system-ui-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-lato-family: 'Lato', sans-serif;
     --font-source-sans-pro-family: 'Source Sans 3', sans-serif;
+    --font-comic-sans-family: 'Comic Sans MS', 'Comic Sans', cursive;
 }
 
 :root[data-font='inter'] { --font-family: var(--font-inter-family); }
@@ -37,3 +38,4 @@
 :root[data-font='system-ui'] { --font-family: var(--font-system-ui-family); }
 :root[data-font='lato'] { --font-family: var(--font-lato-family); }
 :root[data-font='source-sans-pro'] { --font-family: var(--font-source-sans-pro-family); }
+:root[data-font='comic-sans'] { --font-family: var(--font-comic-sans-family); }
