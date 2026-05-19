@@ -24,6 +24,7 @@ services:
     volumes:
       - ./db:/db
       - ./backend/config:/app/config
+      - ./backend/config.local.json:/app/config.local.json
       - ./user_storage:/user_storage
       - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock

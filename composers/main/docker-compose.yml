@@ -24,6 +24,7 @@ services:
       - ./frontend/src:/frontend/src
       - ./backend/plugins:/app/plugins
       - ./:/compose
+      - ./backend/config.local.json:/app/config.local.json
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - HOST_COMPOSE_DIR=${PWD}

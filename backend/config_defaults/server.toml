@@ -5,3 +5,7 @@ refresh_token_lifetime = "2 months"
 [user_authentication]
 log_ip_adresses = true
 log_user_agents = true
+
+[plugins]
+registry_api = "https://omniplayr.wokki20.nl/api/package.php"
+download_base = "https://omniplayr-registry.wokki20.nl/api/v1/download"

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import base64
@@ -55,12 +56,12 @@ def scan_plugins(folder: Path):
         log(f"Plugin folder does not exist: {folder}", "debug", "module.server_info")
         return []
 
-    result = []
-    for item in folder.iterdir():
-        if item.is_dir():
-            plugin = load_plugin_meta(item, item.name, True)
-            if plugin:
-                result.append(plugin)
+    candidates = [item for item in folder.iterdir() if item.is_dir()]
+
+    with ThreadPoolExecutor() as executor:
+        futures = {executor.submit(load_plugin_meta, item, item.name, True): item for item in candidates}
+        result = [f.result() for f in as_completed(futures) if f.result()]
+
     log(f"Found {len(result)} frontend plugin(s) in {folder}", "debug", "module.server_info")
     return result
 
@@ -95,21 +96,25 @@ def get_plugins():
     backend_list = config.get("plugins", [])
     log(f"GET /info/plugins: {len(backend_list)} declared backend plugin(s)", "debug", "module.server_info")
     backend_plugins_dir = Path("plugins")
+    frontend_plugins_dir = Path("/frontend/src/plugins")
 
-    backend_plugins = []
-    for p in backend_list:
+    def load_backend_plugin(p):
         plugin_path = backend_plugins_dir / p
-        if plugin_path.exists():
-            plugin = load_plugin_meta(plugin_path, p, False)
-            if plugin:
-                backend_plugins.append(plugin)
-        else:
+        if not plugin_path.exists():
             log(f"GET /info/plugins: declared backend plugin {p!r} directory not found", "debug", "module.server_info")
+            return None
+        return load_plugin_meta(plugin_path, p, False)
+
+    with ThreadPoolExecutor() as executor:
+        backend_future = executor.submit(
+            lambda: [r for r in (load_backend_plugin(p) for p in backend_list) if r]
+        )
+        frontend_future = executor.submit(scan_plugins, frontend_plugins_dir)
+
+        backend_plugins = backend_future.result()
+        frontend_plugins = frontend_future.result()
 
     log(f"GET /info/plugins: {len(backend_plugins)} loaded backend plugin(s)", "debug", "module.server_info")
-
-    frontend_plugins_dir = Path("/frontend/src/plugins")
-    frontend_plugins = scan_plugins(frontend_plugins_dir)
     log(f"GET /info/plugins: {len(frontend_plugins)} frontend plugin(s)", "debug", "module.server_info")
 
     return {

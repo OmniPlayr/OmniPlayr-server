@@ -1,11 +1,23 @@
 import '../styles/settings/Plugins.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../modules/api';
-import { EllipsisVertical, Package } from 'lucide-react';
+import { EllipsisVertical, Package, Plus, Search, X } from 'lucide-react';
 
 async function loadPlugins() {
     return await api('/info/plugins') as { backend: any[]; frontend: any[] };
 }
+
+const EMPTY_DESCRIPTION_MESSAGES = [
+    'Nothing to see here… yet.',
+    'Description coming soon.',
+    'Still figuring out what to write here.',
+    'This space is intentionally left blank.',
+    'No description has been added.',
+    'Work in progress...',
+    'Just vibes, no description.',
+    'Silence speaks louder than words.',
+    'Description not found.',
+]
 
 function groupPlugins(data: { backend: any[]; frontend: any[] }) {
     const map = new Map<string, { backend: any | null; frontend: any | null }>();
@@ -54,9 +66,36 @@ function Plugins() {
     const [plugins, setPlugins] = useState<ReturnType<typeof groupPlugins>>([]);
     const [icons, setIcons] = useState<Record<string, string>>({});
     const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const [showInstall, setShowInstall] = useState(false);
+    const [loading, setLoading] = useState(true)
+    const [searching, setSearching] = useState(false)
+    const [packages, setPackages] = useState<any[]>([])
+    const [query, setQuery] = useState('')
+    const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [installingPkgs, setInstallingPkgs] = useState<Record<string, boolean>>({});
+    const [needsRestart, setNeedsRestart] = useState(false);
+
+    const randomDescription = useMemo(() => {
+        return EMPTY_DESCRIPTION_MESSAGES[Math.floor(Math.random() * EMPTY_DESCRIPTION_MESSAGES.length)]
+    }, [])
+
+    async function handleInstallPackage(packageId: string) {
+        setInstallingPkgs(prev => ({ ...prev, [packageId]: true }));
+        try {
+            await api(`/plugins/install?package_id=${encodeURIComponent(packageId)}`, { method: 'POST' });
+            fetchPlugins();
+            setNeedsRestart(true);
+        } finally {
+            setInstallingPkgs(prev => ({ ...prev, [packageId]: false }));
+        }
+    }
+
+    function fetchPlugins() {
+        loadPlugins().then(data => setPlugins(groupPlugins(data)));
+    }
 
     useEffect(() => {
-        loadPlugins().then(data => setPlugins(groupPlugins(data)));
+        fetchPlugins();
     }, []);
 
     useEffect(() => {
@@ -82,8 +121,68 @@ function Plugins() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    function timeAgo(dateStr: string): string {
+        const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+        if (seconds < 60) return 'just now'
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
+        if (seconds < 2592000) return `${Math.floor(seconds / 604800)}w ago`
+        if (seconds < 31536000) return `${Math.floor(seconds / 2592000)}mo ago`
+        return `${Math.floor(seconds / 31536000)}y ago`
+    }
+
+    function formatDate(dateStr: string): string {
+        return new Date(dateStr).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        })
+    }
+
+    useEffect(() => {
+        fetch('https://omniplayr.wokki20.nl/api/top_packages.php')
+            .then(res => res.json())
+            .then(data => {
+                setPackages(data.packages ?? [])
+                setLoading(false)
+            })
+            .catch(() => setLoading(false))
+    }, [])
+
+    useEffect(() => {
+        if (searchTimeout.current) clearTimeout(searchTimeout.current)
+
+        if (!query.trim()) {
+            setSearching(false)
+            setLoading(true)
+            fetch('https://omniplayr.wokki20.nl/api/top_packages.php')
+                .then(res => res.json())
+                .then(data => {
+                    setPackages(data.packages ?? [])
+                    setLoading(false)
+                })
+                .catch(() => setLoading(false))
+            return
+        }
+
+        setSearching(true)
+        searchTimeout.current = setTimeout(() => {
+            fetch('https://omniplayr.wokki20.nl/api/search_packages.php?q=' + encodeURIComponent(query.trim()))
+                .then(res => res.json())
+                .then(data => {
+                    setPackages(data.packages ?? [])
+                    setSearching(false)
+                })
+                .catch(() => setSearching(false))
+        }, 300)
+    }, [query])
+
+    const isLoading = loading || searching
+
     return (
         <div className='plugins-section'>
+            <p className='section-title'>Installed plugins</p>
             <div className='plugins-grid'>
                 {plugins.map(plugin => (
                     <div key={plugin.folder} className='plugin-card'>
@@ -130,6 +229,82 @@ function Plugins() {
                     </div>
                 ))}
             </div>
+
+            <div className='plugins-install'>
+                <p className='section-title'>Install Plugins</p>
+                <div className='search-bar'>
+                    <Search className='search-plugins-icon' />
+                    <input type="text" className='search-plugins-input' placeholder='Search for plugins...' value={query} onChange={e => setQuery(e.target.value)} />
+                </div>
+
+                <div className='plugins-result-list'>
+                    <p className='section-subtitle'>{query.trim() ? 'Search results' : 'Top packages'}</p>
+
+                    {isLoading ? (
+                        <p className="packages-status">Loading...</p>
+                    ) : packages.length === 0 ? (
+                        <p className="packages-status">No packages found.</p>
+                    ) : (
+                        <div className="profile-packages-list">
+                            {packages.map((pkg: any) => (
+                                <div key={pkg.package_id} className="profile-package">
+                                    <div className="profile-package-info">
+                                        {pkg.icon
+                                            ? <img src={pkg.icon} alt={pkg.package_id} className="profile-package-icon" />
+                                            : <Package className="profile-package-icon no-icon" />
+                                        }
+                                        <div className="profile-package-name-versions">
+                                            <p className="profile-package-name" onClick={() => window.open('https://omniplayr.wokki20.nl/packages/package/' + pkg.package_id, '_blank')}>
+                                                {pkg.package_id}
+                                            </p>
+                                            <div className="profile-package-versions">
+                                                {pkg.backend_version && <span className="profile-package-version backend">B {pkg.backend_version}</span>}
+                                                {pkg.frontend_version && <span className="profile-package-version frontend">F {pkg.frontend_version}</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className={`profile-package-description ${pkg.description ? '' : 'not-found'}`}>
+                                        {pkg.description || randomDescription}
+                                    </p>
+                                    <div className="profile-package-more-info">
+                                        <p className="profile-package-author" onClick={() => window.open('https://omniplayr.wokki20.nl/packages/profile/' + pkg.author, '_blank')}>
+                                            {pkg.author}
+                                        </p>
+                                        <p className="profile-package-updated">{formatDate(pkg.created_at)} - {timeAgo(pkg.created_at)}</p>
+                                        {(() => {
+                                            const installed = plugins.find(p => p.folder === pkg.package_id);
+                                            const versionMatch =
+                                                (!pkg.backend_version || installed?.backendVersion === pkg.backend_version) &&
+                                                (!pkg.frontend_version || installed?.frontendVersion === pkg.frontend_version);
+                                            if (installed && versionMatch) {
+                                                return <span className="pkg-installed-badge">Installed</span>;
+                                            }
+                                            return (
+                                                <button
+                                                    className="pkg-install-btn"
+                                                    onClick={() => handleInstallPackage(pkg.package_id)}
+                                                    disabled={!!installingPkgs[pkg.package_id]}
+                                                >
+                                                    <Plus className="pkg-install-btn-icon" />
+                                                    {installingPkgs[pkg.package_id] ? 'Installing…' : installed ? 'Update' : 'Install'}
+                                                </button>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+            {needsRestart && (
+                <div className="restart-banner">
+                    <span className="restart-banner-text">
+                        Restart the application to apply your plugin changes.
+                    </span>
+                    <X className="restart-banner-close" onClick={() => setNeedsRestart(false)} />
+                </div>
+            )}
         </div>
     );
 }

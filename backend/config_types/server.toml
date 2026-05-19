@@ -5,3 +5,7 @@ refresh_token_lifetime = "str # liveupdate:true # comment: How long the refresh 
 [user_authentication]
 log_ip_adresses = "bool # comment: Log IP addresses of users when they log in, for security reasons"
 log_user_agents = "bool # comment: Log user agents of users when they log in, for security reasons"
+
+[plugins]
+registry_api = "str # comment: The URL of the plugin registry API to fetch information about plugins"
+download_base = "str # comment: The base URL to download plugins from"
