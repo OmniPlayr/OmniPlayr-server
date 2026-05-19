@@ -24,13 +24,13 @@ services:
     volumes:
       - ./db:/db
       - ./backend/config:/app/config
+      - ./backend/config.local.json:/app/config.local.json
       - ./user_storage:/user_storage
       - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock
       - ./frontend/src:/frontend/src
       - ./backend/plugins:/app/plugins
       - ./:/compose
-      - ./backend/config.local.json:/app/config.local.json
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - DEV_MODE=true
