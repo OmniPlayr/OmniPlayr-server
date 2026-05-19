@@ -3,6 +3,7 @@ import os
 import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import shutil
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
@@ -31,6 +32,11 @@ def sync_config():
     if not os.path.exists(CONFIG_PATH):
         log(f"Base config file not found at {CONFIG_PATH}, skipping sync", "debug", "config_watcher")
         return
+    
+    if os.path.isdir(CONFIG_LOCAL_PATH):
+        shutil.rmtree(CONFIG_LOCAL_PATH)
+    with open(CONFIG_LOCAL_PATH, "w") as f:
+        json.dump(merged, f, indent=2)
 
     with open(CONFIG_PATH, "r") as f:
         base = json.load(f)

@@ -602,6 +602,10 @@ def _merge_json_file(source: Path, dest: Path):
 
 def _merge_or_copy(source: Path, target: Path, root: Path):
     log(f"_merge_or_copy: source={source} target={target} root={root}", "debug", "updater")
+    
+    if target.exists() and target.is_dir():
+        shutil.rmtree(target)
+        log(f"Removed stale directory at file path: {target}", "warning", "updater")
 
     if target.exists() and _is_mergeable_config(source, root):
         log(f"{source.name!r} is a mergeable config file, attempting merge", "debug", "updater")
@@ -758,6 +762,9 @@ def _clear_cache():
 
 def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None = None, root: Path | None = None, preserved: set[str] | None = None, dest_inherited_patterns: list[str] | None = None, dest_root: Path | None = None):
     log(f"_copy_update: source={source} dest={dest}", "debug", "updater")
+    
+    if source.is_file():
+        raise ValueError(f"_copy_update called with a file as source: {source}")
     dest.mkdir(parents=True, exist_ok=True)
 
     if root is None:
