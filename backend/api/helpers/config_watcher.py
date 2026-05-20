@@ -32,11 +32,9 @@ def sync_config():
     if not os.path.exists(CONFIG_PATH):
         log(f"Base config file not found at {CONFIG_PATH}, skipping sync", "debug", "config_watcher")
         return
-    
+
     if os.path.isdir(CONFIG_LOCAL_PATH):
         shutil.rmtree(CONFIG_LOCAL_PATH)
-    with open(CONFIG_LOCAL_PATH, "w") as f:
-        json.dump(merged, f, indent=2)
 
     with open(CONFIG_PATH, "r") as f:
         base = json.load(f)
