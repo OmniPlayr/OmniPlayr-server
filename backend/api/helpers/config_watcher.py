@@ -43,9 +43,7 @@ def sync_config():
     local = {}
     if os.path.exists(CONFIG_LOCAL_PATH):
         with open(CONFIG_LOCAL_PATH, "r") as f:
-            content = f.read().strip()
-            if content:
-                local = json.loads(content)
+            local = json.load(f)
         log(f"Loaded local config with {len(local)} key(s)", "debug", "config_watcher")
     else:
         log("No local config found, merging base into new local", "debug", "config_watcher")
