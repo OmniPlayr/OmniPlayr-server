@@ -220,6 +220,9 @@ def load_plugins():
         mod.__package__ = module_name
         sys.modules[module_name] = mod
 
+        from api.helpers.plugin_db import request_access as _request_access
+        mod.request_db_access = lambda **kwargs: _request_access(plugin_key, **kwargs)
+
         try:
             spec.loader.exec_module(mod)
             log(f"Plugin module {plugin_key!r} executed successfully", "debug", "plugins")
