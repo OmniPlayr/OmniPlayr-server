@@ -222,7 +222,9 @@ def _reload_live_key(key_path):
 # You call this function by doing for example get_config("auth.access_token_lifetime")
 def get_config(key_path, default=None):
     from api.helpers.log import log
-    log(f"Getting config key={key_path!r} default={default!r}", "debug", "config")
+    configs_ready = bool(_loaded_configs)
+    if configs_ready:
+        log(f"Getting config key={key_path!r} default={default!r}", "debug", "config")
     if key_path in _live_keys:
         log(f"Key {key_path!r} is a live key, checking for updates", "debug", "config")
         _reload_live_key(key_path)
@@ -232,11 +234,13 @@ def get_config(key_path, default=None):
         try:
             for part in parts:
                 val = val[part]
-            log(f"Config key={key_path!r} found in {config_name!r}: {val!r}", "debug", "config")
+            if configs_ready:
+                log(f"Config key={key_path!r} found in {config_name!r}: {val!r}", "debug", "config")
             return val
         except (KeyError, TypeError):
             continue
-    log(f"Config key={key_path!r} not found in any config, returning default={default!r}", "debug", "config")
+    if configs_ready:
+        log(f"Config key={key_path!r} not found in any config, returning default={default!r}", "debug", "config")
     return default
 
 

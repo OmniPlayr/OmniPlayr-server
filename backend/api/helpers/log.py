@@ -10,6 +10,7 @@ _log_dir: Path | None = None
 _retention_days: int = 7
 _max_file_size_mb: int = 10
 _initialized: bool = False
+_initializing: bool = False
 
 LEVEL_COLORS = {
     "debug": "\033[38;5;244m",
@@ -36,9 +37,10 @@ LEVEL_LABELS = {
 
 
 def _init_from_config():
-    global _log_dir, _retention_days, _max_file_size_mb, _initialized
-    if _initialized:
+    global _log_dir, _retention_days, _max_file_size_mb, _initialized, _initializing
+    if _initialized or _initializing:
         return
+    _initializing = True
     try:
         from api.helpers.config import get_config
         log_dir_str = get_config("logging.log_dir", Path("logs"))
@@ -48,6 +50,8 @@ def _init_from_config():
         log_dir_str = Path("logs")
         _retention_days = 7
         _max_file_size_mb = 10
+    finally:
+        _initializing = False
     _log_dir = log_dir_str
     _initialized = True
 
