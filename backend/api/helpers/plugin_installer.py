@@ -7,12 +7,18 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+import tomllib
+
 from api.helpers.config import get_config
 from api.helpers.log import log
 
 PLUGIN_DIRS = {
     "backend": Path("/app/plugins"),
     "frontend": Path("/frontend/src/plugins"),
+}
+
+_PLUGIN_OVERWRITE_ALWAYS: set[str] = {
+    "package.json",
 }
 
 
@@ -113,7 +119,7 @@ def _install_frontend_dependencies(install_dir: Path) -> None:
 
     log("Running npm install in frontend container...", "info", "plugin_installer")
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["docker", "exec", "omniplayr_frontend", "npm", "install"],
             check=True,
             capture_output=True,
@@ -121,6 +127,179 @@ def _install_frontend_dependencies(install_dir: Path) -> None:
         log("Frontend dependencies installed", "info", "plugin_installer")
     except subprocess.CalledProcessError as e:
         log(f"npm install failed: {e.stderr.decode()}", "warning", "plugin_installer")
+
+
+def _is_in_config_dir(path: Path) -> bool:
+    return any(part == "config" for part in path.parts)
+
+
+def _is_config_types_file(path: Path) -> bool:
+    stem = path.stem.lower()
+    return "types" in stem or "config_types" in path.parts
+
+
+def _is_mergeable_config(path: Path, root: Path) -> bool:
+    if path.suffix not in (".toml", ".json"):
+        return False
+    if path.name in _PLUGIN_OVERWRITE_ALWAYS:
+        return False
+    if _is_config_types_file(path):
+        return False
+    return _is_in_config_dir(path)
+
+
+def _toml_value(value) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return f'"{value}"'
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(v) for v in value) + "]"
+    return repr(value)
+
+
+def _merge_toml_file(source: Path, dest: Path) -> None:
+    log(f"Merging TOML config: source={source} dest={dest}", "debug", "plugin_installer")
+
+    try:
+        source_data = tomllib.loads(source.read_text(encoding="utf-8"))
+        dest_data = tomllib.loads(dest.read_text(encoding="utf-8"))
+    except Exception as e:
+        log(f"TOML merge parse failed for {dest}: {e}", "error", "plugin_installer")
+        return
+
+    to_add: dict[str | None, list[tuple]] = {}
+
+    for key, value in source_data.items():
+        if isinstance(value, dict):
+            new_keys = {k: v for k, v in value.items() if k not in dest_data.get(key, {})}
+            if new_keys:
+                to_add[key] = list(new_keys.items())
+        else:
+            if key not in dest_data:
+                to_add.setdefault(None, []).append((key, value))
+
+    if not to_add:
+        log(f"No new keys to add to {dest}, skipping write", "debug", "plugin_installer")
+        return
+
+    lines = dest.read_text(encoding="utf-8").splitlines(keepends=True)
+
+    sections: list[tuple[str, int]] = []
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if s.startswith("[") and not s.startswith("[[") and "]" in s:
+            sections.append((s[1:s.index("]")], i))
+
+    insertions: dict[int, list[str]] = {}
+
+    for i, (name, start) in enumerate(sections):
+        if name not in to_add:
+            continue
+        end = sections[i + 1][1] if i + 1 < len(sections) else len(lines)
+        new_lines = [f"{k} = {_toml_value(v)}\n" for k, v in to_add[name]]
+        insertions.setdefault(end, []).extend(new_lines)
+
+    result: list[str] = []
+    for i, line in enumerate(lines):
+        if i in insertions:
+            result.extend(insertions[i])
+        result.append(line)
+    if len(lines) in insertions:
+        result.extend(insertions[len(lines)])
+
+    sections_found = {name for name, _ in sections}
+    for name, kvs in to_add.items():
+        if name is None or name in sections_found:
+            continue
+        if result and result[-1].strip():
+            result.append("\n")
+        result.append(f"[{name}]\n")
+        result.extend(f"{k} = {_toml_value(v)}\n" for k, v in kvs)
+
+    if None in to_add:
+        new_lines = [f"{k} = {_toml_value(v)}\n" for k, v in to_add[None]]
+        first_section = next(
+            (i for i, l in enumerate(result) if l.strip().startswith("[")),
+            len(result),
+        )
+        result = result[:first_section] + new_lines + result[first_section:]
+
+    dest.write_text("".join(result), encoding="utf-8")
+    log(f"Merged config (TOML): {dest}", "info", "plugin_installer")
+
+
+def _deep_merge_json(source: dict, dest: dict) -> dict:
+    result = dict(dest)
+    for key, value in source.items():
+        if key not in result:
+            result[key] = value
+        elif isinstance(value, dict) and isinstance(result[key], dict):
+            result[key] = _deep_merge_json(value, result[key])
+    return result
+
+
+def _merge_json_file(source: Path, dest: Path) -> None:
+    log(f"Merging JSON config: source={source} dest={dest}", "debug", "plugin_installer")
+
+    try:
+        source_data = json.loads(source.read_text(encoding="utf-8"))
+        dest_data = json.loads(dest.read_text(encoding="utf-8"))
+    except Exception as e:
+        log(f"JSON merge parse failed for {dest}: {e}", "error", "plugin_installer")
+        return
+
+    if not isinstance(source_data, dict) or not isinstance(dest_data, dict):
+        log(f"JSON merge skipped for {dest}: one or both files are not objects", "debug", "plugin_installer")
+        return
+
+    merged = _deep_merge_json(source_data, dest_data)
+
+    if merged == dest_data:
+        log(f"No new keys found in {source}, skipping write", "debug", "plugin_installer")
+        return
+
+    dest.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    log(f"Merged config (JSON): {dest}", "info", "plugin_installer")
+
+
+def _merge_or_copy(source: Path, target: Path, root: Path) -> None:
+    if target.exists() and target.is_dir():
+        shutil.rmtree(target)
+        log(f"Removed stale directory at file path: {target}", "warning", "plugin_installer")
+
+    if target.exists() and _is_mergeable_config(source, root):
+        if source.suffix == ".toml":
+            _merge_toml_file(source, target)
+        elif source.suffix == ".json":
+            _merge_json_file(source, target)
+        else:
+            shutil.copy2(source, target)
+            log(f"Updated: {target}", "info", "plugin_installer")
+    else:
+        shutil.copy2(source, target)
+        log(f"Updated: {target}", "info", "plugin_installer")
+
+
+def _install_files(source_dir: Path, install_dir: Path, root: Path | None = None) -> None:
+    if root is None:
+        root = source_dir
+
+    install_dir.mkdir(parents=True, exist_ok=True)
+
+    for item in source_dir.iterdir():
+        if item.is_symlink():
+            log(f"Skipping symlink: {item.name!r}", "debug", "plugin_installer")
+            continue
+
+        target = install_dir / item.name
+
+        if item.is_dir():
+            _install_files(item, target, root)
+        else:
+            _merge_or_copy(item, target, root)
 
 
 def install_plugin(package_id: str, version: str | None, target: str | None) -> dict:
@@ -199,12 +378,7 @@ def install_plugin(package_id: str, version: str | None, target: str | None) -> 
 
         type_dir = tmp_extract / plugin_type
         if type_dir.exists():
-            for item in type_dir.iterdir():
-                dest = install_dir / item.name
-                if item.is_dir():
-                    shutil.copytree(item, dest, dirs_exist_ok=True)
-                else:
-                    shutil.copy2(item, dest)
+            _install_files(type_dir, install_dir)
 
         shutil.rmtree(tmp_extract, ignore_errors=True)
 

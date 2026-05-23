@@ -1,7 +1,7 @@
 import toml from "toml";
 
-type TomlValue = string | number | boolean | TomlValue[] | { [key: string]: TomlValue };
-type TomlObject = { [key: string]: TomlValue };
+export type TomlValue = string | number | boolean | TomlValue[] | { [key: string]: TomlValue };
+export type TomlObject = { [key: string]: TomlValue };
 
 let _loadedConfigs: Record<string, TomlObject> = {};
 
@@ -14,7 +14,7 @@ interface ParsedType {
     inValues?: string[];
 }
 
-function deepMerge(base: TomlObject, override: TomlObject): TomlObject {
+export function deepMerge(base: TomlObject, override: TomlObject): TomlObject {
     const result: TomlObject = { ...base };
     for (const [key, val] of Object.entries(override)) {
         if (
@@ -32,7 +32,7 @@ function deepMerge(base: TomlObject, override: TomlObject): TomlObject {
     return result;
 }
 
-function parseTypeString(typeStr: string): ParsedType {
+export function parseTypeString(typeStr: string): ParsedType {
     let s = typeStr;
 
     const liveupdate = s.includes("# liveupdate:true");
@@ -103,7 +103,7 @@ function convertType(value: TomlValue, baseType: string): TomlValue {
     }
 }
 
-function validateAgainstTypes(configData: TomlObject, typeData: TomlObject, keyPath = ""): void {
+export function validateAgainstTypes(configData: TomlObject, typeData: TomlObject, keyPath = ""): void {
     for (const key of Object.keys(typeData)) {
         const fullKey = keyPath ? `${keyPath}.${key}` : key;
         if (!(key in configData)) throw new Error(`Missing key '${fullKey}'`);
