@@ -13,7 +13,7 @@ from api.helpers.log import log
 
 router = APIRouter()
 
-
+# This is so you can connect to the notifications websocket, so you can receive notifications in real time
 @router.websocket("/ws")
 async def notifications_ws(ws: WebSocket):
     token = ws.query_params.get("token")
@@ -72,7 +72,7 @@ async def notifications_ws(ws: WebSocket):
     finally:
         manager.disconnect(account_id, ws)
 
-
+# This is so you can get the number of unread notifications, and the display string for the badge
 @router.get("/count")
 def notification_count(
     auth=Depends(verify_auth),

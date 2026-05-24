@@ -14,7 +14,7 @@ router = APIRouter()
 
 config_file = Path("config.local.json")
 
-
+# This is just a simple function to load a JSON file
 def load_json(path: Path):
     log(f"Loading JSON from {path}", "debug", "module.server_info")
     if not path.exists():
@@ -25,13 +25,13 @@ def load_json(path: Path):
     log(f"JSON loaded from {path} with {len(data)} key(s)", "debug", "module.server_info")
     return data
 
-
+# This is a helper to get the base path for a plugin
 def get_plugin_base(plugin_key: str, frontend: bool):
     if frontend:
         return Path("frontend/src/plugins") / plugin_key
     return Path("plugins") / plugin_key
 
-
+# This is a helper to load the meta for a plugin, so the folder, if its a frontend plugin, and its json from the package.json
 def load_plugin_meta(plugin_path: Path, plugin_key: str, frontend: bool):
     log(f"Loading plugin meta for {plugin_key!r} frontend={frontend} path={plugin_path}", "debug", "module.server_info")
     package_file = plugin_path / "package.json"
@@ -49,7 +49,8 @@ def load_plugin_meta(plugin_path: Path, plugin_key: str, frontend: bool):
         "package": pkg
     }
 
-
+# This just scans for the plugins in the frontend folder
+# Well it is just checking for plugins in a specific folder, but it assumes its the frontend folder
 def scan_plugins(folder: Path):
     log(f"Scanning plugins in {folder}", "debug", "module.server_info")
     if not folder.exists():
@@ -65,7 +66,8 @@ def scan_plugins(folder: Path):
     log(f"Found {len(result)} frontend plugin(s) in {folder}", "debug", "module.server_info")
     return result
 
-
+# This is to get information about the backend for the server
+# It just sends the config.local.json file
 @router.get("/server")
 def get_setup_state():
     log("GET /info/server requested", "debug", "module.server_info")
@@ -76,7 +78,7 @@ def get_setup_state():
     log("GET /info/server: returning config data", "debug", "module.server_info")
     return data
 
-
+# This is to check if the server is in safe mode
 @router.get("/safe-mode")
 def get_safe_mode_status():
     log("GET /info/safe-mode requested", "debug", "module.server_info")
@@ -84,7 +86,7 @@ def get_safe_mode_status():
     log(f"GET /info/safe-mode: safe_mode={exists}", "debug", "module.server_info")
     return {"safe_mode": exists}
 
-
+# This is to get all the installed plugins on the server
 @router.get("/plugins")
 def get_plugins():
     log("GET /info/plugins requested", "debug", "module.server_info")
@@ -122,6 +124,7 @@ def get_plugins():
         "frontend": frontend_plugins
     }
 
+# This is to get a file from a plugin, for example its readme, banner, or icon (Or any other file that is part of the plugin)
 @router.get("/plugin-file")
 def get_plugin_file(plugin: str, file: str, frontend: bool = False):
     log(f"GET /info/plugin-file plugin={plugin!r} file={file!r} frontend={frontend}", "debug", "module.server_info")

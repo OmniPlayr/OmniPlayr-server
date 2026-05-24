@@ -2,6 +2,7 @@ import os
 import sys
 import inspect
 import threading
+import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -19,7 +20,11 @@ LEVEL_COLORS = {
     "warning": "\033[38;5;214m",
     "warn": "\033[38;5;214m",
     "error": "\033[38;5;196m",
-    "critical":"\033[38;5;201m",
+    "critical": "\033[38;5;201m",
+    "diag": "\033[38;5;51m",
+    "warning_diagnostic": "\033[38;5;220m",
+    "error_diagnostic": "\033[38;5;208m",
+    "critical_diagnostic": "\033[38;5;199m",
 }
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -33,7 +38,18 @@ LEVEL_LABELS = {
     "warn": "WRN",
     "error": "ERR",
     "critical": "CRT",
+    "diag": "DIG",
+    "warning_diagnostic": "WDG",
+    "error_diagnostic": "EDG",
+    "critical_diagnostic": "CDG",
 }
+
+_SKIP_MODULE_ROOTS = frozenset({
+    "uvicorn", "starlette", "fastapi", "anyio", "h11",
+    "asyncio", "threading", "concurrent", "importlib",
+    "encodings", "codecs", "abc", "typing",
+})
+_SKIP_FILEPATH_PARTS = ("site-packages", "<frozen", "<string>")
 
 
 def _init_from_config():
@@ -82,18 +98,56 @@ def _purge_old_logs():
             pass
 
 
-def _caller_info() -> str:
-    frame = inspect.stack()
-    for entry in frame[2:]:
+def _build_call_chain() -> list[str]:
+    this_module = __name__
+    chain = []
+    for entry in inspect.stack()[2:22]:
         module = entry[0].f_globals.get("__name__", "")
-        if module and module != __name__ and not module.startswith("_"):
-            filename = Path(entry[1]).name
-            lineno = entry[2]
-            return f"{filename}:{lineno}"
-    return "unknown"
+        filepath = entry[1]
+        if module == this_module:
+            continue
+        if module.split(".")[0] in _SKIP_MODULE_ROOTS:
+            continue
+        if any(part in filepath for part in _SKIP_FILEPATH_PARTS):
+            continue
+        filename = Path(filepath).name
+        lineno = entry[2]
+        chain.append(f"{filename}:{lineno}")
+    chain.reverse()
+    return chain[:8] if chain else ["unknown"]
+
+
+def _parse_log_line(line: str) -> dict | None:
+    try:
+        parts = line.split(" ", 3)
+        if len(parts) < 4:
+            return None
+        dt_str = f"{parts[0]} {parts[1]}"
+        datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+        level_raw = parts[2].strip("[]")
+        rest = parts[3]
+        src_end = rest.find("] ")
+        if rest.startswith("[") and src_end != -1:
+            chain_str = rest[1:src_end]
+            raw_msg = rest[src_end + 2:]
+        else:
+            chain_str = "unknown"
+            raw_msg = rest
+        msg = raw_msg.replace("\\n", "\n").replace("\\\\", "\\")
+        call_chain = [f for f in chain_str.split(">") if f] or ["unknown"]
+        return {
+            "timestamp": dt_str,
+            "level": level_raw,
+            "source": call_chain[-1],
+            "call_chain": call_chain,
+            "message": msg,
+        }
+    except Exception:
+        return None
 
 
 _DEV_MODE: bool = os.environ.get("DEV_MODE", "").lower() == "true"
+
 
 def log(message: str, level: str = "info", source: str | None = None) -> None:
     if level == "debug" and not _DEV_MODE:
@@ -102,12 +156,12 @@ def log(message: str, level: str = "info", source: str | None = None) -> None:
     _init_from_config()
 
     level = level.lower()
-
     label = LEVEL_LABELS.get(level, level.upper()[:3])
     color = LEVEL_COLORS.get(level, "")
 
-    if source is None:
-        source = _caller_info()
+    chain = _build_call_chain()
+    display_source = chain[-1]
+    chain_str = ">".join(chain)
 
     now = datetime.now()
     time_str = now.strftime("%H:%M:%S")
@@ -116,11 +170,12 @@ def log(message: str, level: str = "info", source: str | None = None) -> None:
     console_line = (
         f"{DIM}{date_str} {time_str}{RESET} "
         f"{color}{BOLD}[{label}]{RESET} "
-        f"{DIM}{source}{RESET} "
+        f"{DIM}{display_source}{RESET} "
         f"{color}{message}{RESET}"
     )
 
-    file_line = f"{date_str} {time_str} [{label}] [{source}] {message}\n"
+    encoded_msg = message.replace("\\", "\\\\").replace("\n", "\\n")
+    file_line = f"{date_str} {time_str} [{label}] [{chain_str}] {encoded_msg}\n"
 
     print(console_line, flush=True)
 
@@ -131,6 +186,7 @@ def log(message: str, level: str = "info", source: str | None = None) -> None:
         log_file = _current_log_file()
         _rotate_if_needed(log_file)
         try:
+            _log_dir.mkdir(parents=True, exist_ok=True)
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(file_line)
         except Exception as exc:
@@ -138,15 +194,59 @@ def log(message: str, level: str = "info", source: str | None = None) -> None:
         _purge_old_logs()
 
 
-def get_logs(since_hours: int = 24) -> list[dict]:
+def log_exception(exc: Exception, message: str = "", source: str | None = None) -> None:
+    tb = traceback.format_exc()
+    parts: list[str] = []
+    if message:
+        parts.append(message)
+    parts.append(f"{type(exc).__name__}: {exc}")
+    if tb and tb.strip() not in ("NoneType: None", "None"):
+        parts.append(tb.strip())
+    log("\n".join(parts), level="error", source=source)
+
+
+def setup_exception_hook() -> None:
+    _original = sys.excepthook
+
+    def _hook(exc_type, exc_value, exc_tb):
+        tb_text = "".join(traceback.format_tb(exc_tb)).strip()
+        msg = f"Unhandled {exc_type.__name__}: {exc_value}"
+        if tb_text:
+            msg = f"{msg}\n{tb_text}"
+        log(msg, level="critical", source="excepthook")
+        _original(exc_type, exc_value, exc_tb)
+
+    sys.excepthook = _hook
+
+
+def get_logs(
+    since_hours: int = 24,
+    limit: int = 200,
+    before: str | None = None,
+    since: str | None = None,
+) -> dict:
     _init_from_config()
     if _log_dir is None:
-        return []
+        return {"entries": [], "has_more": False}
 
     cutoff = datetime.now() - timedelta(hours=since_hours)
-    results: list[dict] = []
+    before_dt = None
+    since_dt = None
 
+    if before:
+        try:
+            before_dt = datetime.strptime(before, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
+    if since:
+        try:
+            since_dt = datetime.strptime(since, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
+
+    all_entries: list[dict] = []
     log_files = sorted(_log_dir.glob("*.log"))
+
     for log_file in log_files:
         try:
             date_str = log_file.stem[:10]
@@ -162,32 +262,28 @@ def get_logs(since_hours: int = 24) -> list[dict]:
                     line = line.rstrip("\n")
                     if not line:
                         continue
+                    entry = _parse_log_line(line)
+                    if entry is None:
+                        continue
                     try:
-                        parts = line.split(" ", 3)
-                        if len(parts) < 4:
-                            continue
-                        dt_str = f"{parts[0]} {parts[1]}"
-                        dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
-                        if dt < cutoff:
-                            continue
-                        level_raw = parts[2].strip("[]")
-                        rest = parts[3]
-                        src_end = rest.find("] ")
-                        if rest.startswith("[") and src_end != -1:
-                            source = rest[1:src_end]
-                            msg = rest[src_end + 2:]
-                        else:
-                            source = "unknown"
-                            msg = rest
-                        results.append({
-                            "timestamp": dt_str,
-                            "level": level_raw,
-                            "source": source,
-                            "message": msg,
-                        })
+                        dt = datetime.strptime(entry["timestamp"], "%Y-%m-%d %H:%M:%S")
                     except Exception:
                         continue
+                    if dt < cutoff:
+                        continue
+                    if before_dt is not None and dt >= before_dt:
+                        continue
+                    if since_dt is not None and dt <= since_dt:
+                        continue
+                    all_entries.append(entry)
         except Exception:
             continue
 
-    return results
+    all_entries.sort(key=lambda e: e["timestamp"])
+
+    if since_dt is not None:
+        return {"entries": all_entries, "has_more": False}
+
+    has_more = len(all_entries) > limit
+    entries = all_entries[-limit:] if has_more else all_entries
+    return {"entries": entries, "has_more": has_more}

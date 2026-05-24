@@ -10,7 +10,9 @@ router = APIRouter()
 
 class ServerPassword(BaseModel):
     password: Optional[str] = None
-    
+
+# This is the endpoint for setting the server password, but this is pure for the setup
+# That is why it doesn't require authentication
 @router.post("/password")
 async def set_server_password(password: ServerPassword, request: Request):
     is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
@@ -69,6 +71,8 @@ async def set_server_password(password: ServerPassword, request: Request):
         **token_response
     }
 
+# This is for requesting a server token
+# You will need a password if the password has been set
 @router.post("/token")
 async def get_server_token(password: Optional[ServerPassword] = Body(None)):
     log("POST /server/token: requested", "debug", "module.server")
@@ -81,6 +85,7 @@ async def get_server_token(password: Optional[ServerPassword] = Body(None)):
             
             if stored_password is None:
                 log("POST /server/token: no password set, issuing unprotected token", "debug", "module.server")
+                # Here it creates an access token, and sets the password_protected flag to false, so you know the token was received without a password
                 response = await create_access_token(password_protected=False, cur=cur)
                 conn.commit()
                 log("POST /server/token: unprotected token issued", "debug", "module.server")
@@ -97,6 +102,7 @@ async def get_server_token(password: Optional[ServerPassword] = Body(None)):
                 raise HTTPException(status_code=400, detail="Invalid password")
             
             log("POST /server/token: password verified, issuing protected token", "debug", "module.server")
+            # Here it creates an access token, and sets the password_protected flag to true, so you know the token was received with a password
             response = await create_access_token(password_protected=True, cur=cur)
             conn.commit()
             log("POST /server/token: protected token issued", "debug", "module.server")

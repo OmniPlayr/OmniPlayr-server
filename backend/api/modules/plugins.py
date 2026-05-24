@@ -8,6 +8,7 @@ from api.helpers.plugin_installer import install_plugin
 
 router = APIRouter()
 
+# This is to install plugins from the registry without using the cli
 @router.post("/install")
 def install_plugin_route(
     package_id: str,

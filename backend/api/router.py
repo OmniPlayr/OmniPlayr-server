@@ -12,6 +12,7 @@ from api.modules.update import router as update_router
 from api.modules.notifications import router as notifications_router
 from api.modules.plugins import router as plugins_router
 
+# This is the router that is used for the API, so every endpoint gets added under a specific prefix
 router = APIRouter()
 router.include_router(account_router, prefix="/accounts", tags=["accounts"])
 router.include_router(setup_router, prefix="/setup", tags=["setup"])

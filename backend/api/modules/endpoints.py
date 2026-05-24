@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request
 
 router = APIRouter()
 
+# This is an easy way to view all the endpoints, useful for debugging
+# But its also used for the frontend, for checking if an endpoint exists or not
 @router.get("/")
 def list_endpoints(request: Request):
     routes = []

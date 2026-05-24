@@ -6,13 +6,14 @@ from api.helpers.log import log
 
 router = APIRouter()
 
-
+# This is to build a stream URL for the plugins
 def _build_stream_url(request: Request, source_type: str, song_id: str) -> str:
     base = str(request.base_url).rstrip("/")
     url = f"{base}/api/player/stream/{source_type}:{song_id}"
     log(f"Built stream URL: {url}", "debug", "module.player")
     return url
 
+# This is to get the metadata for a song, and its stream URL
 @router.get("/media/{source_type}:{song_id:path}")
 def get_media_info(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
     log(f"GET /player/media/{source_type}:{song_id} requested", "debug", "module.player")
@@ -56,6 +57,7 @@ def get_media_info(source_type: str, song_id: str, request: Request, auth=Depend
         "metadata": metadata,
     }
 
+# This is to stream a song, you just send the source type that the plugin is registered for, and the song ID or path
 @router.get("/stream/{source_type}:{song_id:path}")
 def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
     log(f"GET /player/stream/{source_type}:{song_id} requested", "debug", "module.player")

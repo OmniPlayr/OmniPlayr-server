@@ -38,6 +38,7 @@ class AccountLogin(BaseModel):
 class AccountRevoke(BaseModel):
     token: str
 
+# This is for getting the list of all accounts
 @router.get("/", name="get_accounts")
 def get_accounts(auth=Depends(verify_auth)):
     log("GET /accounts requested", "debug", "module.account")
@@ -49,6 +50,9 @@ def get_accounts(auth=Depends(verify_auth)):
     log(f"GET /accounts: returning {len(result)} account(s)", "debug", "module.account")
     return result
 
+# This is for logging into an account
+# This currently does not require authentication, but is planned
+# TODO: Make it so you can add authentication
 @router.post("/login")
 def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
     
@@ -79,6 +83,7 @@ def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
 
     return result
 
+# This is for revoking a token from an account
 @router.post("/revoke")
 def revoke(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
     log("POST /accounts/revoke requested", "debug", "module.account")
@@ -90,6 +95,7 @@ def revoke(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str 
     log("POST /accounts/revoke: token revoked", "debug", "module.account")
     return result
 
+# This is for deleting a revoked token from an account
 @router.post("/delete_token")
 def delete_token(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
     log("POST /accounts/delete_token requested", "debug", "module.account")
@@ -101,6 +107,7 @@ def delete_token(body: AccountRevoke, auth=Depends(verify_auth), x_account_token
     log("POST /accounts/delete_token: revoked token deleted", "debug", "module.account")
     return result
 
+# This is for getting a specific account
 @router.get("/{account_id}", name="get_account")
 def get_one_account(account_id: str, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
     log(f"GET /accounts/{account_id} requested", "debug", "module.account")
@@ -136,6 +143,7 @@ def get_one_account(account_id: str, auth=Depends(verify_auth), x_account_token:
     log(f"GET /accounts/{account_id}: returning account id={resolved_id}", "debug", "module.account")
     return account
 
+# This is for creating a new account, this one is different for the one used in setup, because this one requires Admin
 @router.post("/", status_code=201)
 def create_new_account(body: AccountCreate, auth=Depends(verify_admin)):
     log(f"POST /accounts requested name={body.name!r} role={body.role!r} has_avatar={body.avatar_b64 is not None}", "debug", "module.account")
@@ -153,6 +161,9 @@ def create_new_account(body: AccountCreate, auth=Depends(verify_admin)):
     log(f"POST /accounts: account created id={result['id']}", "debug", "module.account")
     return result
 
+# This is for updating an existing account, you can only update your own account if you are not an admin
+# If you are an admin, you can only update the role
+# You can also not update your own role, even if you are an admin
 @router.patch("/{account_id}")
 def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
     log(f"PATCH /accounts/{account_id} requested", "debug", "module.account")
@@ -193,6 +204,7 @@ def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(v
     log(f"PATCH /accounts/{account_id}: update complete", "debug", "module.account")
     return updated
 
+# This is for deleting your own account, or deleting an account if you are an admin
 @router.delete("/{account_id}", status_code=204)
 def delete_existing_account(account_id: int, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
     log(f"DELETE /accounts/{account_id} requested", "debug", "module.account")
@@ -204,6 +216,7 @@ def delete_existing_account(account_id: int, auth=Depends(verify_auth), x_accoun
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     log(f"DELETE /accounts/{account_id}: checking match_account", "debug", "module.account")
+    # Setting true in match_account ensures that you can also modify as an admin
     if not match_account(account_id, x_account_token, True):
         log(f"DELETE /accounts/{account_id}: match_account failed", "debug", "module.account")
         raise HTTPException(status_code=401, detail="Unauthorized")

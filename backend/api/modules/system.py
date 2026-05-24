@@ -65,6 +65,7 @@ async def shutdown(admin=Depends(verify_admin)):
             if not shutil.which("docker"):
                 raise HTTPException(status_code=500, detail="Docker CLI not available")
 
+            # This shutsdown all processes running for OmniPlayr so you can shut it down without having to shutdown your actual system
             process = await asyncio.create_subprocess_exec(
                 "docker", "stop",
                 "omniplayr_backend",
@@ -92,6 +93,8 @@ async def reboot(admin=Depends(verify_admin)):
 
     try:
         if _in_docker():
+            
+            # This just restarts the containers, its almost exactly the same as the shutdown but instead it just restarts them
             process = await asyncio.create_subprocess_exec(
                 "docker", "restart",
                 "omniplayr_backend",
@@ -116,7 +119,7 @@ async def reboot(admin=Depends(verify_admin)):
 class TerminalCommand(BaseModel):
     command: str
 
-
+# This is a websocket version for checking if you are an admin, a normal http version can be found in the admin helper
 async def verify_admin_ws(ws: WebSocket):
     token = ws.query_params.get("token")
     account_token = ws.query_params.get("account_token")
@@ -141,7 +144,8 @@ async def verify_admin_ws(ws: WebSocket):
 
     return True
 
-
+# This endpoint is for the terminal on the frontend, so you don't need to ssh into your server if you want to access the terminal
+# I haven't found a way to make it so you can get the actual system terminal, I might need to find something out for that
 @router.websocket("/terminal/ws")
 async def terminal_ws(ws: WebSocket):
     await ws.accept()
@@ -161,6 +165,7 @@ async def terminal_ws(ws: WebSocket):
         start_new_session=True,
     )
 
+    # This is for reading from the terminal
     async def read_shell():
         try:
             while True:
@@ -171,6 +176,7 @@ async def terminal_ws(ws: WebSocket):
         except Exception:
             pass
 
+    # This is for writing to the terminal
     async def write_shell():
         try:
             while True:
@@ -186,7 +192,7 @@ async def terminal_ws(ws: WebSocket):
         os.close(master)
         os.close(slave)
 
-
+# This is for the safe mode, Safe mode makes sure no plugins load, so like if something goes wrong you can use that to check what is going on in the system
 @router.post("/safe-mode/enable")
 def enable_safe_mode(admin=Depends(verify_admin)):
     log("Safe mode enabled", "warning", "system")
@@ -196,7 +202,7 @@ def enable_safe_mode(admin=Depends(verify_admin)):
 
     return {"status": "safe_mode_enabled", "note": "Restart required"}
 
-
+# This is to disable safe mode
 @router.post("/safe-mode/disable")
 def disable_safe_mode(admin=Depends(verify_admin)):
     log("Safe mode disabled", "info", "system")
@@ -206,7 +212,7 @@ def disable_safe_mode(admin=Depends(verify_admin)):
 
     return {"status": "safe_mode_disabled", "note": "Restart required"}
 
-
+# This is for parsing config files, pretty self explanatory
 def _parse_field_meta(raw_meta: any) -> dict:
     if isinstance(raw_meta, dict):
         return raw_meta
@@ -251,7 +257,7 @@ def _enrich_value(val: any, meta: any) -> dict:
         enriched["is_default"] = _values_equal(val, meta_dict["default"])
     return enriched
 
-
+# This is for getting the contents of a config file, also pretty self explanatory
 def _get_file_contents(stem: str, config_dir: Path, types_dir: Path, source: str = "backend") -> dict:
     config_file = config_dir / f"{stem}.toml"
     if not config_file.exists():
@@ -300,9 +306,11 @@ def _extract_plain_values(enriched_data: dict) -> dict:
             plain[section_key] = section_val
     return plain
 
-
+# This is for getting the config files, so you can easily read them
+# Also pretty self explanatory
+# This also sends things about the types and if its a default and stuff
 @router.get("/configs")
-def get_configs(file: str = None, source: str = None):
+def get_configs(file: str = None, source: str = None, admin=Depends(verify_admin)):
     if file is not None:
         if source == "frontend":
             if file == "version":
@@ -338,7 +346,7 @@ class ConfigSaveRequest(BaseModel):
     source: str = "backend"
     data: dict
 
-
+# This is so you can easily update the configs, so you don't need to modify the files, because they can be pretty complicated some times
 @router.put("/configs")
 def save_config(body: ConfigSaveRequest, admin=Depends(verify_admin)):
     if body.source == "frontend" and body.file == "version":
@@ -365,7 +373,8 @@ def save_config(body: ConfigSaveRequest, admin=Depends(verify_admin)):
 
 _SEARCH_FIELDS = {"type", "value", "default", "comment", "min", "max", "step", "in_values", "liveupdate"}
 
-
+# This is so you can search in the configs
+# I might need to refine this system, but it works fine how it is right now
 @router.get("/config_search")
 def config_search(
     query: str,

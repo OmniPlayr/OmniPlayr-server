@@ -170,3 +170,144 @@
     flex-shrink: 0;
     font-family: 'JetBrains Mono', monospace;
 }
+
+.logs-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.logs-wrapper .logs-container {
+    flex: 1;
+}
+
+.logs-loading-older {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    padding: 6px 0;
+    font-size: 11px;
+    color: var(--clr-text-a50);
+    font-family: var(--font-family);
+}
+
+.logs-top-marker {
+    text-align: center;
+    padding: 6px 0;
+    font-size: 11px;
+    color: var(--clr-text-a50);
+    font-family: var(--font-family);
+}
+
+.logs-scroll-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 20px;
+    background-color: var(--clr-primary-a0);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    z-index: 10;
+}
+
+.logs-scroll-btn:hover {
+    filter: brightness(1.1);
+}
+
+.logs-new-badge {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.log-source-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.log-chain-frame {
+    color: var(--clr-text-a50);
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.log-level-badge--diag {
+    color: #a78bfa;
+    background-color: color-mix(in srgb, #a78bfa 14%, transparent);
+}
+
+.log-row--diag .log-message {
+    color: #a78bfa;
+}
+
+.log-level-badge--diag-warning {
+    color: #f0abfc;
+    background-color: color-mix(in srgb, #f0abfc 14%, transparent);
+}
+
+.log-row--diag-warning .log-message {
+    color: #f0abfc;
+}
+
+.log-level-badge--diag-error {
+    color: #fb923c;
+    background-color: color-mix(in srgb, #fb923c 14%, transparent);
+}
+
+.log-row--diag-error .log-message {
+    color: #fb923c;
+}
+
+.log-level-badge--diag-critical {
+    color: #fff;
+    background-color: #f43f5e;
+}
+
+.log-row--diag-critical .log-message {
+    color: #f43f5e;
+    font-weight: 600;
+}
+
+.logs-sort-active .log-row {
+    grid-template-columns: 1fr 80px 44px 2fr;
+}
+
+.logs-sort-active .log-source-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 2px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--clr-text-a30);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-top: 1px solid var(--clr-popup-a20);
+    margin-top: 4px;
+    user-select: none;
+}
+
+.logs-sort-active .log-source-group-header:first-child {
+    border-top: none;
+    margin-top: 0;
+}
+
+.log-source-group-count {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--clr-text-a50);
+}
