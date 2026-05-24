@@ -6,6 +6,26 @@ type TrackChangeListener = (songId: string | null, sourceType: string | null) =>
 
 export type RepeatMode = 'off' | 'one' | 'all';
 
+export interface SourcePlugin {
+    play(
+        songId: string,
+        extra: Record<string, unknown> | undefined,
+        autoplay: boolean,
+        callbacks: {
+            onMetadata: (meta: TrackMetadata) => void;
+            onReady: () => void;
+            onEnded: () => void;
+        }
+    ): Promise<void>;
+    pause(): void;
+    resume(): void;
+    seek(seconds: number): void;
+    getCurrentTime(): number;
+    getDuration(): number;
+    isPlaying(): boolean;
+    destroy(): void;
+}
+
 export interface TrackMetadata {
     title: string | null;
     artist: string | null;
@@ -91,6 +111,9 @@ class AudioPlayer {
     private _volumeFraction = 1;
 
     private lastStreamUrl: string | null = null;
+
+    private plugins = new Map<string, SourcePlugin>();
+    private activePlugin: SourcePlugin | null = null;
 
     private pendingAutoplay = false;
 
@@ -684,6 +707,79 @@ class AudioPlayer {
         fromNextQueue = false,
         autoplay = true
     ) {
+        const plugin = this.plugins.get(sourceType);
+
+        if (plugin) {
+            this.isTransitioning = true;
+            this.isLoading = true;
+
+            if (this.activePlugin && this.activePlugin !== plugin) {
+                this.activePlugin.destroy();
+            }
+
+            if (!this.plugins.has(this.currentSourceType ?? '')) {
+                this.audio.pause();
+            }
+
+            this.activePlugin = plugin;
+
+            if (this.currentSongId && !this.skipHistoryPush) {
+                const includePriority = getConfig<boolean>('navigation.prev_include_priority_queue') ?? false;
+                if (this.currentSongFromNextQueue || includePriority) {
+                    this.history.push({
+                        songId: this.currentSongId,
+                        sourceType: this.currentSourceType!,
+                        extra: this.currentExtra ?? undefined,
+                        fromNextQueue: this.currentSongFromNextQueue,
+                    });
+                    const maxSize = getConfig<number>('history.max_history_size') ?? 100;
+                    if (maxSize > 0 && this.history.length > maxSize) {
+                        this.history.splice(0, this.history.length - maxSize);
+                    }
+                    this.saveHistory();
+                }
+            }
+
+            this.skipHistoryPush = false;
+            this.currentSongFromNextQueue = fromNextQueue;
+            this.currentSongId = songId;
+            this.currentSourceType = sourceType;
+            this.currentMetadata = null;
+            this.currentExtra = extra ?? null;
+
+            this.notify();
+            this.notifyTrackChange();
+
+            try {
+                await plugin.play(songId, extra, autoplay, {
+                    onMetadata: (meta) => {
+                        this.currentMetadata = meta;
+                        this.updateMediaSessionMetadata();
+                        this.notify();
+                    },
+                    onReady: () => {
+                        this.isLoading = false;
+                        this.notify();
+                    },
+                    onEnded: () => {
+                        this.clearCurrentTrackState();
+                        this.next();
+                    },
+                });
+                this.schedulePrefetch();
+            } finally {
+                this.isLoading = false;
+                this.isTransitioning = false;
+                this.notify();
+            }
+
+            return;
+        }
+
+        if (this.activePlugin) {
+            this.activePlugin.destroy();
+            this.activePlugin = null;
+        }
         const token = localStorage.getItem('access_token');
 
         if (!token) throw new Error('No access token');
@@ -808,18 +904,22 @@ class AudioPlayer {
     }
 
     togglePlay() {
+        if (this.activePlugin) {
+            this.activePlugin.isPlaying() ? this.activePlugin.pause() : this.activePlugin.resume();
+            this.notify();
+            return;
+        }
         if (!this.audio.src) return;
-
-        this.audio.paused
-            ? this.audio.play()
-            : this.audio.pause();
+        this.audio.paused ? this.audio.play() : this.audio.pause();
     }
 
     seek(fraction: number) {
+        if (this.activePlugin) {
+            this.activePlugin.seek(this.activePlugin.getDuration() * Math.max(0, Math.min(1, fraction)));
+            return;
+        }
         if (!this.audio.duration) return;
-
         this.audio.currentTime = this.audio.duration * Math.max(0, Math.min(1, fraction));
-
         this.saveCurrentTrackState();
     }
 
@@ -841,15 +941,26 @@ class AudioPlayer {
         storage?.setItem(VOLUME_STORAGE_KEY, String(f));
     }
 
+    registerPlugin(sourceType: string, plugin: SourcePlugin | null) {
+        if (plugin === null) {
+            this.plugins.delete(sourceType);
+        } else {
+            this.plugins.set(sourceType, plugin);
+        }
+    }
+
     get isPlaying() {
+        if (this.activePlugin) return this.activePlugin.isPlaying();
         return !this.audio.paused && !this.audio.ended;
     }
 
     get currentTime() {
+        if (this.activePlugin) return this.activePlugin.getCurrentTime();
         return this.audio.currentTime;
     }
 
     get duration() {
+        if (this.activePlugin) return this.activePlugin.getDuration();
         return this.audio.duration || 0;
     }
 
