@@ -2,6 +2,7 @@ import '../styles/settings/Plugins.css';
 import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../modules/api';
 import { EllipsisVertical, Package, Plus, Search, X } from 'lucide-react';
+import { getPluginsMenuItems } from '../modules/plugins';
 
 async function loadPlugins() {
     return await api('/info/plugins') as { backend: any[]; frontend: any[] };
@@ -184,50 +185,101 @@ function Plugins() {
         <div className='plugins-section'>
             <p className='section-title'>Installed plugins</p>
             <div className='plugins-grid'>
-                {plugins.map(plugin => (
-                    <div key={plugin.folder} className='plugin-card'>
-                        {plugin.description && (
-                            <p className='plugin-description'>{plugin.description}</p>
-                        )}
-                        <div className='plugin-footer'>
-                            {icons[plugin.folder] ? (
-                                <img
-                                    className='plugin-icon'
-                                    src={icons[plugin.folder]}
-                                    alt={plugin.name}
-                                />
-                            ) : (
-                                <div className='plugin-icon plugin-icon--placeholder'><Package className='plugin-icon--placeholder-icon' /></div>
+                {plugins.map(plugin => {
+                    const pluginMenuItems = getPluginsMenuItems().filter(
+                        item => item.id === plugin.folder
+                    );
+
+                    return (
+                        <div key={plugin.folder} className='plugin-card'>
+                            {plugin.description && (
+                                <p className='plugin-description'>{plugin.description}</p>
                             )}
-                            <div className='plugin-info'>
-                                <span className='plugin-name'>{plugin.name}@{plugin.author}</span>
-                                <a className='plugin-author link' href={'https://omniplayr.wokki20.nl/packages/profile/' + plugin.author} target="_blank">{plugin.author}</a>
+                            <div className='plugin-footer'>
+                                {icons[plugin.folder] ? (
+                                    <img
+                                        className='plugin-icon'
+                                        src={icons[plugin.folder]}
+                                        alt={plugin.name}
+                                    />
+                                ) : (
+                                    <div className='plugin-icon plugin-icon--placeholder'><Package className='plugin-icon--placeholder-icon' /></div>
+                                )}
+                                <div className='plugin-info'>
+                                    <span className='plugin-name'>{plugin.name}@{plugin.author}</span>
+                                    <a className='plugin-author link' href={'https://omniplayr.wokki20.nl/packages/profile/' + plugin.author} target="_blank">{plugin.author}</a>
+                                </div>
+                                <div className='plugin-badges'>
+                                    {plugin.hasBackend && (
+                                        <span className='badge badge--backend'>
+                                            Backend v{plugin.backendVersion}
+                                        </span>
+                                    )}
+                                    {plugin.hasFrontend && (
+                                        <span className='badge badge--frontend'>
+                                            Frontend v{plugin.frontendVersion}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                            <div className='plugin-badges'>
-                                {plugin.hasBackend && (
-                                    <span className='badge badge--backend'>
-                                        Backend v{plugin.backendVersion}
-                                    </span>
+                            <div className='plugin-menu-button-container'>
+                                <EllipsisVertical
+                                    className='plugin-menu-icon'
+                                    onClick={() => setOpenMenu(openMenu === plugin.folder ? null : plugin.folder)}
+                                />
+                                {pluginMenuItems.length > 0 && pluginMenuItems.some(item => item.needsInteraction) && (
+                                    <span className='update-badge'>!</span>
                                 )}
-                                {plugin.hasFrontend && (
-                                    <span className='badge badge--frontend'>
-                                        Frontend v{plugin.frontendVersion}
-                                    </span>
+                            </div>
+                            <div className={`plugin-menu${openMenu === plugin.folder ? ' plugin-menu--open' : ''}`}>
+                                <a
+                                    className='plugin-menu-item'
+                                    href={'https://omniplayr.wokki20.nl/packages/package/' + plugin.folder}
+                                    target="_blank"
+                                >
+                                    <Package className='plugin-menu-item-icon'/>
+                                    <span className='plugin-menu-item-name'>View on Registry</span>
+                                </a>
+
+                                {pluginMenuItems.length > 0 && (
+                                    <div className='plugin-menu-divider' />
                                 )}
+
+                                {pluginMenuItems.map((item, index) => {
+                                    const Icon = item.icon as any;
+
+                                    return item.view ? (
+                                        <a
+                                            key={index}
+                                            className='plugin-menu-item'
+                                            onClick={() => {
+                                                console.log(item.view);
+                                            }}
+                                        >
+                                            <Icon className='plugin-menu-item-icon' />
+                                            <span className='plugin-menu-item-name'>
+                                                <span>{item.label}</span>
+                                                {item.needsInteraction && <span className='update-badge'>!</span>}
+                                            </span>
+                                        </a>
+                                    ) : (
+                                        <a
+                                            key={index}
+                                            className='plugin-menu-item'
+                                            onClick={() => item.function?.()}
+                                        >
+                                            <Icon className='plugin-menu-item-icon' />
+                                            <span className='plugin-menu-item-name'>
+                                                <span>{item.label}</span>
+                                                {item.needsInteraction && <span className='update-badge'>!</span>}
+                                            </span>
+                                        </a>
+                                    );
+                                })}
                             </div>
                         </div>
-                        <EllipsisVertical
-                            className='plugin-menu-icon'
-                            onClick={() => setOpenMenu(openMenu === plugin.folder ? null : plugin.folder)}
-                        />
-                        <div className={`plugin-menu${openMenu === plugin.folder ? ' plugin-menu--open' : ''}`}>
-                            <a className='plugin-menu-item' href={'https://omniplayr.wokki20.nl/packages/package/' + plugin.folder} target="_blank">
-                                <Package className='plugin-menu-item-icon'/>
-                                <span className='plugin-menu-item-name'>View on Registry</span>
-                            </a>
-                        </div>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
 
             <div className='plugins-install'>

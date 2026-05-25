@@ -58,18 +58,17 @@ def _notify_admins():
 async def lifespan(app: FastAPI):
     set_main_loop(asyncio.get_event_loop())
 
+    # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
+    start_config_watcher()
+
     # This loads the config files
     load_configs()
 
     # This sets up the database, but needs to be after the configs are loaded, because the database also logs, and else you are going to get a lot of duplicate logs (I think)
     init_db()
-
-    # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
-    start_config_watcher()
-
     # This loads the plugins
     if _is_safe_mode():
-        log("Safe mode is active - plugins are disabled", "warning", "main")
+        log("Safe mode is active, plugins are disabled", "warning", "main")
     else:
         load_plugins()
 

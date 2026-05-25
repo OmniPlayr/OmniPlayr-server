@@ -26,7 +26,7 @@ import Plugins from "./settings/Plugins";
 import Profile from "./settings/Profile";
 import Config from "./settings/Config";
 
-function Settings({ account, updateAvailable, onRefreshCheck }: any) {
+function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteractionRequired }: any) {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -216,6 +216,12 @@ function Settings({ account, updateAvailable, onRefreshCheck }: any) {
                                 {tab.id === "about" && updateAvailable && (
                                     <span className="update-badge-about">1</span>
                                 )}
+                                {tab.id === "plugins" && pluginsInteractionRequired > 0 && (
+                                    <span className="update-badge-about">
+                                        {pluginsInteractionRequired > 9 ? "9+" : pluginsInteractionRequired}
+                                    </span>
+                                )}
+                                
                             </div>
                         );
                     })}

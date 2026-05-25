@@ -22,11 +22,21 @@ export interface PluginTab {
     url?: string;
 }
 
+export interface PluginMenuItem {
+    id: string;
+    icon: ComponentType;
+    view?: ComponentType | null;
+    label?: string;
+    function?: () => void;
+    needsInteraction?: boolean;
+}
+
 type Listener = (payload: any) => void;
 type DOMHook = (el: Element) => void;
 type DOMHookEntry = { fn: DOMHook; pluginId: string };
 
 const tabRegistry: PluginTab[] = [];
+const menuRegistry: PluginMenuItem[] = [];
 const eventBus = new Map<string, Set<Listener>>();
 const domHooks = new Map<string, DOMHookEntry[]>();
 const routeRegistry: PluginRoute[] = [];
@@ -185,6 +195,33 @@ export function registerTab(
 
     const label = tab.label ?? configs[`../plugins/${id}/package.json`]?.default.name ?? id;
     tabRegistry.push({ id, label, ...tab });
+}
+
+export function registerPluginsMenuItem(
+    id: string,
+    menuItem: { icon: ComponentType; view?: ComponentType | null; label?: string; function?: () => void, needsInteraction?: boolean }
+) {
+    if (!validatedPlugins.has(id)) {
+        console.error(`[plugins] blocked: "${id}" has no valid package.json`);
+        return;
+    }
+
+    if (!menuItem.view && !menuItem.function) {
+        console.error(`[plugins] blocked: "${id}" menu item must have either a view or a function`);
+        return;
+    }
+
+    const label = menuItem.label ?? configs[`../plugins/${id}/package.json`]?.default.name ?? id;
+
+    menuRegistry.push({
+        id,
+        label,
+        ...menuItem
+    });
+}
+
+export function getPluginsMenuItems(): PluginMenuItem[] {
+    return [...menuRegistry];
 }
 
 export function getTabs(): PluginTab[] {

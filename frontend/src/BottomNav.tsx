@@ -9,10 +9,10 @@ interface BottomNavProps {
     onNotifications: () => void;
     activeTabId: string | null;
     isMenuOpen: boolean;
-    updateAvailable?: boolean;
+    settingsBadgeCount?: number;
 }
 
-function BottomNav({ onMenuToggle, onHome, onSettings, onNotifications, activeTabId, isMenuOpen, updateAvailable }: BottomNavProps) {
+function BottomNav({ onMenuToggle, onHome, onSettings, onNotifications, activeTabId, isMenuOpen, settingsBadgeCount }: BottomNavProps) {
     const { unreadCount, unreadDisplay } = useNotificationsContext();
 
     return (
@@ -42,7 +42,11 @@ function BottomNav({ onMenuToggle, onHome, onSettings, onNotifications, activeTa
 
             <div className={`bottom-nav-item${activeTabId === '__settings' ? ' active' : ''}`} onClick={onSettings}>
                 <Settings className="bottom-nav-icon" />
-                {updateAvailable && <span className="update-badge">1</span>}
+                {(settingsBadgeCount ?? 0) > 0 && (
+                    <span className="update-badge">
+                        {(settingsBadgeCount ?? 0) > 9 ? "9+" : settingsBadgeCount}
+                    </span>
+                )}
             </div>
         </nav>
     );

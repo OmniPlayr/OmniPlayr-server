@@ -28,7 +28,7 @@ interface SidebarProps {
     onTabChange: (tabId: string | null) => void;
     isOpen?: boolean;
     onClose?: () => void;
-    updateAvailable?: boolean;
+    settingsBadgeCount?: number;
 }
 
 async function loginAccount(id: string) {
@@ -64,7 +64,7 @@ function showDevPopup() {
     });
 }
 
-function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, updateAvailable }: SidebarProps) {
+function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsBadgeCount }: SidebarProps) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
     const [tabs, setTabs] = useState<PluginTab[]>([]);
@@ -123,7 +123,11 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, updateAva
                         <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => onTabChange("__settings")}>
                             <Settings className="tab-icon" />
                             <p className="tab-text">Settings</p>
-                            {updateAvailable && <span className="update-badge">1</span>}
+                            {(settingsBadgeCount ?? 0) > 0 && (
+                                <span className="update-badge">
+                                    {(settingsBadgeCount ?? 0) > 9 ? "9+" : settingsBadgeCount}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <div className="sidebar-user">

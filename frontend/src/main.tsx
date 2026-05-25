@@ -14,7 +14,7 @@ import {Player} from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
 import BottomNav from './BottomNav.tsx';
 import { getAccount } from './modules/account.ts';
-import { getRoutes, getTab, getTabByUrl, notifyPluginsLoaded } from './modules/plugins';
+import { getPluginsMenuItems, getRoutes, getTab, getTabByUrl, notifyPluginsLoaded } from './modules/plugins';
 import { usePlugins } from './modules/usePlugins';
 import { setNavigate } from './modules/navigate';
 import { useSearchParams } from "react-router-dom";
@@ -245,6 +245,13 @@ function AppShell() {
     const activeTab = resolvedTabId ? getTab(resolvedTabId) : null;
     const ActiveTabView = activeTab?.view ?? null;
 
+    
+    const pluginActionRequiredCount = getPluginsMenuItems().filter(
+        item => item.needsInteraction
+    ).length;
+
+    const settingsBadgeCount = pluginActionRequiredCount + (updateAvailable ? 1 : 0);
+
     return (
         <>
             {showShell ? (
@@ -271,7 +278,7 @@ function AppShell() {
                                     onNotifications={() => handleTabChange('__mobile_notifications')}
                                     activeTabId={resolvedTabId}
                                     isMenuOpen={sidebarOpen}
-                                    updateAvailable={updateAvailable}
+                                    settingsBadgeCount={settingsBadgeCount}
                                 />
                                 <Player />
                                 </>
@@ -281,7 +288,7 @@ function AppShell() {
                                     account={account}
                                     activeTabId={resolvedTabId}
                                     onTabChange={handleTabChange}
-                                    updateAvailable={updateAvailable}
+                                    settingsBadgeCount={settingsBadgeCount}
                                 />
                             )}
                             {isMobile && (
@@ -299,7 +306,7 @@ function AppShell() {
                                 ) : (
                                     <Routes>
                                         <Route path="/" element={<Dashboard />} />
-                                        <Route path="/settings/*" element={<Settings account={account} updateAvailable={updateAvailable} onRefreshCheck={() => checkUpdates(true)} />} />
+                                        <Route path="/settings/*" element={<Settings account={account} updateAvailable={updateAvailable} onRefreshCheck={() => checkUpdates(true)} pluginsInteractionRequired={pluginActionRequiredCount} />} />
                                         <Route path='/notifications' element={<MobileNotifications />} />
                                         <Route path="/dashboard" element={<Dashboard />} />
                                         {getRoutes().map(({ path, component: Component }) => (
