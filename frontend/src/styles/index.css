@@ -90,8 +90,10 @@ button[data-type="secondary"] {
 .toast-container *,
 .popup-container * {
     box-sizing: content-box;
-    margin: revert;
-    padding: revert;
+}
+.toast-text {
+    padding-top: 2px;
+    padding-bottom: 2px;
 }
 
 .toast-container {

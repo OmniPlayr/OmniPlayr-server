@@ -26,6 +26,7 @@ services:
       - ./backend/config:/app/config
       - ./user_storage:/user_storage
       - ./logs:/app/logs
+      - ./backend/certs:/app/certs
       - /var/run/docker.sock:/var/run/docker.sock
       - ./frontend/src:/frontend/src
       - ./backend/plugins:/app/plugins

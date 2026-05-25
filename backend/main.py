@@ -3,6 +3,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from api.helpers.db import init_db
 from api.router import router
@@ -14,6 +15,7 @@ from api.helpers.notifications import notify_sync, set_main_loop
 from api.helpers.account import list_accounts
 from api.helpers.diagnostics import start_diagnostics
 from api.helpers.health import router as health_router
+from api.helpers.https_proxy import start_https_proxy
 
 import asyncio
 
@@ -76,6 +78,8 @@ async def lifespan(app: FastAPI):
 
     start_diagnostics(get_config('diagnostics.interval_seconds', 600))
 
+    start_https_proxy()
+
     log("Server started", "info", "main")
 
     # This sends a notification to admins that the server has started and that the update has been applied
@@ -103,5 +107,11 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 app.include_router(health_router, prefix="/api")
 
+
+@app.get("/ca.crt")
+async def download_ca_cert():
+    return FileResponse("certs/ca.crt", media_type="application/x-x509-ca-cert", filename="omniplayr-ca.crt")
+
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8224, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=8226, reload=False)

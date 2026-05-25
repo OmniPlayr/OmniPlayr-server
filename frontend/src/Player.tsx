@@ -288,7 +288,13 @@ function Player() {
                 setDisplayTime(player.currentTime);
             }
 
-            if (!isVolumeDragging.current) {
+            const activePlugin = (player as any).activePlugin;
+            if (activePlugin?.getVolume) {
+                const v = activePlugin.getVolume();
+                if (!isVolumeDragging.current) {
+                    setDisplayVolume(v);
+                }
+            } else if (!isVolumeDragging.current) {
                 setDisplayVolume(player.volumeFraction);
             }
         });

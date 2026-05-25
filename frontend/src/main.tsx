@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode, useEffect, useState, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'
 import 'normalize.css';
@@ -28,6 +28,7 @@ import MobileNotifications from './MobileNotifications.tsx';
 import { NotificationsProvider } from './modules/NotificationsContext';
 import Updating from './Updating.tsx';
 import Failure from './Fail.tsx';
+import '@wokki20/jspt/dist/jspt.css';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -73,7 +74,12 @@ async function loadAccount() {
 
 async function loadPlugins(): Promise<void> {
     const modules = import.meta.glob('./plugins/*/index.{ts,tsx}');
-    await Promise.all(Object.values(modules).map(m => (m as () => Promise<unknown>)()));
+    const loaded = await Promise.all(Object.values(modules).map(m => (m as () => Promise<unknown>)()));
+    for (const mod of loaded) {
+        if (mod && typeof (mod as any).init === 'function') {
+            (mod as any).init();
+        }
+    }
     notifyPluginsLoaded();
 }
 
@@ -116,6 +122,8 @@ function AppShell() {
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [pluginsLoaded, setPluginsLoaded] = useState(false);
 
+    const pluginsInitialized = useRef(false);
+
     const [activeTabId, setActiveTabId] = useState<string | null>(() =>
         resolveActiveTabFromPath(location.pathname)
     );
@@ -134,7 +142,10 @@ function AppShell() {
     const [historyIndex, setHistoryIndex] = useState(0);
 
     useEffect(() => {
-        if (!isAuth) return;
+        if (!isAuth || !accountId) return;
+        if (pluginsInitialized.current) return;
+        pluginsInitialized.current = true;
+
         api("check_update").then((res: any) => {
             if (res?.update_available) setUpdateAvailable(true);
         }).catch(() => {});
@@ -149,8 +160,7 @@ function AppShell() {
             setSafeMode(false);
             loadPlugins().catch(console.error).finally(() => setPluginsLoaded(true));
         });
-    }, [isAuth]);
-
+    }, [isAuth, accountId]);
     useEffect(() => {
         if (!showShell) return;
 

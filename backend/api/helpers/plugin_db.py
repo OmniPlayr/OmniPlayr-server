@@ -281,31 +281,31 @@ def _migrate_plugin_tables(plugin_key: str, own_tables: dict[str, dict[str, str]
         log(f"[{plugin_key}] migrate: completed", "debug", "plugins")
 
 
-def request_access(
+def request_db_access(
     plugin_key: str,
     *,
     own: dict[str, dict[str, str]] | None = None,
     read: list[str] | None = None,
     readwrite: list[str] | None = None,
 ) -> PluginDB:
-    log(f"[{plugin_key}] request_access: own={list(own.keys()) if own else None} read={read!r} readwrite={readwrite!r}", "debug", "plugins")
+    log(f"[{plugin_key}] request_db_access: own={list(own.keys()) if own else None} read={read!r} readwrite={readwrite!r}", "debug", "plugins")
 
     grants: dict[str, str] = {}
 
     if own:
         for table in own:
             if table in PROTECTED_TABLES:
-                log(f"[{plugin_key}] request_access: cannot own protected table {table!r}", "error", "plugins")
+                log(f"[{plugin_key}] request_db_access: cannot own protected table {table!r}", "error", "plugins")
                 raise PermissionError(f"Cannot own protected table {table!r}")
 
             existing_owner = _ownership.get(table)
             if existing_owner and existing_owner != plugin_key:
-                log(f"[{plugin_key}] request_access: ownership conflict on {table!r}", "error", "plugins")
+                log(f"[{plugin_key}] request_db_access: ownership conflict on {table!r}", "error", "plugins")
                 raise PermissionError(f"Table {table!r} is already owned by plugin {existing_owner!r}")
 
             _ownership[table] = plugin_key
             grants[table] = "readwrite"
-            log(f"[{plugin_key}] request_access: owns {table!r}", "debug", "plugins")
+            log(f"[{plugin_key}] request_db_access: owns {table!r}", "debug", "plugins")
 
         _migrate_plugin_tables(plugin_key, own)
 
@@ -314,36 +314,36 @@ def request_access(
             protection = PROTECTED_TABLES.get(table)
 
             if protection == "read":
-                log(f"[{plugin_key}] request_access: read denied on fully protected table {table!r}", "error", "plugins")
+                log(f"[{plugin_key}] request_db_access: read denied on fully protected table {table!r}", "error", "plugins")
                 raise PermissionError(f"Table {table!r} is fully protected")
 
             if grants.get(table) == "readwrite":
                 continue
 
             grants[table] = "read"
-            log(f"[{plugin_key}] request_access: granted read on {table!r}", "debug", "plugins")
+            log(f"[{plugin_key}] request_db_access: granted read on {table!r}", "debug", "plugins")
 
     if readwrite:
         for table in readwrite:
             protection = PROTECTED_TABLES.get(table)
 
             if protection == "read":
-                log(f"[{plugin_key}] request_access: readwrite denied on fully protected table {table!r}", "error", "plugins")
+                log(f"[{plugin_key}] request_db_access: readwrite denied on fully protected table {table!r}", "error", "plugins")
                 raise PermissionError(f"Table {table!r} is fully protected")
 
             if protection == "write":
-                log(f"[{plugin_key}] request_access: {table!r} is write-protected, downgrading to read", "warning", "plugins")
+                log(f"[{plugin_key}] request_db_access: {table!r} is write-protected, downgrading to read", "warning", "plugins")
                 grants[table] = "read"
                 continue
 
             owner = _ownership.get(table)
             if owner and owner != plugin_key:
-                log(f"[{plugin_key}] request_access: {table!r} owned by {owner!r}, downgrading to read", "warning", "plugins")
+                log(f"[{plugin_key}] request_db_access: {table!r} owned by {owner!r}, downgrading to read", "warning", "plugins")
                 grants[table] = "read"
             else:
                 grants[table] = "readwrite"
-                log(f"[{plugin_key}] request_access: granted readwrite on {table!r}", "debug", "plugins")
+                log(f"[{plugin_key}] request_db_access: granted readwrite on {table!r}", "debug", "plugins")
 
     _grants[plugin_key] = grants
-    log(f"[{plugin_key}] request_access: final grants={grants}", "debug", "plugins")
+    log(f"[{plugin_key}] request_db_access: final grants={grants}", "debug", "plugins")
     return PluginDB(plugin_key, grants)

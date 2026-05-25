@@ -15,6 +15,7 @@ export interface SourcePlugin {
             onMetadata: (meta: TrackMetadata) => void;
             onReady: () => void;
             onEnded: () => void;
+            onStateChange: () => void;
         }
     ): Promise<void>;
     pause(): void;
@@ -24,6 +25,7 @@ export interface SourcePlugin {
     getDuration(): number;
     isPlaying(): boolean;
     destroy(): void;
+    setVolume?(fraction: number): void;
 }
 
 export interface TrackMetadata {
@@ -72,7 +74,7 @@ const HISTORY_STORAGE_KEY = 'player_history';
 const PLAYBACK_STATE_STORAGE_KEY = 'player_playback_state';
 const CURRENT_TRACK_STORAGE_KEY = 'player_current_track';
 
-function getVolumeStorage(): Storage | null {
+export function getVolumeStorage(): Storage | null {
     const mode = getConfig<string>('player.volume_persistence') ?? 'localStorage';
     if (mode === 'sessionStorage') return sessionStorage;
     if (mode === 'localStorage') return localStorage;
@@ -116,6 +118,8 @@ class AudioPlayer {
     private activePlugin: SourcePlugin | null = null;
 
     private pendingAutoplay = false;
+
+    private endCheckInterval: ReturnType<typeof setInterval> | null = null;
 
     isLoading = false;
     currentSongId: string | null = null;
@@ -350,12 +354,10 @@ class AudioPlayer {
                     e.preventDefault();
                     this.skip();
                     break;
-
                 case 'MediaTrackPrevious':
                     e.preventDefault();
                     this.prev();
                     break;
-
                 case 'MediaPlayPause':
                     e.preventDefault();
                     this.togglePlay();
@@ -365,8 +367,18 @@ class AudioPlayer {
 
         if (!('mediaSession' in navigator)) return;
 
-        navigator.mediaSession.setActionHandler('play', () => this.audio.play());
-        navigator.mediaSession.setActionHandler('pause', () => this.audio.pause());
+        navigator.mediaSession.setActionHandler('play', () => {
+            if (this.isTransitioning) return;
+            if (this.activePlugin) this.activePlugin.resume();
+            else this.audio.play();
+        });
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+            if (this.isTransitioning) return;
+            if (this.activePlugin) this.activePlugin.pause();
+            else this.audio.pause();
+        });
+
         navigator.mediaSession.setActionHandler('nexttrack', () => this.skip());
         navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
 
@@ -415,6 +427,8 @@ class AudioPlayer {
         const next = this.priorityQueue[0] ?? this.nextQueueItems[0];
 
         if (!next) return;
+
+        if (this.plugins.has(next.sourceType)) return;
 
         const cacheKey = `${next.sourceType}:${next.songId}`;
 
@@ -522,6 +536,29 @@ class AudioPlayer {
         }
 
         return arr;
+    }
+
+    private startEndWatcher() {
+        if (this.endCheckInterval) return;
+
+        this.endCheckInterval = setInterval(() => {
+            if (!this.currentSongId) return;
+
+            const duration = this.duration;
+            const time = this.currentTime;
+
+            if (duration > 0 && time >= duration - 0.25) {
+                this.stopEndWatcher();
+                this.next();
+            }
+        }, 200);
+    }
+
+    private stopEndWatcher() {
+        if (this.endCheckInterval) {
+            clearInterval(this.endCheckInterval);
+            this.endCheckInterval = null;
+        }
     }
 
     addToQueue(songId: string, sourceType: string, extra?: Record<string, unknown>) {
@@ -708,6 +745,7 @@ class AudioPlayer {
         autoplay = true
     ) {
         const plugin = this.plugins.get(sourceType);
+        this.stopEndWatcher();
 
         if (plugin) {
             this.isTransitioning = true;
@@ -759,11 +797,16 @@ class AudioPlayer {
                     },
                     onReady: () => {
                         this.isLoading = false;
+                        this.startEndWatcher();
                         this.notify();
                     },
+
                     onEnded: () => {
                         this.clearCurrentTrackState();
                         this.next();
+                    },
+                    onStateChange: () => {
+                        this.notify();
                     },
                 });
                 this.schedulePrefetch();
@@ -892,6 +935,7 @@ class AudioPlayer {
 
             if (autoplay) {
                 await this.audio.play();
+                this.startEndWatcher();
             }
 
             this.saveCurrentTrackState();
@@ -925,7 +969,6 @@ class AudioPlayer {
 
     setVolume(fraction: number) {
         const f = Math.max(0, Math.min(1, fraction));
-
         this._volumeFraction = f;
 
         if (!this.gainNode || !this.ctx) return;
@@ -933,12 +976,13 @@ class AudioPlayer {
         const minDb = -60;
         const db = minDb + f * Math.abs(minDb);
         const gain = Math.pow(10, db / 20);
-
         this.gainNode.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.01);
 
         const storage = getVolumeStorage();
-
         storage?.setItem(VOLUME_STORAGE_KEY, String(f));
+
+        this.activePlugin?.setVolume?.(f);
+        this.notify();
     }
 
     registerPlugin(sourceType: string, plugin: SourcePlugin | null) {
