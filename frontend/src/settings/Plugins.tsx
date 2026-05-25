@@ -183,6 +183,13 @@ function Plugins() {
 
     return (
         <div className='plugins-section'>
+            {needsRestart && (
+                <div className="restart-banner">
+                    <span className="restart-banner-text">
+                        Restart the system to apply the changes.
+                    </span>
+                </div>
+            )}
             <p className='section-title'>Installed plugins</p>
             <div className='plugins-grid'>
                 {plugins.map(plugin => {
@@ -349,14 +356,6 @@ function Plugins() {
                     )}
                 </div>
             </div>
-            {needsRestart && (
-                <div className="restart-banner">
-                    <span className="restart-banner-text">
-                        Restart the application to apply your plugin changes.
-                    </span>
-                    <X className="restart-banner-close" onClick={() => setNeedsRestart(false)} />
-                </div>
-            )}
         </div>
     );
 }
