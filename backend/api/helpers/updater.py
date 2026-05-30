@@ -172,7 +172,7 @@ def _hard_restart():
                 f"cd '{host_compose_dir}' && "
                 f"docker compose down --remove-orphans --timeout 30 && "
                 f"docker rm -f omniplayr_db omniplayr_frontend omniplayr_backend omniplayr_pgadmin 2>/dev/null || true && "
-                f"docker compose build backend && "
+                f"docker compose build --no-cache backend frontend && "
                 f"docker compose up -d"
             )
 
