@@ -22,10 +22,10 @@ services:
       - CHOKIDAR_USEPOLLING=true
 
   backend-init:
-    image: alpine
-    command: touch /files/config.local.json
-    volumes:
-      - ./backend:/files
+      image: alpine
+      command: sh -c "[ -d /files/config.local.json ] && rm -rf /files/config.local.json; touch /files/config.local.json"
+      volumes:
+        - ./backend:/files
 
   backend:
     build: ./backend
