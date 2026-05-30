@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from api.helpers.db import get_conn
 from api.helpers.server import verify_auth
-from api.helpers.account import update_account, delete_account
+from api.helpers.account import update_account, delete_account, create_account
 
 router = APIRouter()
 
@@ -15,6 +15,11 @@ class SetupState(BaseModel):
 class SetupAccountUpdate(BaseModel):
     name: str | None = None
     role: str | None = None
+    avatar_b64: str | None = None
+
+class AccountCreate(BaseModel):
+    name: str
+    role: str = "user"
     avatar_b64: str | None = None
 
 
@@ -78,3 +83,14 @@ def setup_delete_account(account_id: int, auth=Depends(verify_auth)):
     _check_setup_not_completed()
     if not delete_account(account_id, True):
         raise HTTPException(status_code=404, detail="Account not found")
+    
+# This is for creating the accounts in the setup
+@router.post("/accounts/create", status_code=201)
+def create_new_account(body: AccountCreate):
+    _check_setup_not_completed()
+    if not body.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    if body.role not in ("user", "admin"):
+        raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
+    result = create_account(body.name.strip(), body.role, body.avatar_b64)
+    return result

@@ -440,7 +440,7 @@ async function saveAccounts() {
             );
         } else {
             upsertPromises.push(
-                fetch(`${BACKEND}/accounts/`, {
+                fetch(`${BACKEND}/setup/accounts/create`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
