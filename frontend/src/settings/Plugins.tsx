@@ -63,11 +63,10 @@ async function loadPluginIcon(folder: string, file: string): Promise<string> {
     return `data:${res.mime_type};base64,${res.data}`;
 }
 
-function Plugins() {
+function Plugins({ isAdmin }: { isAdmin: boolean }) {
     const [plugins, setPlugins] = useState<ReturnType<typeof groupPlugins>>([]);
     const [icons, setIcons] = useState<Record<string, string>>({});
     const [openMenu, setOpenMenu] = useState<string | null>(null);
-    const [showInstall, setShowInstall] = useState(false);
     const [loading, setLoading] = useState(true)
     const [searching, setSearching] = useState(false)
     const [packages, setPackages] = useState<any[]>([])
@@ -81,6 +80,7 @@ function Plugins() {
     }, [])
 
     async function handleInstallPackage(packageId: string) {
+        if (!isAdmin) return;
         setInstallingPkgs(prev => ({ ...prev, [packageId]: true }));
         try {
             await api(`/plugins/install?package_id=${encodeURIComponent(packageId)}`, { method: 'POST' });
@@ -142,6 +142,7 @@ function Plugins() {
     }
 
     useEffect(() => {
+        if (!isAdmin) return;
         fetch('https://omniplayr.wokki20.nl/api/top_packages.php')
             .then(res => res.json())
             .then(data => {
@@ -152,6 +153,7 @@ function Plugins() {
     }, [])
 
     useEffect(() => {
+        if (!isAdmin) return;
         if (searchTimeout.current) clearTimeout(searchTimeout.current)
 
         if (!query.trim()) {
@@ -288,74 +290,75 @@ function Plugins() {
                     )
                 })}
             </div>
+            {isAdmin && (
+                <div className='plugins-install'>
+                    <p className='section-title'>Install Plugins</p>
+                    <div className='search-bar'>
+                        <Search className='search-plugins-icon' />
+                        <input type="text" className='search-plugins-input' placeholder='Search for plugins...' value={query} onChange={e => setQuery(e.target.value)} />
+                    </div>
 
-            <div className='plugins-install'>
-                <p className='section-title'>Install Plugins</p>
-                <div className='search-bar'>
-                    <Search className='search-plugins-icon' />
-                    <input type="text" className='search-plugins-input' placeholder='Search for plugins...' value={query} onChange={e => setQuery(e.target.value)} />
-                </div>
+                    <div className='plugins-result-list'>
+                        <p className='section-subtitle'>{query.trim() ? 'Search results' : 'Top packages'}</p>
 
-                <div className='plugins-result-list'>
-                    <p className='section-subtitle'>{query.trim() ? 'Search results' : 'Top packages'}</p>
-
-                    {isLoading ? (
-                        <p className="packages-status">Loading...</p>
-                    ) : packages.length === 0 ? (
-                        <p className="packages-status">No packages found.</p>
-                    ) : (
-                        <div className="profile-packages-list">
-                            {packages.map((pkg: any) => (
-                                <div key={pkg.package_id} className="profile-package">
-                                    <div className="profile-package-info">
-                                        {pkg.icon
-                                            ? <img src={pkg.icon} alt={pkg.package_id} className="profile-package-icon" />
-                                            : <Package className="profile-package-icon no-icon" />
-                                        }
-                                        <div className="profile-package-name-versions">
-                                            <p className="profile-package-name" onClick={() => window.open('https://omniplayr.wokki20.nl/packages/package/' + pkg.package_id, '_blank')}>
-                                                {pkg.package_id}
-                                            </p>
-                                            <div className="profile-package-versions">
-                                                {pkg.backend_version && <span className="profile-package-version backend">B {pkg.backend_version}</span>}
-                                                {pkg.frontend_version && <span className="profile-package-version frontend">F {pkg.frontend_version}</span>}
+                        {isLoading ? (
+                            <p className="packages-status">Loading...</p>
+                        ) : packages.length === 0 ? (
+                            <p className="packages-status">No packages found.</p>
+                        ) : (
+                            <div className="profile-packages-list">
+                                {packages.map((pkg: any) => (
+                                    <div key={pkg.package_id} className="profile-package">
+                                        <div className="profile-package-info">
+                                            {pkg.icon
+                                                ? <img src={pkg.icon} alt={pkg.package_id} className="profile-package-icon" />
+                                                : <Package className="profile-package-icon no-icon" />
+                                            }
+                                            <div className="profile-package-name-versions">
+                                                <p className="profile-package-name" onClick={() => window.open('https://omniplayr.wokki20.nl/packages/package/' + pkg.package_id, '_blank')}>
+                                                    {pkg.package_id}
+                                                </p>
+                                                <div className="profile-package-versions">
+                                                    {pkg.backend_version && <span className="profile-package-version backend">B {pkg.backend_version}</span>}
+                                                    {pkg.frontend_version && <span className="profile-package-version frontend">F {pkg.frontend_version}</span>}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <p className={`profile-package-description ${pkg.description ? '' : 'not-found'}`}>
-                                        {pkg.description || randomDescription}
-                                    </p>
-                                    <div className="profile-package-more-info">
-                                        <p className="profile-package-author" onClick={() => window.open('https://omniplayr.wokki20.nl/packages/profile/' + pkg.author, '_blank')}>
-                                            {pkg.author}
+                                        <p className={`profile-package-description ${pkg.description ? '' : 'not-found'}`}>
+                                            {pkg.description || randomDescription}
                                         </p>
-                                        <p className="profile-package-updated">{formatDate(pkg.created_at)} - {timeAgo(pkg.created_at)}</p>
-                                        {(() => {
-                                            const installed = plugins.find(p => p.folder === pkg.package_id);
-                                            const versionMatch =
-                                                (!pkg.backend_version || installed?.backendVersion === pkg.backend_version) &&
-                                                (!pkg.frontend_version || installed?.frontendVersion === pkg.frontend_version);
-                                            if (installed && versionMatch) {
-                                                return <span className="pkg-installed-badge">Installed</span>;
-                                            }
-                                            return (
-                                                <button
-                                                    className="pkg-install-btn"
-                                                    onClick={() => handleInstallPackage(pkg.package_id)}
-                                                    disabled={!!installingPkgs[pkg.package_id]}
-                                                >
-                                                    <Plus className="pkg-install-btn-icon" />
-                                                    {installingPkgs[pkg.package_id] ? 'Installing…' : installed ? 'Update' : 'Install'}
-                                                </button>
-                                            );
-                                        })()}
+                                        <div className="profile-package-more-info">
+                                            <p className="profile-package-author" onClick={() => window.open('https://omniplayr.wokki20.nl/packages/profile/' + pkg.author, '_blank')}>
+                                                {pkg.author}
+                                            </p>
+                                            <p className="profile-package-updated">{formatDate(pkg.created_at)} - {timeAgo(pkg.created_at)}</p>
+                                            {(() => {
+                                                const installed = plugins.find(p => p.folder === pkg.package_id);
+                                                const versionMatch =
+                                                    (!pkg.backend_version || installed?.backendVersion === pkg.backend_version) &&
+                                                    (!pkg.frontend_version || installed?.frontendVersion === pkg.frontend_version);
+                                                if (installed && versionMatch) {
+                                                    return <span className="pkg-installed-badge">Installed</span>;
+                                                }
+                                                return (
+                                                    <button
+                                                        className="pkg-install-btn"
+                                                        onClick={() => handleInstallPackage(pkg.package_id)}
+                                                        disabled={!!installingPkgs[pkg.package_id]}
+                                                    >
+                                                        <Plus className="pkg-install-btn-icon" />
+                                                        {installingPkgs[pkg.package_id] ? 'Installing…' : installed ? 'Update' : 'Install'}
+                                                    </button>
+                                                );
+                                            })()}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

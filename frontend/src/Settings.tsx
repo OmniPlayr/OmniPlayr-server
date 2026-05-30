@@ -45,8 +45,7 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             icon: Blocks,
             title: "Plugins",
             description: "Modify your OmniPlayr experience by using plugins",
-            component: () => <Plugins />,
-            condition: () => account?.role === "admin"
+            component: () => <Plugins isAdmin={account?.role === "admin"} />
         },
         {
             id: "accounts",
