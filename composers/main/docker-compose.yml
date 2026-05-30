@@ -3,7 +3,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    volumes:
+      - ./backend/certs:/app/certs
     container_name: omniplayr_frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8223:8223"
       - "8323:8223"
@@ -21,6 +25,8 @@ services:
   backend:
     build: ./backend
     container_name: omniplayr_backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./db:/db
       - ./backend/config:/app/config

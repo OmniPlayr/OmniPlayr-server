@@ -106,11 +106,5 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 app.include_router(health_router, prefix="/api")
 
-
-@app.get("/ca.crt")
-async def download_ca_cert():
-    return FileResponse("certs/ca.crt", media_type="application/x-x509-ca-cert", filename="omniplayr-ca.crt")
-
-
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8226, reload=False)

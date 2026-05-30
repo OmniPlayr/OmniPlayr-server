@@ -105,4 +105,4 @@ def start_https_proxy(proxy_port=8224, http_port=8226, certfile="certs/cert.pem"
                 pass
 
     threading.Thread(target=accept_loop, daemon=True).start()
-    log(f"Proxy on :{proxy_port} → :{http_port} (HTTP + HTTPS)", "info", "main")
+    log(f"Proxy on :{proxy_port} to :{http_port} (HTTP + HTTPS)", "info", "main")

@@ -2,9 +2,13 @@ FROM node:20
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 RUN npm install
 
+COPY proxy.js /proxy.js
+
 EXPOSE 8223
 
-CMD ["npm", "run", "dev", "--", "--host", "--port", "8223", "--force"]
+CMD ["sh", "-c", "node /proxy.js & npm run dev -- --host --port 8222 --force"]
