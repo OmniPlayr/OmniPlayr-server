@@ -89,10 +89,13 @@ async function api(
         body: data ? JSON.stringify(data) : undefined,
     });
 
-    if (!res.ok && throwErrors)
-        throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+    if (!res.ok && throwErrors) {
+        const error = new Error(`Request failed: ${res.status} ${res.statusText}`) as Error & { status: number };
+        error.status = res.status;
+        throw error;
+    }
 
-    return stream ? res : res.json();
+    return stream ? res : res.status === 204 ? null : res.json();
 }
 
 export default api;

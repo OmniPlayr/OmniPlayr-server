@@ -76,5 +76,5 @@ def setup_update_account(account_id: int, body: SetupAccountUpdate, auth=Depends
 @router.delete("/accounts/{account_id}", status_code=204)
 def setup_delete_account(account_id: int, auth=Depends(verify_auth)):
     _check_setup_not_completed()
-    if not delete_account(account_id):
+    if not delete_account(account_id, True):
         raise HTTPException(status_code=404, detail="Account not found")

@@ -111,7 +111,7 @@ function useIsMobile() {
 function AppShell() {
     const location = useLocation();
     const navigate = useNavigate();
-    const [isAuth] = useState(() => isTokenValid());
+    const [isAuth, setIsAuth] = useState(() => isTokenValid());
     const [accountId, setAccountId] = useState<string | null>(getAccount);
     const showShell = isAuth && !!accountId && location.pathname !== '/login' && location.pathname !== '/shutdown' && location.pathname !== '/updating' && location.pathname !== '/failure';
     const [account, setAccount] = useState<any>(null);
@@ -230,6 +230,7 @@ function AppShell() {
         const id = searchParams.get("account_id");
         if (!id) return;
         setAccountId(id);
+        setIsAuth(isTokenValid());
         setNavHistory(['/']);
         setHistoryIndex(0);
         setActiveTabId(null);
@@ -238,7 +239,20 @@ function AppShell() {
     }, [searchParams]);
 
     useEffect(() => {
-        loadAccount().then(fetched => setAccount(fetched));
+        if (!accountId) return;
+        loadAccount()
+            .then(fetched => setAccount(fetched))
+            .catch((err) => {
+                const status = err?.status ?? err?.response?.status;
+                if (status === 401 || status === 403) {
+                    setAccountId(null);
+                    navigate('/');
+                }
+            });
+    }, [accountId]);
+
+    useEffect(() => {
+        setIsAuth(isTokenValid());
     }, [accountId]);
 
     const resolvedTabId = resolveActiveTabFromPath(location.pathname) ?? activeTabId;

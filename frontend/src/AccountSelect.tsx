@@ -20,21 +20,36 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
     const [fadingOut, setFadingOut] = useState(false);
 
     useEffect(() => {
-        loadAccounts().then(fetched => {
-            setAccounts(fetched);
-            setTimeout(() => setLoaded(true), 50);
-        });
+        loadAccounts()
+            .then(fetched => {
+                setAccounts(fetched);
+                setTimeout(() => setLoaded(true), 50);
+            })
+            .catch((err: any) => {
+                const status = err?.status ?? err?.response?.status;
+                if (status === 401 || status === 403) {
+                    window.location.href = '/login';
+                }
+            });
     }, []);
 
-    const loadAccount = (id: string) => {
+    const loadAccount = async (id: string) => {
         setSelected(id);
-        loginAccount(id);
+        try {
+            await loginAccount(id);
+        } catch (err: any) {
+            const status = err?.status ?? err?.response?.status;
+            if (status === 401 || status === 403) {
+                window.location.href = '/login';
+                return;
+            }
+        }
         setFadingOut(true);
         setTimeout(() => {
             onAccountSelected(id);
         }, 600);
     };
-
+    
     return (
         <div className={`account-select ${loaded ? "active" : ""} ${fadingOut ? "fading-out" : ""}`} style={{ pointerEvents: selected ? "none" : "auto" }}>
             <h1>Who's listening?</h1>

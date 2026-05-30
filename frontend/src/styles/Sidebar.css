@@ -57,7 +57,7 @@
     overflow: hidden;
 }
 
-.user-name {
+.user-nickname {
     color: var(--clr-text-a0);
     font-size: 16px;
     font-weight: 600;
@@ -66,7 +66,7 @@
     text-overflow: ellipsis;
 }
 
-.user-role {
+.user-name {
     color: var(--clr-text-a30);
     font-size: 14px;
     white-space: nowrap;
@@ -200,7 +200,7 @@
     border-radius: 5px;
 }
 
-.account-select__dash .sidebar-user .user-name {
+.account-select__dash .sidebar-user .user-nickname {
     font-size: 16px;
 }
 

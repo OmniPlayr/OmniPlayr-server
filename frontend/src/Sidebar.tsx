@@ -133,8 +133,8 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                     <div className="sidebar-user">
                         <img draggable="false" className="user-avatar" src={account?.avatar_b64 || defaultPfp} alt={account?.name} />
                         <div className="user-info">
-                            <p className="user-name">{account?.nickname || account?.name}</p>
-                            <p className="user-role">{account?.role}</p>
+                            <p className="user-nickname">{account?.nickname || account?.name}</p>
+                            <p className="user-name">@{account?.name}</p>
                         </div>
                         {accounts_loaded && accounts.length > 1 &&
                             <>
@@ -144,8 +144,8 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                                             <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loginAccount(acc.id)}>
                                                 <img draggable="false" className="user-avatar" src={acc.avatar_b64 || defaultPfp} alt={acc.name} />
                                                 <div className="user-info">
-                                                    <p className="user-name">{acc.nickname || acc.name}</p>
-                                                    <p className="user-role">{acc.role}</p>
+                                                    <p className="user-nickname">{acc.nickname || acc.name}</p>
+                                                    <p className="user-name">@{acc.name}</p>
                                                 </div>
                                             </div>
                                         ))}

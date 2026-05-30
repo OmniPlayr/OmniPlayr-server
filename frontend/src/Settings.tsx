@@ -25,6 +25,7 @@ import Colors from "./settings/Colors";
 import Plugins from "./settings/Plugins";
 import Profile from "./settings/Profile";
 import Config from "./settings/Config";
+import OtherPeople from "./settings/OtherPeople";
 
 function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteractionRequired }: any) {
     const navigate = useNavigate();
@@ -146,7 +147,7 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
                 icon: Users,
                 title: "Other People",
                 description: "Manage other accounts",
-                component: () => <div>Other People</div>,
+                component: () => <OtherPeople />,
                 condition: () => account?.role === "admin"
             }
         ]

@@ -10,7 +10,6 @@ let cachedAccount: any = null;
 let fetchPromise: Promise<any> | null = null;
 
 async function loadAccount() {
-    if (cachedAccount) return cachedAccount;
     if (!fetchPromise) {
         fetchPromise = api("get_account", undefined, { account_id: "me" });
     }

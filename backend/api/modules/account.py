@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from fastapi import APIRouter, HTTPException, Depends, Header, Request, Response
 from pydantic import BaseModel
 
 from api.helpers.server import verify_auth, match_account, get_token_user
@@ -16,6 +16,7 @@ from api.helpers.account import (
     create_account_token,
     revoke_token,
     delete_account_token,
+    delete_profile_picture,
 )
 
 router = APIRouter()
@@ -33,6 +34,9 @@ class AccountUpdate(BaseModel):
     about: str | None = None
     
 class AccountLogin(BaseModel):
+    user_id: int
+
+class AccountRevokeAll(BaseModel):
     user_id: int
     
 class AccountRevoke(BaseModel):
@@ -93,6 +97,18 @@ def revoke(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str 
     log("POST /accounts/revoke: auth ok, revoking token", "debug", "module.account")
     result = revoke_token(get_token_user(x_account_token), body.token)
     log("POST /accounts/revoke: token revoked", "debug", "module.account")
+    return result
+
+# This revokes ALL tokens from an account, and only an admin can do this. For example you can use this if your account has been compromised
+@router.post("/revoke_all")
+def revoke_all(body: AccountRevokeAll, auth=Depends(verify_admin)):
+    log("POST /accounts/revoke_all requested", "debug", "module.account")
+    if not auth:
+        log("POST /accounts/revoke_all: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    log("POST /accounts/revoke_all: auth ok, revoking all tokens", "debug", "module.account")
+    result = revoke_token(body.user_id, None, True)
+    log("POST /accounts/revoke_all: all tokens revoked", "debug", "module.account")
     return result
 
 # This is for deleting a revoked token from an account
@@ -161,8 +177,8 @@ def create_new_account(body: AccountCreate, auth=Depends(verify_admin)):
     log(f"POST /accounts: account created id={result['id']}", "debug", "module.account")
     return result
 
-# This is for updating an existing account, you can only update your own account if you are not an admin
-# If you are an admin, you can only update the role
+# This is for updating an existing account, you can only update your own account, unless if you are an admin, then you can update anything
+# If you are an admin, you can only update the role of the other user
 # You can also not update your own role, even if you are an admin
 @router.patch("/{account_id}")
 def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
@@ -204,6 +220,25 @@ def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(v
     log(f"PATCH /accounts/{account_id}: update complete", "debug", "module.account")
     return updated
 
+# This is for deleting a profile picture from an account, for example if it has something innapropriate.
+@router.delete("/{account_id}/pfp", status_code=204)
+def delete_existing_account_pfp(account_id: int, auth=Depends(verify_admin)):
+    log(f"DELETE /accounts/{account_id}/pfp requested", "debug", "module.account")
+    if not auth:
+        log(f"DELETE /accounts/{account_id}/pfp: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    log(f"DELETE /accounts/{account_id}/pfp: checking account exists", "debug", "module.account")
+    existing = get_account(account_id)
+    if not existing:
+        log(f"DELETE /accounts/{account_id}/pfp: account not found", "debug", "module.account")
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    log(f"DELETE /accounts/{account_id}/pfp: deleting pfp", "debug", "module.account")
+    delete_profile_picture(account_id)
+    log(f"DELETE /accounts/{account_id}/pfp: pfp deleted", "debug", "module.account")
+    return
+
 # This is for deleting your own account, or deleting an account if you are an admin
 @router.delete("/{account_id}", status_code=204)
 def delete_existing_account(account_id: int, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
@@ -225,5 +260,6 @@ def delete_existing_account(account_id: int, auth=Depends(verify_auth), x_accoun
     if not delete_account(account_id):
         log(f"DELETE /accounts/{account_id}: account not found in db", "debug", "module.account")
         raise HTTPException(status_code=404, detail="Account not found")
-    
-    log(f"DELETE /accounts/{account_id}: deleted successfully", "debug", "module.account")
+    else:
+        log(f"DELETE /accounts/{account_id}: deleted successfully", "debug", "module.account")
+        return Response(status_code=204)
