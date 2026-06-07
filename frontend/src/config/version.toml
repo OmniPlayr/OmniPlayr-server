@@ -1,7 +1,7 @@
 [version]
 [version.frontend]
 year = 2026
-month = 5
-bugfix = 26
+month = 6
+bugfix = 1
 branch = "dev"
-safeVersion = "2026.5.26-dev"
+safeVersion = "2026.6.1-dev"
