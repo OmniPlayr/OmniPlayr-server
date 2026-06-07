@@ -132,3 +132,8 @@
 .settings-dropdown-button-icon.open {
     transform: rotate(180deg);
 }
+
+.settings-dropdown.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}

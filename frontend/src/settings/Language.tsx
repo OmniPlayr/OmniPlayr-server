@@ -97,10 +97,13 @@ function Language() {
                 </div>
             </div>
 
-            <div className='settings-dropdown'>
+            <div className={`settings-dropdown ${preferSystemLanguage ? 'disabled' : ''}`}>
                 <div
                     className='settings-dropdown-button'
-                    onClick={() => setOpen(!open)}
+                    onClick={() => {
+                        if (preferSystemLanguage) return
+                        setOpen(!open)
+                    }}
                 >
                     <img
                         src={current.flag}
@@ -124,7 +127,10 @@ function Language() {
                         <div
                             key={code}
                             className='settings-dropdown-item'
-                            onClick={() => changeLanguage(code)}
+                            onClick={() => {
+                                if (preferSystemLanguage) return
+                                changeLanguage(code)
+                            }}
                         >
                             <img
                                 src={data.flag}

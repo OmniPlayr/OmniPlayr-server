@@ -18,5 +18,15 @@
             "avatar": "https://avatars.githubusercontent.com/u/105733478?v=4",
             "org": false
         }
+    },
+    "en-pirate": {
+        "language": "Pirate",
+        "flag": "https://omniplayr.wokki20.nl/flags/pirate.png",
+        "author": {
+            "name": "OmniPlayr/AI-translated",
+            "url": "https://github.com/OmniPlayr",
+            "avatar": "https://omniplayr.wokki20.nl/branding/teams/OmniPlayr-AI-translated.png",
+            "org": true
+        }
     }
 }

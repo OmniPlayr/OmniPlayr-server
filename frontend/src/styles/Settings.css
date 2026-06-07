@@ -123,6 +123,11 @@
     color: var(--clr-text-light-a0);
 }
 
+#language .settings-option-icon {
+    background-color: var(--clr-success-a0);
+    color: var(--clr-text-light-a0);
+}
+
 .settings-tab-info {
     display: flex;
     flex-direction: column;
