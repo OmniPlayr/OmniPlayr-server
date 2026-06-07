@@ -6,7 +6,7 @@ import json
 import subprocess
 import toml
 from typing import Callable, Any
-
+import importlib.metadata
 from fastapi import APIRouter
 from api.helpers.log import log
 
@@ -76,6 +76,42 @@ def get_plugin_router() -> APIRouter:
     log("Returning plugin router", "debug", "plugins")
     return _plugin_router
 
+def _to_pip_spec(name: str, ver: str) -> str:
+    if ver in ("*", "^*", ""):
+        return name
+    if ver.startswith("^"):
+        v = ver[1:]
+        parts = v.split(".")
+        try:
+            major = int(parts[0])
+            return f"{name}>={v},<{major + 1}.0.0"
+        except (ValueError, IndexError):
+            return f"{name}>={v}"
+    if ver.startswith("~"):
+        v = ver[1:]
+        parts = v.split(".")
+        try:
+            minor = int(parts[1]) if len(parts) > 1 else 0
+            return f"{name}>={v},<{parts[0]}.{minor + 1}.0"
+        except (ValueError, IndexError):
+            return f"{name}>={v}"
+    return f"{name}{ver}"
+
+def _is_satisfied(name: str, full_spec: str) -> bool:
+    try:
+        installed = importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    constraint = full_spec[len(name):]
+    if not constraint:
+        return True
+    try:
+        from packaging.version import Version
+        from packaging.specifiers import SpecifierSet
+        return Version(installed) in SpecifierSet(constraint)
+    except Exception:
+        return False
+
 
 def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
     log(f"Checking dependencies for plugin {plugin_key!r}", "debug", "plugins")
@@ -96,35 +132,18 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
         log(f"No pythonDependencies in package.json for plugin {plugin_key!r}", "debug", "plugins")
         return
 
-    log(f"Plugin {plugin_key!r} requires {len(python_deps)} python dependency/ies: {list(python_deps.keys())}", "debug", "plugins")
+    specs = {name: _to_pip_spec(name, ver) for name, ver in python_deps.items()}
+    to_install = [spec for name, spec in specs.items() if not _is_satisfied(name, spec)]
 
-    def _to_pip_spec(name: str, ver: str) -> str:
-        if ver in ("*", "^*", ""):
-            return name
-        if ver.startswith("^"):
-            v = ver[1:]
-            parts = v.split(".")
-            try:
-                major = int(parts[0])
-                return f"{name}>={v},<{major + 1}.0.0"
-            except (ValueError, IndexError):
-                return f"{name}>={v}"
-        if ver.startswith("~"):
-            v = ver[1:]
-            parts = v.split(".")
-            try:
-                minor = int(parts[1]) if len(parts) > 1 else 0
-                return f"{name}>={v},<{parts[0]}.{minor + 1}.0"
-            except (ValueError, IndexError):
-                return f"{name}>={v}"
-        return f"{name}{ver}"
+    if not to_install:
+        log(f"All dependencies already satisfied for plugin {plugin_key!r}", "debug", "plugins")
+        return
 
-    specs = [_to_pip_spec(name, ver) for name, ver in python_deps.items()]
-    log(f"Installing pip specs for plugin {plugin_key!r}: {specs}", "debug", "plugins")
+    log(f"Plugin {plugin_key!r} needs {len(to_install)} dep(s): {to_install}", "debug", "plugins")
 
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", *specs],
+            [sys.executable, "-m", "pip", "install", *to_install],
             capture_output=True,
             text=True,
         )

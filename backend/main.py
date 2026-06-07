@@ -107,4 +107,11 @@ app.include_router(router, prefix="/api")
 app.include_router(health_router, prefix="/api")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8226, reload=False)
+    dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8226,
+        reload=dev_mode,
+        reload_dirs=["/app/api"] if dev_mode else None,
+    )

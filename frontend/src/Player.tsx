@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { player, type TrackMetadata, type RepeatMode } from './modules/player';
 import { usePlugins } from './modules/usePlugins';
+import { useIsMobile } from './main';
 
 function formatTime(seconds: number): string {
     if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
@@ -218,16 +219,6 @@ function AlbumArt({
     );
 }
 
-function useIsMobile() {
-    const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
-    return isMobile;
-}
 
 function Player() {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -661,4 +652,4 @@ function Player() {
     );
 }
 
-export { useIsMobile, Player };
+export { Player };

@@ -97,7 +97,7 @@ function resolveActiveTabFromPath(pathname: string): string | null {
     return null;
 }
 
-function useIsMobile() {
+export function useIsMobile() {
     const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
     useEffect(() => {
         const mq = window.matchMedia('(max-width: 768px)');

@@ -48,7 +48,7 @@
     width: 70px;
     height: 70px;
     border-radius: 10px;
-    border: 2px solid var(--clr-popup-a50);
+    border: 1px solid var(--clr-popup-a50);
     object-fit: cover;
 }
 
@@ -94,7 +94,7 @@
     flex: 1;
     padding: 15px;
     background-color: var(--clr-popup-a0);
-    border: 2px solid var(--clr-popup-a20);
+    border: 1px solid var(--clr-popup-a20);
     border-radius: 15px;
 }
 
@@ -464,4 +464,52 @@
 .role-popup-btn.disabled {
     opacity: 0.4;
     pointer-events: none;
+}
+
+@media screen and (max-width: 1230px) {
+    .other-people-section {
+        flex-direction: column;
+        height: unset;
+    }
+    .other-people-mod-view.open {
+        display: block;
+        margin-bottom: 20px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .other-people-profile:hover {
+        background-color: var(--clr-popup-a10);
+    }
+    .other-people-mod-view {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        border-bottom: 0px;
+        border-radius: 16px 16px 0px 0px;
+        width: 100%;
+        height: 600px;
+        box-shadow: 0px -8px 24px rgba(0, 0, 0, 0.1);
+        transform: translateY(100%);
+        will-change: transform;
+        touch-action: none;
+        margin-bottom: 0px;
+    }
+
+    .other-people-mod-view::after {
+        content: "";
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 30%;
+        height: 5px;
+        border-radius: 5px;
+        background-color: var(--clr-popup-a30);
+    }
+
+    .other-people-mod-view.open {
+        transform: translateY(0px);
+        margin-bottom: 0px;
+    }
 }

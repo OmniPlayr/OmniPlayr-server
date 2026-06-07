@@ -1,10 +1,11 @@
 import api from "../modules/api";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import '../styles/settings/OtherPeople.css';
 import defaultPfp from '../assets/images/default-pfp-dark.svg';
-import { Grid2x2, ImageOff, RotateCcwKey, Rows3, Search, Shield, Trash2, User, UserPlus } from "lucide-react";
+import { Fullscreen, Grid2x2, ImageOff, RotateCcwKey, Rows3, Search, Shield, Trash2, User, UserPlus } from "lucide-react";
 import { Tooltip } from "react-tooltip";
 import { getAccount } from "../modules/account";
+import { useIsMobile } from "../main";
 
 let cachedProfiles: any = null;
 let fetchPromise: Promise<any> | null = null;
@@ -37,6 +38,63 @@ function OtherPeople() {
     const [confirmRevoke, setConfirmRevoke] = useState<{ open: boolean; profile: any }>({ open: false, profile: null });
     const [confirmDeletePfp, setConfirmDeletePfp] = useState<{ open: boolean; profile: any }>({ open: false, profile: null });
 
+    const isMobile = useIsMobile();
+    
+    const opRef = useRef<HTMLDivElement>(null);
+    const opDragStart = useRef(0);
+    const opDragY = useRef(0);
+    const opIsDragging = useRef(false);
+    const opIsClosing = useRef(false);
+    const [isOpOpen, setIsFullscreen] = useState(false);
+
+    useEffect(() => {
+        if (!isMobile) return;
+        if (!opRef.current || opIsClosing.current) return;
+        opRef.current.style.transition = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+        opRef.current.style.transform = isOpOpen ? 'translateY(0)' : 'translateY(100%)';
+    }, [isOpOpen]);
+
+
+    const handleOpPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isMobile) return;
+        const target = e.target as HTMLElement;
+        if (target.closest('.opmva-group-option')) return;
+        opIsDragging.current = true;
+        opDragStart.current = e.clientY;
+        opDragY.current = 0;
+        if (opRef.current) opRef.current.style.transition = 'none';
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    };
+
+    const handleOpPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isMobile) return;
+        if (!opIsDragging.current || !opRef.current) return;
+        const dy = Math.max(0, e.clientY - opDragStart.current);
+        opDragY.current = dy;
+        opRef.current.style.transform = `translateY(${dy}px)`;
+    };
+
+    const handleOpPointerUp = () => {
+        if (!isMobile) return;
+        if (!opIsDragging.current || !opRef.current) return;
+        opIsDragging.current = false;
+        const dy = opDragY.current;
+        if (dy > window.innerHeight * 0.28) {
+            opIsClosing.current = true;
+            opRef.current.style.transition = 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)';
+            opRef.current.style.transform = 'translateY(100%)';
+            setTimeout(() => {
+                opIsClosing.current = false;
+                setIsFullscreen(false);
+                setSelectedProfile(null);
+            }, 380);
+        } else {
+            opRef.current.style.transition = 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            opRef.current.style.transform = 'translateY(0)';
+            setIsFullscreen(true);
+        }
+    };
+
     useEffect(() => {
         if (profiles) return;
         loadOtherPeople().then(setProfiles);
@@ -61,6 +119,7 @@ function OtherPeople() {
             prev.map((p: any) => p.id === selectedProfile.id ? { ...p, role: rolePopup.pendingRole } : p)
         );
         setSelectedProfile((prev: any) => ({ ...prev, role: rolePopup.pendingRole }));
+        setIsFullscreen(true);
         closeRolePopup();
     }
 
@@ -76,6 +135,7 @@ function OtherPeople() {
         await api("/accounts/" + selectedProfile.id, undefined, undefined, true, false, 'DELETE');
         setProfiles((prev: any[]) => prev.filter((p: any) => p.id !== selectedProfile.id));
         setSelectedProfile(null);
+        setIsFullscreen(false);
         closeConfirmDeletion();
     }
 
@@ -93,6 +153,7 @@ function OtherPeople() {
             prev.map((p: any) => p.id === selectedProfile.id ? { ...p, avatar_b64: null } : p)
         );
         setSelectedProfile((prev: any) => ({ ...prev, avatar_b64: null }));
+        setIsFullscreen(true);
         closeConfirmDeletePfp();
     }
 
@@ -135,6 +196,16 @@ function OtherPeople() {
         reader.readAsDataURL(file);
     }
 
+    function unsetSelecterdProfile() {
+        setSelectedProfile(null);
+        setIsFullscreen(false);
+    }
+
+    function setSelectedProfileFullscreen(profile: any) {
+        setSelectedProfile(profile);
+        setIsFullscreen(true);
+    }
+
     return (
         <>
             {!profiles || !account && <div>Loading...</div>}
@@ -159,7 +230,7 @@ function OtherPeople() {
                                 profile.nickname?.toLowerCase().includes(query) ||
                                 profile.role?.toLowerCase().includes(query)
                             ) && (
-                                <div key={profile.id} className={'other-people-profile ' + (selectedProfile?.id === profile.id ? 'selected' : '')} onClick={() => selectedProfile?.id === profile.id ? setSelectedProfile(null) : setSelectedProfile(profile)}>
+                                <div key={profile.id} className={'other-people-profile ' + (selectedProfile?.id === profile.id ? 'selected' : '')} onClick={() => selectedProfile?.id === profile.id ? unsetSelecterdProfile() : setSelectedProfileFullscreen(profile)}>
                                     <img src={profile?.avatar_b64 ?? defaultPfp} className='other-people-profile-pfp' draggable={false} />
                                     <div className='other-people-profile-info'>
                                         <div className='other-people-profile-info-group'>
@@ -181,7 +252,13 @@ function OtherPeople() {
                             </div>
                         </div>
                     </div>
-                    <div className='other-people-mod-view'>
+                    <div 
+                        className={'other-people-mod-view' + (selectedProfile && !isMobile ? ' open' : '') + (isMobile && isOpOpen ? ' open' : '')}
+                        ref={opRef}
+                        onPointerDown={handleOpPointerDown}
+                        onPointerMove={handleOpPointerMove}
+                        onPointerUp={handleOpPointerUp}
+                    >
                         {!selectedProfile && 
                             <div className='other-people-mod-view-empty'>
                                 <User className='other-people-mod-view-empty-icon' />
