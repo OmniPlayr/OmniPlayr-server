@@ -174,10 +174,10 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
 
     const title =
         stack.length === 0
-            ? "Settings"
+            ? t("settings.title")
             : stack.length === 1
-                ? root?.title ?? "Settings"
-                : currentSub?.title ?? root?.title ?? "Settings";
+                ? root?.title ?? t("settings.title")
+                : currentSub?.title ?? root?.title ?? t("settings.title");
 
     const goBack = () => {
         if (stack.length === 0) {

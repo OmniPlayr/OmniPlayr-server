@@ -39,6 +39,8 @@
 
     // --- Start settings translations
 
+    "settings.title": "Ship Rules",
+
     "settings.tab.plugins": "Plunder",
     "settings.tab.plugins.desc": "Modify yer OmniPlayr voyage with plunder",
 
@@ -89,7 +91,7 @@
     // --- Start sidebar translations
 
     "sidebar.tab.home": "Port",
-    "sidebar.tab.settings": "Settings",
+    "sidebar.tab.settings": "Ship Rules",
     "sidebar.devmode": "Shipwright Mode",
 
     // --- End sidebar translations

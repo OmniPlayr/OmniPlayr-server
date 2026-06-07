@@ -39,6 +39,8 @@
 
     // --- Start settings translations
 
+    "settings.title": "Instellingen",
+
     "settings.tab.plugins": "Plug-ins",
     "settings.tab.plugins.desc": "Pas je OmniPlayr-ervaring aan met plug-ins",
 
