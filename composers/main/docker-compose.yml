@@ -14,7 +14,14 @@ services:
       - "8523:8223"
     depends_on:
       - backend
+      - frontend-init
     restart: on-failure:2
+
+  frontend-init:
+    image: alpine
+    command: sh -c "mkdir -p /files/plugins"
+    volumes:
+      - ./frontend:/files
 
   backend-init:
       image: alpine

@@ -17,9 +17,16 @@ services:
       - "8523:8223"
     depends_on:
       - backend
+      - frontend-init
     restart: unless-stopped
     environment:
       - CHOKIDAR_USEPOLLING=true
+
+  frontend-init:
+    image: alpine
+    command: sh -c "mkdir -p /files/plugins"
+    volumes:
+      - ./frontend:/files
 
   backend-init:
       image: alpine
