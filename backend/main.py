@@ -113,5 +113,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8226,
         reload=dev_mode,
-        reload_dirs=["/app/api"] if dev_mode else None,
+        reload_dirs=["/app/api"] if dev_mode else None
     )
