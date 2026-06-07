@@ -1,5 +1,6 @@
 import '../styles/settings/Plugins.css';
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next';
 import api from '../modules/api';
 import { EllipsisVertical, Package, Plus, Search, X } from 'lucide-react';
 import { getPluginsMenuItems } from '../modules/plugins';
@@ -64,6 +65,7 @@ async function loadPluginIcon(folder: string, file: string): Promise<string> {
 }
 
 function Plugins({ isAdmin }: { isAdmin: boolean }) {
+    const { t } = useTranslation();
     const [plugins, setPlugins] = useState<ReturnType<typeof groupPlugins>>([]);
     const [icons, setIcons] = useState<Record<string, string>>({});
     const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -124,13 +126,13 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
 
     function timeAgo(dateStr: string): string {
         const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-        if (seconds < 60) return 'just now'
-        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-        if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
-        if (seconds < 2592000) return `${Math.floor(seconds / 604800)}w ago`
-        if (seconds < 31536000) return `${Math.floor(seconds / 2592000)}mo ago`
-        return `${Math.floor(seconds / 31536000)}y ago`
+        if (seconds < 60) return t('common.timeAgo.justNow')
+        if (seconds < 3600) return t('common.timeAgo.minutes', { count: Math.floor(seconds / 60) })
+        if (seconds < 86400) return t('common.timeAgo.hours', { count: Math.floor(seconds / 3600) })
+        if (seconds < 604800) return t('common.timeAgo.days', { count: Math.floor(seconds / 86400) })
+        if (seconds < 2592000) return t('common.timeAgo.weeks', { count: Math.floor(seconds / 604800) })
+        if (seconds < 31536000) return t('common.timeAgo.months', { count: Math.floor(seconds / 2592000) })
+        return t('common.timeAgo.years', { count: Math.floor(seconds / 31536000) })
     }
 
     function formatDate(dateStr: string): string {
@@ -188,11 +190,11 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
             {needsRestart && (
                 <div className="restart-banner">
                     <span className="restart-banner-text">
-                        Restart the system to apply the changes.
+                        {t('settings.plugins.restart_banner')}
                     </span>
                 </div>
             )}
-            <p className='section-title'>Installed plugins</p>
+            <p className='section-title'>{t('settings.plugins.installed_title')}</p>
             <div className='plugins-grid'>
                 {plugins.map(plugin => {
                     const pluginMenuItems = getPluginsMenuItems().filter(
@@ -221,12 +223,12 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
                                 <div className='plugin-badges'>
                                     {plugin.hasBackend && (
                                         <span className='badge badge--backend'>
-                                            Backend v{plugin.backendVersion}
+                                            {t('settings.plugins.badge.backend_version', { version: plugin.backendVersion })}
                                         </span>
                                     )}
                                     {plugin.hasFrontend && (
                                         <span className='badge badge--frontend'>
-                                            Frontend v{plugin.frontendVersion}
+                                            {t('settings.plugins.badge.frontend_version', { version: plugin.frontendVersion })}
                                         </span>
                                     )}
                                 </div>
@@ -247,7 +249,7 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
                                     target="_blank"
                                 >
                                     <Package className='plugin-menu-item-icon'/>
-                                    <span className='plugin-menu-item-name'>View on Registry</span>
+                                    <span className='plugin-menu-item-name'>{t('settings.plugins.menu.view_registry')}</span>
                                 </a>
 
                                 {pluginMenuItems.length > 0 && (
@@ -292,19 +294,25 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
             </div>
             {isAdmin && (
                 <div className='plugins-install'>
-                    <p className='section-title'>Install Plugins</p>
+                    <p className='section-title'>{t('settings.plugins.install_title')}</p>
                     <div className='search-bar'>
                         <Search className='search-plugins-icon' />
-                        <input type="text" className='search-plugins-input' placeholder='Search for plugins...' value={query} onChange={e => setQuery(e.target.value)} />
+                        <input
+                            type="text"
+                            className='search-plugins-input'
+                            placeholder={t('settings.plugins.search_placeholder')}
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                        />
                     </div>
 
                     <div className='plugins-result-list'>
-                        <p className='section-subtitle'>{query.trim() ? 'Search results' : 'Top packages'}</p>
+                        <p className='section-subtitle'>{query.trim() ? t('settings.plugins.search_results') : t('settings.plugins.top_packages')}</p>
 
                         {isLoading ? (
-                            <p className="packages-status">Loading...</p>
+                            <p className="packages-status">{t('common.loading')}</p>
                         ) : packages.length === 0 ? (
-                            <p className="packages-status">No packages found.</p>
+                            <p className="packages-status">{t('settings.plugins.no_packages')}</p>
                         ) : (
                             <div className="profile-packages-list">
                                 {packages.map((pkg: any) => (
@@ -338,7 +346,7 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
                                                     (!pkg.backend_version || installed?.backendVersion === pkg.backend_version) &&
                                                     (!pkg.frontend_version || installed?.frontendVersion === pkg.frontend_version);
                                                 if (installed && versionMatch) {
-                                                    return <span className="pkg-installed-badge">Installed</span>;
+                                                    return <span className="pkg-installed-badge">{t('settings.plugins.badge.installed')}</span>;
                                                 }
                                                 return (
                                                     <button
@@ -347,7 +355,7 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
                                                         disabled={!!installingPkgs[pkg.package_id]}
                                                     >
                                                         <Plus className="pkg-install-btn-icon" />
-                                                        {installingPkgs[pkg.package_id] ? 'Installing…' : installed ? 'Update' : 'Install'}
+                                                        {t(installingPkgs[pkg.package_id] ? 'settings.plugins.badge.installing' : installed ? 'settings.plugins.badge.update' : 'settings.plugins.badge.install')}
                                                     </button>
                                                 );
                                             })()}

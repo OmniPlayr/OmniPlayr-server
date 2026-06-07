@@ -10,7 +10,8 @@ import {
     Power,
     FileText,
     Users,
-    Terminal as TerminalIcon
+    Terminal as TerminalIcon,
+    Languages
 } from "lucide-react";
 
 import './styles/Settings.css';
@@ -26,6 +27,8 @@ import Plugins from "./settings/Plugins";
 import Profile from "./settings/Profile";
 import Config from "./settings/Config";
 import OtherPeople from "./settings/OtherPeople";
+import Language from "./settings/Language";
+import { useTranslation } from 'react-i18next';
 
 function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteractionRequired }: any) {
     const navigate = useNavigate();
@@ -33,6 +36,8 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
 
     const segments = location.pathname.split("/").filter(Boolean);
     const stack = segments.slice(1);
+
+    const { t } = useTranslation();
 
     const isVisible = (tab: any) => {
         if (!tab.condition) return true;
@@ -43,34 +48,34 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
         {
             id: "plugins",
             icon: Blocks,
-            title: "Plugins",
-            description: "Modify your OmniPlayr experience by using plugins",
+            title: t("settings.tab.plugins"),
+            description: t("settings.tab.plugins.desc"),
             component: () => <Plugins isAdmin={account?.role === "admin"} />
         },
         {
             id: "accounts",
             icon: User,
-            title: "People",
-            description: "Manage your accounts"
+            title: t("settings.tab.people"),
+            description: t("settings.tab.people.desc"),
         },
         {
             id: "appearance",
             icon: Palette,
-            title: "Appearance",
-            description: "Modify the looks and feel of OmniPlayr"
+            title: t("settings.tab.appearance"),
+            description: t("settings.tab.appearance.desc"),
         },
         {
             id: "system",
             icon: SettingsIcon,
-            title: "System",
-            description: "Check logs, reboot your system and modify config files",
+            title: t("settings.tab.system"),
+            description: t("settings.tab.system.desc"),
             condition: () => account?.role === "admin"
         },
         {
             id: "about",
             icon: Info,
-            title: "About",
-            description: "Version information, credits, and more",
+            title: t("settings.tab.about"),
+            description: t("settings.tab.about.desc"),
             component: () => <About updateAvailable={updateAvailable} onRefreshCheck={onRefreshCheck} />
         }
     ];
@@ -80,55 +85,62 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             {
                 id: "theme",
                 icon: SunMoon,
-                title: "Theme",
-                description: "Change how OmniPlayr looks",
+                title: t("settings.tab.appearance.theme"),
+                description: t("settings.tab.appearance.theme.desc"),
                 component: () => <Theme />
             },
             {
                 id: "colors",
                 icon: Palette,
-                title: "Colors",
-                description: "Customize accent colors",
+                title: t("settings.tab.appearance.colors"),
+                description: t("settings.tab.appearance.colors.desc"),
                 component: () => <Colors />
             },
             {
                 id: "fonts",
                 icon: CaseSensitive,
-                title: "Fonts",
-                description: "Adjust typography",
+                title: t("settings.tab.appearance.fonts"),
+                description: t("settings.tab.appearance.fonts.desc"),
                 component: () => <Fonts />
+            },
+            {
+                id: "language",
+                icon: Languages,
+                title: t("settings.tab.appearance.language"),
+                description: t("settings.tab.appearance.language.desc"),
+                component: () => <Language />
             }
         ],
         system: [
             {
                 id: "logs",
                 icon: Info,
-                title: "Logs",
-                description: "View system logs",
+                title: t("settings.tab.system.logs"),
+                description: t("settings.tab.system.logs.desc"),
                 component: () => <Logs />,
                 condition: () => account?.role === "admin"
             },
             {
                 id: "power-options",
                 icon: Power,
-                title: "Power Options",
-                description: "Reboot, shutdown, safe mode and more",
+                title: t("settings.tab.system.power"),
+                description: t("settings.tab.system.power.desc"),
                 component: () => <PowerOptions />,
                 condition: () => account?.role === "admin"
             },
             {
                 id: "terminal",
                 icon: TerminalIcon,
-                title: "Terminal",
-                description: "Run commands on the server",
+                title: t("settings.tab.system.terminal"),
+                description: t("settings.tab.system.terminal.desc"),
                 component: () => <TerminalPage />,
                 condition: () => account?.role === "admin"
             },
             {
                 id: "config",
                 icon: FileText,
-                title: "Config",
-                description: "Edit configuration files",
+                title: t("settings.tab.system.config"),
+                description: t("settings.tab.system.config.desc"),
                 component: () => <Config />,
                 condition: () => account?.role === "admin"
             }
@@ -137,15 +149,15 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             {
                 id: "profile",
                 icon: User,
-                title: "Profile",
-                description: "Edit your profile",
+                title: t("settings.tab.people.profile"),
+                description: t("settings.tab.people.profile.desc"),
                 component: () => <Profile />
             },
             {
                 id: "other-people",
                 icon: Users,
-                title: "Other People",
-                description: "Manage other accounts",
+                title: t("settings.tab.people.other"),
+                description: t("settings.tab.people.other.desc"),
                 component: () => <OtherPeople />,
                 condition: () => account?.role === "admin"
             }
@@ -231,7 +243,7 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             {stack.length === 1 && hasSubTabs(currentSection) && (
                 <>
                     <button className="settings-back" onClick={goBack} data-type="secondary">
-                        <ArrowLeft size={16} /> Back
+                        <ArrowLeft size={16} /> {t("common.back")}
                     </button>
                     <div className="settings-tabs">
 
@@ -262,7 +274,7 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             {ActiveComponent && (
                 <div className="settings-content">
                     <button className="settings-back" onClick={goBack} data-type="secondary">
-                        <ArrowLeft size={16} /> Back
+                        <ArrowLeft size={16} /> {t("common.back")}
                     </button>
 
                     <ActiveComponent />

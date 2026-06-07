@@ -1,3 +1,4 @@
+import './i18n'
 import { StrictMode, useEffect, useState, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'

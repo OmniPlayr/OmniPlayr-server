@@ -1,5 +1,6 @@
 import api from "../modules/api";
 import { useEffect, useState, useRef, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, TriangleAlert, Search, Link, Save, RotateCcw, Zap } from "lucide-react";
 import "../styles/settings/Config.css";
 import { Tooltip } from "react-tooltip";
@@ -31,7 +32,7 @@ function getConfigIcon(file: string) {
     }
 }
 
-function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
+function renderFieldInput(fieldData: any, onChange: (v: any) => void, t: (key: string) => string) {
     const value = fieldData.value;
     const type: string | undefined = fieldData.type;
     const inValues: string[] | undefined = fieldData.in_values;
@@ -97,7 +98,7 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
                             className={`config-field-button ${isActive ? "active" : ""}`}
                             onClick={() => onChange(label === "True")}
                         >
-                            {label}
+                            {t(`settings.config.field.${label.toLowerCase()}`)}
                         </button>
                     );
                 })}
@@ -227,6 +228,7 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void) {
 }
 
 function ConfigEditor({ data }: { data: any }) {
+    const { t } = useTranslation();
     const [localData, setLocalData] = useState<any>(data.data);
     const [originalData] = useState<any>(() => JSON.parse(JSON.stringify(data.data)));
     const [saving, setSaving] = useState(false);
@@ -292,9 +294,9 @@ function ConfigEditor({ data }: { data: any }) {
                 false,
                 "PUT"
             );
-            makeToast({ message: "Saved successfully, please restart your system for changes to take effect", style: "default" });
+            makeToast({ message: t('settings.config.toast.saved'), style: "default" });
         } catch (e: any) {
-            makeToast({ message: e?.message ?? "Failed to save", style: "default-error" });
+            makeToast({ message: e?.message ?? t('settings.config.toast.save_failed'), style: "default-error" });
         } finally {
             setSaving(false);
         }
@@ -324,24 +326,24 @@ function ConfigEditor({ data }: { data: any }) {
                     <div className="config-field-type">{displayType}</div>
                     <Tooltip id={`tooltip-${fieldKey}`} />
                     {isLive && (
-                        <span className="config-field-live-badge" data-tooltip-content="Changes apply without restart" data-tooltip-id={`tooltip-${fieldKey}`}>
+                        <span className="config-field-live-badge" data-tooltip-content={t('settings.config.field.live_tooltip')} data-tooltip-id={`tooltip-${fieldKey}`}>
                             <Zap size={10} />
-                            live
+                            {t('settings.config.field.live')}
                         </span>
                     )}
                     {!isModified ? (
-                        <span className="config-field-default-badge">default</span>
+                        <span className="config-field-default-badge">{t('settings.config.field.default')}</span>
                     ) : (
                         <button className="config-field-restore" onClick={() => handleRestore(section, key, fieldData)}>
                             <RotateCcw size={12} />
-                            Restore
+                            {t('settings.config.field.restore')}
                         </button>
                     )}
                 </div>
                 {fieldData.comment && (
                     <div className="config-field-comment">{fieldData.comment}</div>
                 )}
-                {renderFieldInput(fieldData, v => handleChange(section, key, v))}
+                {renderFieldInput(fieldData, v => handleChange(section, key, v), t)}
             </div>
         );
     }
@@ -386,14 +388,14 @@ function ConfigEditor({ data }: { data: any }) {
             </div>
 
             <div className={`config-unsaved-banner${isDirty ? " visible" : ""}`}>
-                <span className="config-unsaved-text">Careful, you have unsaved changes</span>
+                <span className="config-unsaved-text">{t('settings.config.unsaved')}</span>
                 <div className="config-unsaved-actions">
                     <button className="config-unsaved-reset" onClick={handleResetAll} disabled={saving}>
-                        Reset all
+                        {t('settings.config.reset_all')}
                     </button>
                     <button className="config-unsaved-save" onClick={handleSave} disabled={saving}>
                         <Save size={14} />
-                        {saving ? "Saving…" : "Save changes"}
+                        {saving ? t('settings.config.saving') : t('settings.config.save_changes')}
                     </button>
                 </div>
             </div>
@@ -421,11 +423,13 @@ interface SearchGroup {
 }
 
 function SearchResults({ groups, source }: { groups: SearchGroup[]; source: string }) {
+    const { t } = useTranslation();
+
     if (groups.length === 0) {
         return (
             <div className="config-main-empty">
                 <Search className="config-empty-icon" />
-                <p className="config-empty-text">No matching config keys found</p>
+                <p className="config-empty-text">{t('settings.config.no_results')}</p>
             </div>
         );
     }
@@ -448,9 +452,9 @@ function SearchResults({ groups, source }: { groups: SearchGroup[]; source: stri
                                         <div className="config-field-key">{match.key.charAt(0).toUpperCase() + match.key.slice(1).replaceAll("_", " ")}</div>
                                         <div className="config-field-type">{displayType}</div>
                                         {match.liveupdate && (
-                                            <span className="config-field-live-badge" title="Changes apply without restart">
+                                            <span className="config-field-live-badge" title={t('settings.config.field.live_tooltip')}>
                                                 <Zap size={10} />
-                                                live
+                                                {t('settings.config.field.live')}
                                             </span>
                                         )}
                                     </div>
@@ -458,11 +462,11 @@ function SearchResults({ groups, source }: { groups: SearchGroup[]; source: stri
                                         <div className="config-field-comment">{match.comment}</div>
                                     )}
                                     <div className="config-field-search-value">
-                                        <span className="config-field-search-label">value</span>
+                                        <span className="config-field-search-label">{t('settings.config.field.value')}</span>
                                         <span className="config-field-search-val">{JSON.stringify(match.value)}</span>
                                         {match.default !== undefined && match.value !== match.default && (
                                             <>
-                                                <span className="config-field-search-label">default</span>
+                                                <span className="config-field-search-label">{t('settings.config.field.default')}</span>
                                                 <span className="config-field-search-val config-field-search-val--dim">{JSON.stringify(match.default)}</span>
                                             </>
                                         )}
@@ -478,6 +482,7 @@ function SearchResults({ groups, source }: { groups: SearchGroup[]; source: stri
 }
 
 function Config() {
+    const { t } = useTranslation();
     const [configList, setConfigList] = useState<{ backend: string[]; frontend: string[] } | null>(cachedConfigList);
     const [selected, setSelected] = useState<{ file: string; source: string } | null>(null);
     const [configData, setConfigData] = useState<any>(null);
@@ -567,7 +572,7 @@ function Config() {
         if (searchLoading) {
             mainContent = (
                 <div className="config-main-empty">
-                    <p className="config-empty-text">Searching…</p>
+                    <p className="config-empty-text">{t('settings.config.searching')}</p>
                 </div>
             );
         } else if (searchResults !== null) {
@@ -576,7 +581,7 @@ function Config() {
             mainContent = (
                 <div className="config-main-empty">
                     <Search className="config-empty-icon" />
-                    <p className="config-empty-text">Type a value after the colon to search</p>
+                    <p className="config-empty-text">{t('settings.config.empty.type_value')}</p>
                 </div>
             );
         }
@@ -584,13 +589,13 @@ function Config() {
         mainContent = (
             <div className="config-main-empty">
                 <FileSliders className="config-empty-icon" />
-                <p className="config-empty-text">Select a config file to edit</p>
+                <p className="config-empty-text">{t('settings.config.empty.select_file')}</p>
             </div>
         );
     } else if (!configData) {
         mainContent = (
             <div className="config-main-empty">
-                <p className="config-empty-text">Loading…</p>
+                <p className="config-empty-text">{t('settings.config.empty.loading')}</p>
             </div>
         );
     } else {
@@ -601,7 +606,7 @@ function Config() {
         <div className="config-section">
             <div className="config-warning">
                 <TriangleAlert className="config-warning-icon" />
-                <p className="config-warning-text">These settings are advanced settings, you should not modify it unless you know what you are doing.</p>
+                <p className="config-warning-text">{t('settings.config.warning')}</p>
             </div>
             <div className="config-section-content">
                 <div className="config-section-sidebar">
@@ -610,7 +615,7 @@ function Config() {
                         <input
                             ref={searchRef}
                             className="config-search"
-                            placeholder="Search… (e.g. type:string)"
+                            placeholder={t('settings.config.search_placeholder')}
                             value={search}
                             onChange={e => handleSearchChange(e.target.value)}
                             onBlur={() => setTimeout(() => setShowAC(false), 150)}
@@ -640,7 +645,7 @@ function Config() {
                                     className={`config-search-source-btn${searchSource === src ? " active" : ""}`}
                                     onClick={() => setSearchSource(src)}
                                 >
-                                    {src}
+                                    {t(`settings.config.source.${src}`)}
                                 </button>
                             ))}
                         </div>
@@ -648,7 +653,7 @@ function Config() {
 
                     {allBackend.length > 0 && (
                         <>
-                            <div className="config-sidebar-group-label">Backend</div>
+                            <div className="config-sidebar-group-label">{t('settings.config.source.backend')}</div>
                             {backendFiltered.map(c => (
                                 <div
                                     key={c.file}
@@ -667,7 +672,7 @@ function Config() {
 
                     {allFrontend.length > 0 && (
                         <>
-                            <div className="config-sidebar-group-label">Frontend</div>
+                            <div className="config-sidebar-group-label">{t('settings.config.source.frontend')}</div>
                             {frontendFiltered.map(c => (
                                 <div
                                     key={c.file}

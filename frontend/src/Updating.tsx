@@ -2,11 +2,15 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from './modules/api';
 
+import { useTranslation } from 'react-i18next';
+
 export default function Updating() {
     const navigate = useNavigate();
     const location = useLocation();
 
     const force = new URLSearchParams(location.search).get('force') === 'true';
+  
+    const { t } = useTranslation()
 
     async function loadServerInfo() {
         return await api('/info/server') as any[];
@@ -49,8 +53,8 @@ export default function Updating() {
                     }
                 `}
             </style>
-            <h1>Server is updating</h1>
-            <p>The system is currently updating, you will be redirected back when the update is complete.</p>
+            <h1>{t('updating.title')}</h1>
+            <p>{t('updating.comment')}</p>
         </div>
     );
 }

@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNotificationsContext } from './modules/NotificationsContext'
 import { toAction } from './modules/useNotifications'
+import { useTranslation } from 'react-i18next';
 
 interface HeaderProps {
     canGoBack: boolean;
@@ -25,6 +26,8 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
     const popupRef = useRef<HTMLDivElement>(null);
     const bellRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+
+    const {t} = useTranslation();
 
     useEffect(() => {
         if (!popupOpen) return;
@@ -105,11 +108,11 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
 
         const days = diffDays(dateStr);
 
-        if (days === 0) return "Today";
-        if (days === 1) return "Yesterday";
-        if (days <= 6) return `${days} days ago`;
-        if (days <= 30) return "1 week ago";
-        if (days <= 90) return "1 month ago";
+        if (days === 0) return t('common.today');
+        if (days === 1) return t('common.yesterday');
+        if (days <= 6) return t('common.daysAgo', { days: days });
+        if (days <= 30) return t('common.weeksAgo', { weeks: Math.ceil(days / 7) });
+        if (days <= 90) return t('common.monthsAgo', { months: Math.ceil(days / 30) });
 
         return d.toLocaleDateString();
     };
@@ -137,7 +140,7 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         if (days === 0) return time;
-        if (days === 1) return `Yesterday ${time}`;
+        if (days === 1) return t('common.yesterday.time', { time: time });
 
         return time;
     };
@@ -169,13 +172,13 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
                 {updateAvailable && (
                     <div className="header-update-badge" onClick={onUpdateClick}>
                         <RefreshCw size={12} className="spin-hover" />
-                        Update Ready
+                        {t('header.update')}
                     </div>
                 )}
                 {safeMode && (
                     <div className="header-safe-mode-badge">
                         <ShieldAlert size={12} />
-                        Safe Mode
+                        {t('header.safemode')}
                     </div>
                 )}
                 <div className="header-notifications-wrapper" ref={bellRef}>
@@ -189,10 +192,10 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
 
                     {popupOpen && (
                         <div className="desktop-notifications-popup" ref={popupRef}>
-                            <div className="desktop-notifications-popup-header">Notifications</div>
+                            <div className="desktop-notifications-popup-header">{t('notifications.title')}</div>
                             <div className="desktop-notifications-popup-list">
                                 {notifications.length === 0 ? (
-                                    <p className="desktop-notifications-empty">It's a little empty here...</p>
+                                    <p className="desktop-notifications-empty">{t('notifications.empty')}</p>
                                 ) : (Object.entries(groupedNotifications).map(([group, items]) => (
                                     <div key={group} className="desktop-notification-group">
                                         <div className="desktop-notification-group-header">
@@ -248,7 +251,7 @@ function Header({ canGoBack, canGoForward, onBack, onForward, onMenuToggle, isMo
                                                                     }}
                                                                 >
                                                                     <Trash2 size={12} />
-                                                                    Delete
+                                                                    {t('notifications.delete')}
                                                                 </button>
                                                             </div>
                                                         )}

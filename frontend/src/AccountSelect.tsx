@@ -3,6 +3,7 @@ import api from "./modules/api";
 import "./styles/AccountSelect.css";
 import defaultPfp from "./assets/images/default-pfp-dark.svg";
 import { storeAccount } from "./modules/account";
+import { useTranslation } from "react-i18next";
 
 async function loadAccounts() {
     return await api("get_accounts") as any[];
@@ -18,6 +19,8 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
     const [loaded, setLoaded] = useState(false);
     const [selected, setSelected] = useState<string | null>(null);
     const [fadingOut, setFadingOut] = useState(false);
+
+    const { t } = useTranslation();
 
     useEffect(() => {
         loadAccounts()
@@ -52,7 +55,7 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
     
     return (
         <div className={`account-select ${loaded ? "active" : ""} ${fadingOut ? "fading-out" : ""}`} style={{ pointerEvents: selected ? "none" : "auto" }}>
-            <h1>Who's listening?</h1>
+            <h1>{t('accountSelect.title')}</h1>
             <div className="account-select-options">
                 {accounts.map((a, i) => (
                     <div

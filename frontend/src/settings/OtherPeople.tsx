@@ -1,5 +1,6 @@
 import api from "../modules/api";
 import { useEffect, useState, useRef } from "react";
+import { useTranslation } from 'react-i18next';
 import '../styles/settings/OtherPeople.css';
 import defaultPfp from '../assets/images/default-pfp-dark.svg';
 import { Fullscreen, Grid2x2, ImageOff, RotateCcwKey, Rows3, Search, Shield, Trash2, User, UserPlus } from "lucide-react";
@@ -27,6 +28,7 @@ async function editRole(profile: any, role: string) {
 }
 
 function OtherPeople() {
+    const { t } = useTranslation();
     const [profiles, setProfiles] = useState<any>(cachedProfiles);
     const [viewType, setViewType] = useState('grid');
     const [searchQuery, setSearchQuery] = useState('');
@@ -208,18 +210,18 @@ function OtherPeople() {
 
     return (
         <>
-            {!profiles || !account && <div>Loading...</div>}
+            {!profiles || !account && <div>{t('common.loading')}</div>}
             {profiles && account &&
                 <div className='other-people-section'>
                     <div className={'other-people-grid ' + viewType}>
                         <div className='other-people-grid-filter-options'>
                             <Tooltip id="view-type-tooltip" />
-                            <div className="view-type" data-tooltip-id="view-type-tooltip" data-tooltip-content="Change view">
+                            <div className="view-type" data-tooltip-id="view-type-tooltip" data-tooltip-content={t('settings.people.other.tooltip.change_view')}>
                                 {viewType === 'grid' ? <Rows3 className='view-type-icon' onClick={() => setViewType('list')} /> : <Grid2x2 className='view-type-icon' onClick={() => setViewType('grid')} />}
                             </div>
                             <div className="filter-search-bar">
                                 <Search className="filter-search-icon" />
-                                <input type="text" placeholder="Search..." className="filter-search-input" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}/>
+                                <input type="text" placeholder={t('settings.people.other.search_placeholder')} className="filter-search-input" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}/>
                             </div>
                         </div>
                         {profiles.map((profile: any) => {
@@ -247,8 +249,8 @@ function OtherPeople() {
                                 <UserPlus className='other-people-profile-icon other-people-profile-icon-add' />
                             </div>
                             <div className='other-people-profile-info other-people-profile-info-add'>
-                                <div className='other-people-profile-nickname'>New User</div>
-                                <div className='other-people-profile-name'>Create a new user</div>
+                                <div className='other-people-profile-nickname'>{t('settings.people.other.new_user')}</div>
+                                <div className='other-people-profile-name'>{t('settings.people.other.create_desc')}</div>
                             </div>
                         </div>
                     </div>
@@ -262,7 +264,7 @@ function OtherPeople() {
                         {!selectedProfile && 
                             <div className='other-people-mod-view-empty'>
                                 <User className='other-people-mod-view-empty-icon' />
-                                <p className="other-people-mod-view-empty-text">Select a profile to edit</p>
+                                <p className="other-people-mod-view-empty-text">{t('settings.people.other.select')}</p>
                             </div>
                         }
 
@@ -277,32 +279,32 @@ function OtherPeople() {
                                 </div>
                                 <div className='other-people-mod-view-actions'>
                                     <div className="opmva-group">
-                                        <p className="opmva-group-title">Account Options</p>
+                                        <p className="opmva-group-title">{t('settings.people.other.section.account_options')}</p>
                                         <div className="opmva-group-options">
                                             { account?.id !== selectedProfile?.id &&
                                                 <div className="opmva-group-option" onClick={openRolePopup}>
                                                     <Shield className="opmva-group-option-icon" />
-                                                    <div className="opmva-group-option-text">Edit Role</div>
+                                                    <div className="opmva-group-option-text">{t('settings.people.other.action.edit_role')}</div>
                                                 </div>
                                             }
                                             <div className="opmva-group-option danger" onClick={openConfirmDeletePfp}>
                                                 <ImageOff className="opmva-group-option-icon" />
-                                                <div className="opmva-group-option-text">Remove Profile Picture</div>
+                                                <div className="opmva-group-option-text">{t('settings.people.other.action.remove_pfp')}</div>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="opmva-group">
-                                        <p className="opmva-group-title">Actions</p>
+                                        <p className="opmva-group-title">{t('settings.people.other.section.actions')}</p>
                                         <div className="opmva-group-options">
                                             { account?.id !== selectedProfile?.id &&
                                                 <div className="opmva-group-option danger" onClick={openConfirmDeletion}>
                                                     <Trash2 className="opmva-group-option-icon" />
-                                                    <div className="opmva-group-option-text">Delete Account</div>
+                                                    <div className="opmva-group-option-text">{t('settings.people.other.action.delete_account')}</div>
                                                 </div>
                                             }
                                             <div className="opmva-group-option danger" onClick={openConfirmRevoke}>
                                                 <RotateCcwKey className="opmva-group-option-icon" />
-                                                <div className="opmva-group-option-text">Revoke All Tokens</div>
+                                                <div className="opmva-group-option-text">{t('settings.people.other.action.revoke_tokens')}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -316,27 +318,27 @@ function OtherPeople() {
             {rolePopup.open &&
                 <div className='role-popup-overlay' onClick={closeRolePopup}>
                     <div className='role-popup' onClick={e => e.stopPropagation()}>
-                        <p className='role-popup-title'>Edit Role</p>
-                        <p className='role-popup-subtitle'>Select a role for @{selectedProfile?.name}</p>
+                        <p className='role-popup-title'>{t('settings.people.other.role.title')}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.role.subtitle', { name: selectedProfile?.name })}</p>
                         <div className='role-popup-options'>
                             <div
                                 className={'role-popup-option ' + (rolePopup.pendingRole === 'user' ? 'selected' : '')}
                                 onClick={() => setRolePopup(prev => ({ ...prev, pendingRole: 'user' }))}
                             >
                                 <User className='role-popup-option-icon' />
-                                <div className='role-popup-option-text'>User</div>
+                                <div className='role-popup-option-text'>{t('settings.people.other.role.user')}</div>
                             </div>
                             <div
                                 className={'role-popup-option ' + (rolePopup.pendingRole === 'admin' ? 'selected' : '')}
                                 onClick={() => setRolePopup(prev => ({ ...prev, pendingRole: 'admin' }))}
                             >
                                 <Shield className='role-popup-option-icon' />
-                                <div className='role-popup-option-text'>Admin</div>
+                                <div className='role-popup-option-text'>{t('settings.people.other.role.admin')}</div>
                             </div>
                         </div>
                         <div className='role-popup-actions'>
-                            <div className='role-popup-btn cancel' onClick={closeRolePopup}>Cancel</div>
-                            <div className='role-popup-btn apply' onClick={applyRole}>Apply</div>
+                            <div className='role-popup-btn cancel' onClick={closeRolePopup}>{t('common.cancel')}</div>
+                            <div className='role-popup-btn apply' onClick={applyRole}>{t('settings.people.other.role.apply')}</div>
                         </div>
                     </div>
                 </div>
@@ -345,13 +347,13 @@ function OtherPeople() {
             {confirmDeletion.open &&
                 <div className='role-popup-overlay' onClick={closeConfirmDeletion}>
                     <div className='role-popup' onClick={e => e.stopPropagation()}>
-                        <p className='role-popup-title'>Delete '{selectedProfile?.name}'?</p>
-                        <p className='role-popup-subtitle'>Are you sure you want to delete this account? This action cannot be undone.</p>
-                        <p className='role-popup-subtitle'>All data associated with this account will be permanently deleted and cannot be recovered.</p>
-                        <p className='role-popup-subtitle'>This user will also be logged out of all devices.</p>
+                        <p className='role-popup-title'>{t('settings.people.other.delete.title', { name: selectedProfile?.name })}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.delete.desc1')}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.delete.desc2')}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.delete.desc3')}</p>
                         <div className='role-popup-actions'>
-                            <div className='role-popup-btn cancel' onClick={closeConfirmDeletion}>Cancel</div>
-                            <div className='role-popup-btn danger' onClick={applyDeletion}>Confirm Deletion</div>
+                            <div className='role-popup-btn cancel' onClick={closeConfirmDeletion}>{t('common.cancel')}</div>
+                            <div className='role-popup-btn danger' onClick={applyDeletion}>{t('settings.people.other.delete.confirm')}</div>
                         </div>
                     </div>
                 </div>
@@ -360,12 +362,12 @@ function OtherPeople() {
             {confirmRevoke.open &&
                 <div className='role-popup-overlay' onClick={closeConfirmRevoke}>
                     <div className='role-popup' onClick={e => e.stopPropagation()}>
-                        <p className='role-popup-title'>Revoke all tokens for '{selectedProfile?.name}'?</p>
-                        <p className='role-popup-subtitle'>Are you sure you want to revoke all tokens for this account? This action cannot be undone.</p>
-                        <p className='role-popup-subtitle'>This user will be logged out of all devices. And all tokens will be revoked.</p>
+                        <p className='role-popup-title'>{t('settings.people.other.revoke.title', { name: selectedProfile?.name })}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.revoke.desc1')}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.revoke.desc2')}</p>
                         <div className='role-popup-actions'>
-                            <div className='role-popup-btn cancel' onClick={closeConfirmRevoke}>Cancel</div>
-                            <div className='role-popup-btn danger' onClick={applyRevoke}>Revoke Tokens</div>
+                            <div className='role-popup-btn cancel' onClick={closeConfirmRevoke}>{t('common.cancel')}</div>
+                            <div className='role-popup-btn danger' onClick={applyRevoke}>{t('settings.people.other.revoke.confirm')}</div>
                         </div>
                     </div>
                 </div>
@@ -374,12 +376,12 @@ function OtherPeople() {
             {confirmDeletePfp.open &&
                 <div className='role-popup-overlay' onClick={closeConfirmDeletePfp}>
                     <div className='role-popup' onClick={e => e.stopPropagation()}>
-                        <p className='role-popup-title'>Remove profile picture for '{selectedProfile?.name}'?</p>
-                        <p className='role-popup-subtitle'>Are you sure you want to remove the profile picture for this account? This action cannot be undone.</p>
-                        <p className='role-popup-subtitle'>The user will need to upload a new profile picture.</p>
+                        <p className='role-popup-title'>{t('settings.people.other.remove_pfp.title', { name: selectedProfile?.name })}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.remove_pfp.desc1')}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.remove_pfp.desc2')}</p>
                         <div className='role-popup-actions'>
-                            <div className='role-popup-btn cancel' onClick={closeConfirmDeletePfp}>Cancel</div>
-                            <div className='role-popup-btn danger' onClick={applyDeletePfp}>Remove Profile Picture</div>
+                            <div className='role-popup-btn cancel' onClick={closeConfirmDeletePfp}>{t('common.cancel')}</div>
+                            <div className='role-popup-btn danger' onClick={applyDeletePfp}>{t('settings.people.other.remove_pfp.confirm')}</div>
                         </div>
                     </div>
                 </div>
@@ -388,8 +390,8 @@ function OtherPeople() {
             {createPopup.open &&
                 <div className='role-popup-overlay' onClick={closeCreatePopup}>
                     <div className='role-popup' onClick={e => e.stopPropagation()}>
-                        <p className='role-popup-title'>Create Account</p>
-                        <p className='role-popup-subtitle'>Fill in the details for the new user.</p>
+                        <p className='role-popup-title'>{t('settings.people.other.create.title')}</p>
+                        <p className='role-popup-subtitle'>{t('settings.people.other.create.subtitle')}</p>
 
                         <div className='create-popup-avatar-row'>
                             <label className='create-popup-avatar-upload' htmlFor="create-avatar-input">
@@ -402,7 +404,7 @@ function OtherPeople() {
                             <input
                                 className='create-popup-name-input'
                                 type='text'
-                                placeholder='Username...'
+                                placeholder={t('settings.people.other.create.username_placeholder')}
                                 value={createPopup.name}
                                 onChange={e => setCreatePopup(prev => ({ ...prev, name: e.target.value }))}
                             />
@@ -414,20 +416,20 @@ function OtherPeople() {
                                 onClick={() => setCreatePopup(prev => ({ ...prev, role: 'user' }))}
                             >
                                 <User className='role-popup-option-icon' />
-                                <div className='role-popup-option-text'>User</div>
+                                <div className='role-popup-option-text'>{t('settings.people.other.role.user')}</div>
                             </div>
                             <div
                                 className={'role-popup-option ' + (createPopup.role === 'admin' ? 'selected' : '')}
                                 onClick={() => setCreatePopup(prev => ({ ...prev, role: 'admin' }))}
                             >
                                 <Shield className='role-popup-option-icon' />
-                                <div className='role-popup-option-text'>Admin</div>
+                                <div className='role-popup-option-text'>{t('settings.people.other.role.admin')}</div>
                             </div>
                         </div>
 
                         <div className='role-popup-actions'>
-                            <div className='role-popup-btn cancel' onClick={closeCreatePopup}>Cancel</div>
-                            <div className={'role-popup-btn apply ' + (!createPopup.name.trim() ? 'disabled' : '')} onClick={applyCreate}>Create</div>
+                            <div className='role-popup-btn cancel' onClick={closeCreatePopup}>{t('common.cancel')}</div>
+                            <div className={'role-popup-btn apply ' + (!createPopup.name.trim() ? 'disabled' : '')} onClick={applyCreate}>{t('settings.people.other.create.confirm')}</div>
                         </div>
                     </div>
                 </div>

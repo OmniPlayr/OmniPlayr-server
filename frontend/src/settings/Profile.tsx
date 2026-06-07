@@ -5,6 +5,7 @@ import defaultPfp from '../assets/images/default-pfp-dark.svg';
 import { Tooltip } from 'react-tooltip';
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, Pencil, Upload, X } from 'lucide-react';
 import { getAccount } from '../modules/account';
+import { useTranslation } from 'react-i18next';
 
 let cachedAccount: any = null;
 let fetchPromise: Promise<any> | null = null;
@@ -17,11 +18,11 @@ async function loadAccount() {
     return cachedAccount;
 }
 
-function parseDevice(userAgent: string | null): { name: string; browser: string } {
-    if (!userAgent) return { name: 'Unknown Device', browser: 'Unknown Browser' };
+function parseDevice(userAgent: string | null, t: any): { name: string; browser: string } {
+    if (!userAgent) return { name: t('settings.profile.device_unknown'), browser: t('settings.profile.browser_unknown') };
 
-    let name = 'Unknown Device';
-    let browser = 'Unknown Browser';
+    let name = t('settings.profile.device_unknown');
+    let browser = t('settings.profile.browser_unknown');
 
     const arch = /Win64|x64|WOW64/.test(userAgent) ? ' 64-bit' : /x86/.test(userAgent) ? ' 32-bit' : '';
 
@@ -86,6 +87,8 @@ function Profile() {
     const [editAvatar, setEditAvatar] = useState<string | null>(null);
 
     const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    const { t } = useTranslation();
 
     useEffect(() => {
         if (account) return;
@@ -158,8 +161,8 @@ function Profile() {
         switch (sort.key) {
             case 'token': return a.token.localeCompare(b.token) * dir;
             case 'device': {
-                const da = parseDevice(a.user_agent);
-                const db = parseDevice(b.user_agent);
+                const da = parseDevice(a.user_agent, t);
+                const db = parseDevice(b.user_agent, t);
                 return `${da.name} ${da.browser}`.localeCompare(`${db.name} ${db.browser}`) * dir;
             }
             case 'date': return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
@@ -173,7 +176,7 @@ function Profile() {
 
     return (
         <>
-            {!account && <div>Loading...</div>}
+            {!account && <div>{t('common.loading')}</div>}
             {account &&
                 <div className='profile-section'>
                     <div className='profile-preview'>
@@ -195,7 +198,7 @@ function Profile() {
                                     className='profile-edit-nickname'
                                     value={editNickname}
                                     onChange={e => setEditNickname(e.target.value)}
-                                    placeholder='Display name'
+                                    placeholder={t('settings.profile.nickname.placeholder')}
                                     maxLength={64}
                                 />
                                 : <div className='profile-section-info-nickname'>{account.nickname || account.name}</div>
@@ -203,11 +206,11 @@ function Profile() {
                             <div className='profile-section-info-name'>@{account.name}</div>
                         </div>
                         <div className='profile-section-about'>
-                            <p className='profile-section-about-title'>About Me</p>
+                            <p className='profile-section-about-title'>{t('settings.profile.about')}</p>
                             <div className='profile-section-about-pills'>
                                 <Tooltip id="pill-tooltip" />
-                                <span className='profile-section-about-pill' data-tooltip-id="pill-tooltip" data-tooltip-content="This is your role on OmniPlayr">{account?.role}</span>
-                                <span className='profile-section-about-pill' data-tooltip-id="pill-tooltip" data-tooltip-content="This is when you created your account">{account?.created_at && new Date(account.created_at).toLocaleDateString(undefined, {
+                                <span className='profile-section-about-pill' data-tooltip-id="pill-tooltip" data-tooltip-content={t('settings.profile.role.tooltip')}>{account?.role}</span>
+                                <span className='profile-section-about-pill' data-tooltip-id="pill-tooltip" data-tooltip-content={t('settings.profile.created.tooltip')}>{account?.created_at && new Date(account.created_at).toLocaleDateString(undefined, {
                                     year: 'numeric',
                                     month: 'long',
                                     day: 'numeric'
@@ -218,11 +221,11 @@ function Profile() {
                                     className='profile-edit-bio'
                                     value={editAbout}
                                     onChange={e => setEditAbout(e.target.value)}
-                                    placeholder='Write something about yourself...'
+                                    placeholder={t('settings.profile.about.placeholder')}
                                     maxLength={300}
                                     rows={4}
                                 />
-                                : <p className={'profile-section-about-bio' + (account?.about ? "" : " empty")}>{account?.about || "No bio set"}</p>
+                                : <p className={'profile-section-about-bio' + (account?.about ? "" : " empty")}>{account?.about || t('settings.profile.nobio')}</p>
                             }
                         </div>
                         <div className='profile-section-edit-buttons'>
@@ -236,7 +239,7 @@ function Profile() {
                         </div>
                     </div>
                     <div className='profile-tokens'>
-                        <p className='profile-tokens-title'>Logins</p>
+                        <p className='profile-tokens-title'>{t('settings.profile.logins')}</p>
                         <table className='profile-tokens-table'>
                             <thead>
                                 <tr>
@@ -251,7 +254,7 @@ function Profile() {
                             </thead>
                             <tbody>
                                 {sortedTokens?.map((token: any) => {
-                                    const device = parseDevice(token.user_agent);
+                                    const device = parseDevice(token.user_agent, t);
                                     const isDeleting = deletingTokens.has(token.token);
                                     return (
                                         <tr key={token.token}>
@@ -261,7 +264,7 @@ function Profile() {
                                                     <span className='profile-tokens-device-name'>{device.name} · {device.browser}</span>
                                                     <span className='profile-tokens-device-ip'>{token.ip_address ?? 'No IP'}</span>
                                                 </div>
-                                                {checkToken(token.token) && <span className='profile-tokens-this-device'>This device</span>}
+                                                {checkToken(token.token) && <span className='profile-tokens-this-device'>{t('settings.profile.logins.this_device')}</span>}
                                             </td>
                                             <td className='profile-tokens-date'>
                                                 {new Date(token.created_at).toLocaleDateString(undefined, {
@@ -270,15 +273,15 @@ function Profile() {
                                                     day: 'numeric',
                                                 })}
                                             </td>
-                                            <td>{token.password_protected ? 'Yes' : 'No'}</td>
-                                            <td>{token.revoked ? 'Yes' : 'No'}</td>
+                                            <td>{token.password_protected ? t('common.yes') : t('common.no')}</td>
+                                            <td>{token.revoked ? t('common.yes') : t('common.no')}</td>
                                             <td className='profile-tokens-revoke-cell'>
                                                 <button
                                                     className={'profile-tokens-revoke' + (isDeleting ? ' deleted' : token.revoked ? ' delete' : '')}
                                                     disabled={isDeleting}
                                                     onClick={token.revoked && !isDeleting ? () => deleteToken(token.token) : !token.revoked ? () => revokeToken(token.token) : undefined}
                                                 >
-                                                    {isDeleting ? 'Deleted' : token.revoked ? 'Delete' : 'Revoke'}
+                                                    {isDeleting ? t('common.deleted') : token.revoked ? t('common.delete') : t('common.revoke')}
                                                 </button>
                                             </td>
                                         </tr>

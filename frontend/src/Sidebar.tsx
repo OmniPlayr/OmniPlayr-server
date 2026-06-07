@@ -10,6 +10,8 @@ import { usePlugins } from './modules/usePlugins';
 import { getTabs, onPluginsLoaded, type PluginTab } from './modules/plugins';
 import { makePopup } from '@wokki20/jspt';
 
+import { useTranslation } from 'react-i18next';
+
 async function loadAccounts() {
     return await api("get_accounts") as any[];
 }
@@ -68,6 +70,9 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
     const [tabs, setTabs] = useState<PluginTab[]>([]);
+
+    const { t } = useTranslation();
+
     usePlugins();
 
     useEffect(() => {
@@ -93,7 +98,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
             {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
             <div className={`sidebar${isOpen ? " sidebar--open" : ""}`} data-component="Sidebar">
                 <div className="sidebar-header">
-                    <p className="sidebar-title">OmniPlayr</p>
+                    <p className="sidebar-title">{t("system_name")}</p>
                 </div>
                 <div className="sidebar-library-list">
 
@@ -105,7 +110,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                             onClick={() => handleTabChange(null)}
                         >
                             <House className="tab-icon" />
-                            <p className="tab-text">Home</p>
+                            <p className="tab-text">{t("sidebar.tab.home")}</p>
                         </div>
                         {tabs.map(tab => {
                             const Icon: any = tab.icon;
@@ -122,7 +127,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                         })}
                         <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => onTabChange("__settings")}>
                             <Settings className="tab-icon" />
-                            <p className="tab-text">Settings</p>
+                            <p className="tab-text">{t("sidebar.tab.settings")}</p>
                             {(settingsBadgeCount ?? 0) > 0 && (
                                 <span className="update-badge">
                                     {(settingsBadgeCount ?? 0) > 9 ? "9+" : settingsBadgeCount}
@@ -155,7 +160,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                             </>
                         }
                     </div>
-                    {isDev() && <p className="sidebar-dev" onClick={showDevPopup}>Dev Mode</p>}
+                    {isDev() && <p className="sidebar-dev" onClick={showDevPopup}>{t("sidebar.devmode")}</p>}
                 </div>
             </div>
         </>

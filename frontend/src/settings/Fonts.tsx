@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import '../styles/settings/Fonts.css';
 import fontsCSS from '../styles/fonts/default-fonts.css?raw';
+import { useTranslation } from 'react-i18next';
 
 const CATEGORIES: Record<string, string[]> = {
     'Sans-serif': ['inter', 'dm-sans', 'helvetica', 'neue-haas-grotesk', 'cabinet-grotesk', 'lato', 'source-sans-pro'],
@@ -59,6 +60,8 @@ function Fonts() {
     const [activeFont, setActiveFont] = useState(() => localStorage.getItem('font') ?? 'inter');
     const [search, setSearch] = useState('');
 
+    const {t} = useTranslation();
+
     useEffect(() => {
         applyFont(activeFont);
     }, []);
@@ -101,7 +104,7 @@ function Fonts() {
                                     className='font-option-preview'
                                     style={{ fontFamily: FONT_MAP[key] }}
                                 >
-                                    Aa
+                                    {t('settings.fonts.aa')}
                                 </div>
                                 <p className='font-option-name'>{DISPLAY_NAMES[key]}</p>
                             </div>

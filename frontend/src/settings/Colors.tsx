@@ -3,6 +3,7 @@ import { generateCssVars } from '../modules/customColor';
 import { ColorPicker } from './ColorPicker';
 import '../styles/settings/Colors.css';
 import { RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const STORAGE_KEY = 'custom_color';
 const VAR_NAMES = Array.from({ length: 6 }, (_, i) => `--clr-primary-a${i * 10}`);
@@ -39,6 +40,8 @@ function Colors() {
     const [pickerOpen, setPickerOpen] = useState(false);
     const pickerRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLDivElement>(null);
+
+    const { t } = useTranslation();
 
     useEffect(() => {
         if (isCustom) applyColor(color);
@@ -115,7 +118,7 @@ function Colors() {
             {isCustom && (
                 <button className='colors-reset' data-type='primary' onClick={handleReset}>
                     <RotateCcw size={12} />
-                    Reset to default
+                    {t('settings.colors.reset')}
                 </button>
             )}
         </div>

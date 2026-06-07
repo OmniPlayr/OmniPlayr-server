@@ -3,6 +3,7 @@ import api from '../modules/api';
 import '../styles/settings/PowerOptions.css';
 import { Power, RotateCcw, Shield, ShieldOff } from 'lucide-react';
 import { navigate } from '../modules/navigate';
+import { useTranslation } from 'react-i18next';
 
 async function waitForShutdown() {
     let alive = true;
@@ -25,6 +26,8 @@ function PowerOptions() {
     const [confirming, setConfirming] = useState<string | null>(null);
     const [actionDone, setActionDone] = useState<string | null>(null);
     const [safeModeWorking, setSafeModeWorking] = useState(false);
+
+    const { t } = useTranslation();
 
     useEffect(() => {
         api('/system/status')
@@ -78,7 +81,7 @@ function PowerOptions() {
     }
 
     if (loading) {
-        return <div className='power-options-loading'>Loading...</div>;
+        return <div className='power-options-loading'>{t('common.loading')}</div>;
     }
 
     return (
@@ -90,15 +93,15 @@ function PowerOptions() {
                         : <Shield className='power-option-icon power-option-icon--success' />
                     }
                     <div>
-                        <p className='power-option-title'>Safe Mode</p>
+                        <p className='power-option-title'>{t('settings.power.safe_mode')}</p>
                         <p className='power-option-desc'>
                             {safeMode
-                                ? 'Safe mode is active. All plugins are disabled on startup.'
-                                : 'Safe mode is off. Plugins load normally on startup.'
+                                ? t('settings.power.safe_mode.desc.active')
+                                : t('settings.power.safe_mode.desc.inactive')
                             }
                         </p>
-                        {safeMode && <p className='power-option-note'>Restart required to take effect after disabling.</p>}
-                        {!safeMode && <p className='power-option-note'>Restart required to take effect after enabling.</p>}
+                        {safeMode && <p className='power-option-note'>{t('settings.power.safe_mode.restart.disabled')}</p>}
+                        {!safeMode && <p className='power-option-note'>{t('settings.power.safe_mode.restart.enabled')}</p>}
                     </div>
                 </div>
                 <button
@@ -106,7 +109,7 @@ function PowerOptions() {
                     disabled={safeModeWorking}
                     data-type={safeMode ? 'secondary' : 'primary'}
                 >
-                    {safeMode ? 'Disable Safe Mode' : 'Enable Safe Mode'}
+                    {safeMode ? t('settings.power.safe_mode.disable') : t('settings.power.safe_mode.enable')}
                 </button>
             </div>
 
@@ -114,22 +117,22 @@ function PowerOptions() {
                 <div className='power-option-info'>
                     <RotateCcw className='power-option-icon power-option-icon--info' />
                     <div>
-                        <p className='power-option-title'>Reboot</p>
+                        <p className='power-option-title'>{t('settings.power.reboot')}</p>
                         <p className='power-option-desc'>
-                            Restart the server. The page will reload automatically after a few seconds.
+                            {t('settings.power.reboot.desc')}
                         </p>
                     </div>
                 </div>
                 {actionDone === 'reboot' ? (
-                    <p className='power-option-done'>Rebooting, page will reload shortly…</p>
+                    <p className='power-option-done'>{t('settings.power.reboot.done')}</p>
                 ) : confirming === 'reboot' ? (
                     <div className='power-option-confirm'>
-                        <span>Are you sure?</span>
-                        <button onClick={() => handleAction('reboot')} data-type='primary'>Reboot</button>
-                        <button onClick={() => setConfirming(null)} data-type='secondary'>Cancel</button>
+                        <span>{t('settings.power.reboot.confirm')}</span>
+                        <button onClick={() => handleAction('reboot')} data-type='primary'>{t('settings.power.reboot.confirm.yes')}</button>
+                        <button onClick={() => setConfirming(null)} data-type='secondary'>{t('settings.power.reboot.confirm.no')}</button>
                     </div>
                 ) : (
-                    <button onClick={() => handleAction('reboot')} data-type='secondary'>Reboot</button>
+                    <button onClick={() => handleAction('reboot')} data-type='secondary'>{t('settings.power.reboot.button')}</button>
                 )}
             </div>
 
@@ -137,22 +140,22 @@ function PowerOptions() {
                 <div className='power-option-info'>
                     <Power className='power-option-icon power-option-icon--danger' />
                     <div>
-                        <p className='power-option-title'>Shutdown</p>
+                        <p className='power-option-title'>{t('settings.power.shutdown')}</p>
                         <p className='power-option-desc'>
-                            Shut down the server completely. Manual restart will be required.
+                            {t('settings.power.shutdown.desc')}
                         </p>
                     </div>
                 </div>
                 {actionDone === 'shutdown' ? (
-                    <p className='power-option-done'>Shutting down…</p>
+                    <p className='power-option-done'>{t('settings.power.shutdown.done')}</p>
                 ) : confirming === 'shutdown' ? (
                     <div className='power-option-confirm'>
-                        <span>Are you sure?</span>
-                        <button onClick={() => handleAction('shutdown')} data-type='primary'>Shutdown</button>
-                        <button onClick={() => setConfirming(null)} data-type='secondary'>Cancel</button>
+                        <span>{t('settings.power.shutdown.confirm')}</span>
+                        <button onClick={() => handleAction('shutdown')} data-type='primary'>{t('settings.power.shutdown.confirm.yes')}</button>
+                        <button onClick={() => setConfirming(null)} data-type='secondary'>{t('settings.power.shutdown.confirm.no')}</button>
                     </div>
                 ) : (
-                    <button onClick={() => handleAction('shutdown')} data-type='secondary'>Shutdown</button>
+                    <button onClick={() => handleAction('shutdown')} data-type='secondary'>{t('settings.power.shutdown.button')}</button>
                 )}
             </div>
         </div>

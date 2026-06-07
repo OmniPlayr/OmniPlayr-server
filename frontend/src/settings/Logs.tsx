@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../modules/api';
 import '../styles/settings/Logs.css';
 import { RefreshCw, ArrowDown } from 'lucide-react';
@@ -43,6 +44,7 @@ function tagEntries(entries: LogEntry[]): TaggedEntry[] {
 }
 
 function Logs() {
+    const { t } = useTranslation();
     const [logs, setLogs] = useState<TaggedEntry[]>([]);
     const [hasMore, setHasMore] = useState(false);
     const [loadingInitial, setLoadingInitial] = useState(false);
@@ -125,7 +127,7 @@ function Logs() {
                 setHasMore(false);
             }
         } catch {
-            // silent
+            
         }
 
         loadingOlderRef.current = false;
@@ -149,7 +151,7 @@ function Logs() {
                 setNewEntryCount(c => c + entries.length);
             }
         } catch {
-            // silent
+            
         }
     }, [hours, isNearBottom, scrollToBottom]);
 
@@ -212,38 +214,38 @@ function Logs() {
                     value={hours}
                     onChange={e => setHours(Number(e.target.value))}
                 >
-                    <option value={1}>Last 1 hour</option>
-                    <option value={6}>Last 6 hours</option>
-                    <option value={24}>Last 24 hours</option>
-                    <option value={48}>Last 48 hours</option>
-                    <option value={168}>Last 7 days</option>
-                    <option value={720}>Last 30 days</option>
+                    <option value={1}>{t('settings.logs.hours.1')}</option>
+                    <option value={6}>{t('settings.logs.hours.6')}</option>
+                    <option value={24}>{t('settings.logs.hours.24')}</option>
+                    <option value={48}>{t('settings.logs.hours.48')}</option>
+                    <option value={168}>{t('settings.logs.hours.168')}</option>
+                    <option value={720}>{t('settings.logs.hours.720')}</option>
                 </select>
                 <select
                     className='logs-select'
                     value={levelFilter}
                     onChange={e => setLevelFilter(e.target.value)}
                 >
-                    <option value='ALL'>All levels</option>
-                    <option value='INF'>Info</option>
-                    <option value='SUC'>Success</option>
-                    <option value='WRN'>Warning</option>
-                    <option value='ERR'>Error</option>
-                    <option value='CRT'>Critical</option>
-                    <option value='DBG'>Debug</option>
-                    <option value='DIAG'>Diag (all)</option>
-                    <option value='DIG'>Diag</option>
-                    <option value='WDG'>Diag Warning</option>
-                    <option value='EDG'>Diag Error</option>
-                    <option value='CDG'>Diag Critical</option>
+                    <option value='ALL'>{t('settings.logs.level.all')}</option>
+                    <option value='INF'>{t('settings.logs.level.inf')}</option>
+                    <option value='SUC'>{t('settings.logs.level.suc')}</option>
+                    <option value='WRN'>{t('settings.logs.level.wrn')}</option>
+                    <option value='ERR'>{t('settings.logs.level.err')}</option>
+                    <option value='CRT'>{t('settings.logs.level.crt')}</option>
+                    <option value='DBG'>{t('settings.logs.level.dbg')}</option>
+                    <option value='DIAG'>{t('settings.logs.level.diag_all')}</option>
+                    <option value='DIG'>{t('settings.logs.level.dig')}</option>
+                    <option value='WDG'>{t('settings.logs.level.wdg')}</option>
+                    <option value='EDG'>{t('settings.logs.level.edg')}</option>
+                    <option value='CDG'>{t('settings.logs.level.cdg')}</option>
                 </select>
                 <select
                     className='logs-select'
                     value={sortBy}
                     onChange={e => setSortBy(e.target.value as 'time' | 'file')}
                 >
-                    <option value='time'>Sort: time</option>
-                    <option value='file'>Sort: file</option>
+                    <option value='time'>{t('settings.logs.sort.time')}</option>
+                    <option value='file'>{t('settings.logs.sort.file')}</option>
                 </select>
                 <label className='logs-toggle'>
                     <input
@@ -252,7 +254,7 @@ function Logs() {
                         checked={autoRefresh}
                         onChange={e => setAutoRefresh(e.target.checked)}
                     />
-                    Auto-refresh
+                    {t('settings.logs.auto_refresh')}
                 </label>
                 <button
                     className='logs-refresh-btn'
@@ -261,7 +263,7 @@ function Logs() {
                     data-type='secondary'
                 >
                     <RefreshCw size={13} className={loadingInitial ? 'logs-spinning' : ''} />
-                    Refresh
+                    {t('settings.logs.refresh')}
                 </button>
             </div>
             <div className='logs-wrapper'>
@@ -269,14 +271,14 @@ function Logs() {
                     {loadingOlder && (
                         <div className='logs-loading-older'>
                             <RefreshCw size={11} className='logs-spinning' />
-                            Loading older…
+                            {t('settings.logs.loading_older')}
                         </div>
                     )}
                     {!hasMore && !loadingInitial && logs.length > 0 && (
-                        <div className='logs-top-marker'>— beginning of log —</div>
+                        <div className='logs-top-marker'>{t('settings.logs.beginning')}</div>
                     )}
                     {filtered.length === 0 && !loadingInitial && (
-                        <div className='logs-empty'>No logs found</div>
+                        <div className='logs-empty'>{t('settings.logs.empty')}</div>
                     )}
                     {filtered.map(entry => {
                         const cls = LEVEL_CLASS[entry.level] ?? 'info';
@@ -304,15 +306,15 @@ function Logs() {
                 {showScrollBtn && (
                     <button className='logs-scroll-btn' onClick={() => scrollToBottom(true)}>
                         {newEntryCount > 0 && (
-                            <span className='logs-new-badge'>{newEntryCount} new</span>
+                            <span className='logs-new-badge'>{t('settings.logs.new_count', { count: newEntryCount })}</span>
                         )}
                         <ArrowDown size={13} />
                     </button>
                 )}
             </div>
             <div className='logs-footer'>
-                {filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}
-                {levelFilter !== 'ALL' && ` (filtered from ${logs.length})`}
+                {t('settings.logs.footer.entries', { count: filtered.length })}
+                {levelFilter !== 'ALL' && ` ${t('settings.logs.footer.filtered', { total: logs.length })}`}
             </div>
         </div>
     );

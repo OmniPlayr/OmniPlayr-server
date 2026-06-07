@@ -7,6 +7,7 @@ import type { ComponentType } from 'react';
 import { useRef, useEffect } from 'react';
 import { useNotificationsContext } from './modules/NotificationsContext';
 import { toAction } from './modules/useNotifications';
+import { useTranslation } from 'react-i18next';
 
 const SWIPE_MAX = 80;
 const SWIPE_THRESHOLD = SWIPE_MAX * 0.5;
@@ -33,6 +34,8 @@ function MobileNotifications() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const PULL_THRESHOLD = 72;
     const activeSwipeId = useRef<number | null>(null);
+
+    const {t} = useTranslation();
 
     const handleContainerTouchStart = (e: React.TouchEvent) => {
         if (activeSwipeId.current !== null) return;
@@ -169,11 +172,11 @@ function MobileNotifications() {
         const d = new Date(dateStr);
         const days = diffDays(dateStr);
 
-        if (days === 0) return "Today";
-        if (days === 1) return "Yesterday";
-        if (days <= 6) return `${days} days ago`;
-        if (days <= 30) return "1 week ago";
-        if (days <= 90) return "1 month ago";
+        if (days === 0) return t('common.today');
+        if (days === 1) return t('common.yesterday');
+        if (days <= 6) return t('common.daysAgo', { days: days });
+        if (days <= 30) return t('common.weeksAgo', { weeks: Math.ceil(days / 7) });
+        if (days <= 90) return t('common.monthsAgo', { months: Math.ceil(days / 30) });
 
         return d.toLocaleDateString();
     };
@@ -201,14 +204,14 @@ function MobileNotifications() {
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         if (days === 0) return time;
-        if (days === 1) return `Yesterday ${time}`;
+        if (days === 1) return t('common.yesterday.time', { time: time });
 
         return time;
     };
 
     return (
     <div className="mobile-notifications">
-            <h1 className="mobile-notifications-title">Notifications</h1>
+            <h1 className="mobile-notifications-title">{t('notifications.title')}</h1>
             <div className={`mobile-notifications-list${notifications.length === 0 ? ' mobile-no-notifications' : ''}`} 
                 ref={containerRef}
                 onTouchStart={handleContainerTouchStart}
@@ -229,7 +232,7 @@ function MobileNotifications() {
                     />
                 </div>
                 {notifications.length === 0 && (
-                    <p className="mobile-notifications-text-empty">Its a little empty here...</p>
+                    <p className="mobile-notifications-text-empty">{t('notifications.empty')}</p>
                 )}
                 {Object.entries(groupedNotifications).map(([group, items]) => (
                     <div key={group} className="mobile-notification-group">

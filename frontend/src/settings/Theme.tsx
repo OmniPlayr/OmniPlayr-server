@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import '../styles/settings/Theme.css';
+import { useTranslation, Trans } from 'react-i18next';
 
 function getSystemTheme(): 'light' | 'dark' {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -34,6 +35,8 @@ function Theme() {
     const [preferSystemTheme, setPreferSystemTheme] = useState(
         localStorage.getItem('prefer_system_theme') === 'true'
     );
+
+    const { t } = useTranslation();
 
     const savedTheme = localStorage.getItem('theme') ?? 'dark';
     const initial = splitTheme(savedTheme);
@@ -74,7 +77,7 @@ function Theme() {
                     onClick={() => !preferSystemTheme && handleThemeChange('light')}
                 >
                     <div className='theme-option-preview'></div>
-                    <p className='theme-option-name'>Light</p>
+                    <p className='theme-option-name'>{t('settings.theme.light')}</p>
                 </div>
 
                 <div
@@ -83,7 +86,7 @@ function Theme() {
                     onClick={() => !preferSystemTheme && handleThemeChange('dark')}
                 >
                     <div className='theme-option-preview'></div>
-                    <p className='theme-option-name'>Dark</p>
+                    <p className='theme-option-name'>{t('settings.theme.dark')}</p>
                 </div>
             </div>
 
@@ -96,9 +99,17 @@ function Theme() {
                     onChange={(e) => handleTransparentToggle(e.target.checked)}
                 />
                 <div className='settings-toggle-info'>
-                    <p className='settings-toggle-item-name'>Use a transparent shell <span className='beta-tag'>Beta</span></p>
+                    <p className='settings-toggle-item-name'>
+                        <Trans
+                            i18nKey='settings.theme.transparent_shell'
+                            components={{ beta: <span className='beta-tag'>{t('common.beta')}</span> }}
+                        />
+                    </p>
                     <p className='settings-toggle-item-description'>
-                        Use a transparent shell if you have a browser that has a <a href='https://gist.github.com/levkris/67482961f4027f813bc652c6b3216eb8' target='_blank' className='link'>transparent shell/ui</a>.
+                        <Trans
+                            i18nKey='settings.theme.transparent_shell.desc'
+                            components={{ theme_link: <a href='https://gist.github.com/levkris/67482961f4027f813bc652c6b3216eb8' target='_blank' className='link' /> }}
+                        />
                     </p>
                 </div>
             </div>
@@ -111,8 +122,8 @@ function Theme() {
                     onChange={(e) => handleSystemThemeToggle(e.target.checked)}
                 />
                 <div className='settings-toggle-info'>
-                    <p className='settings-toggle-item-name'>Prefer system theme</p>
-                    <p className='settings-toggle-item-description'>Use the theme applied to your device.</p>
+                    <p className='settings-toggle-item-name'>{t('settings.theme.system')}</p>
+                    <p className='settings-toggle-item-description'>{t('settings.theme.system.desc')}</p>
                 </div>
             </div>
 
