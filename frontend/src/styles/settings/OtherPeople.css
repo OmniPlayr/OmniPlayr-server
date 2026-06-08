@@ -476,8 +476,8 @@
         align-items: start;
     }
     .create-popup-avatar-upload {
-        width: 150px;
-        height: 150px;
+        width: clamp(100px, 20vw, 150px);
+        height: clamp(100px, 20vw, 150px);
         border-radius: 20px;
     }
     .create-popup-inputs {
@@ -502,17 +502,16 @@
     }
 
     .role-popup-option-icon {
-        width: 24px;
-        height: 24px;
+        width: clamp(16px, 4vw, 24px);
+        height: clamp(16px, 4vw, 24px);
     }
 
     .role-popup-option-text {
-        font-size: 18px;
+        font-size: clamp(14px, 3.5vw, 18px);
     }
-
     .create-popup-avatar-placeholder-icon {
-        width: 80px;
-        height: 80px;
+        width: clamp(30px, 20vw, 80px);
+        height: clamp(30px, 20vw, 80px);
         stroke-width: 1.5px;
     }
 }

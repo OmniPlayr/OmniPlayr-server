@@ -35,7 +35,7 @@ export default function Updating() {
                     }
                 } catch (e) {}
             }, 1000);
-        }, 10000);
+        }, 20000);
 
         return () => {
             stopped = true;
