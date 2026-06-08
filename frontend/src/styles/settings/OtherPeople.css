@@ -330,7 +330,7 @@
 
 .role-popup-options {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
 }
 
@@ -346,6 +346,15 @@
     cursor: pointer;
     color: var(--clr-text-a30);
     transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out;
+    width: 100%;
+}
+
+.role-popup-option:first-child {
+    border-radius: 10px 5px 5px 10px;
+}
+
+.role-popup-option:last-child {
+    border-radius: 5px 10px 10px 5px;
 }
 
 .role-popup-option:hover {
@@ -355,7 +364,7 @@
 
 .role-popup-option.selected {
     border-color: var(--clr-primary-a20);
-    background-color: var(--clr-popup-a20);
+    background-color: var(--clr-primary-a0);
     color: var(--clr-text-a0);
 }
 
@@ -425,6 +434,14 @@
     align-items: center;
 }
 
+
+.create-popup-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    
+}
+
 .create-popup-avatar-upload {
     width: 64px;
     height: 64px;
@@ -440,6 +457,66 @@
     transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
 }
 
+.role-popup-options.mobile {
+    display: none;
+}
+.role-popup-options.pc {
+    display: flex;
+}
+
+.create-popup-avatar-placeholder-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--clr-text-a30);
+}
+
+@media screen and (max-width: 768px) {
+    .create-popup-avatar-row {
+        flex-direction: row;
+        align-items: start;
+    }
+    .create-popup-avatar-upload {
+        width: 150px;
+        height: 150px;
+        border-radius: 20px;
+    }
+    .create-popup-inputs {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 12px;
+    }
+
+    .create-popup-name-input {
+        width: 100%;
+    }
+    .role-popup-options.pc {
+        display: none;
+    }
+    .role-popup-options.mobile {
+        display: flex;
+    }
+
+    .create-popup-name-input {
+        font-size: 18px;
+    }
+
+    .role-popup-option-icon {
+        width: 24px;
+        height: 24px;
+    }
+
+    .role-popup-option-text {
+        font-size: 18px;
+    }
+
+    .create-popup-avatar-placeholder-icon {
+        width: 80px;
+        height: 80px;
+        stroke-width: 1.5px;
+    }
+}
+
 .create-popup-avatar-upload:hover {
     border-color: var(--clr-popup-a50);
     background-color: var(--clr-popup-a20);
@@ -449,12 +526,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-.create-popup-avatar-placeholder-icon {
-    width: 24px;
-    height: 24px;
-    color: var(--clr-text-a30);
 }
 
 .create-popup-name-input {
@@ -512,4 +583,11 @@
         transform: translateY(0px);
         margin-bottom: 0px;
     }
+}
+
+.confirm-delete-text,
+.confirm-delete-pfp-text,
+.revoke-text {
+    font-size: 16px;
+    color: var(--clr-text-a0);
 }

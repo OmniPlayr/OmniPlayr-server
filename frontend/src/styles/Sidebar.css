@@ -225,7 +225,7 @@
         left: 0;
         inset: 0;
         background-color: rgba(0, 0, 0, 0.5);
-        z-index: 99;
+        z-index: 178;
         animation: overlay-in 0.2s ease forwards;
         height: calc(100dvh - 61px);
         width: calc(100dvw);
@@ -243,13 +243,12 @@
         width: 280px;
         min-width: unset;
         height: calc(100% - 61px);
-        z-index: 100;
         border-radius: 0;
         transform: translateX(-100%);
         border-bottom: 0px;
         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         border-left: none;
-        z-index: 10000000;
+        z-index: 180;
     }
 
     .sidebar--open {
@@ -309,4 +308,12 @@
     font-weight: 600;
     opacity: 1;
     color: inherit;
+}
+
+.op-popup-container:has(.op-popup[data-id="dev-mode"]) {
+    z-index: 190 !important;
+}
+
+.op-popup[data-id="dev-mode"] {
+    z-index: 190 !important;
 }
