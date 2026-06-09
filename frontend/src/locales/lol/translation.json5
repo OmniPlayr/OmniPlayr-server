@@ -1,0 +1,344 @@
+{
+    "system_name": "OmniPlayr",
+
+    // --- Start common names
+
+    "common.back": "Bak",
+
+    "common.today": "2day",
+    "common.yesterday": "Yesterdai",
+    "common.daysAgo": "{{days}} dayz ago",
+    "common.weeksAgo": "{{weeks}} weekz ago",
+    "common.monthsAgo": "{{months}} montz ago",
+    "common.yesterday.time": "Yesterdai {{time}}",
+
+    "common.timeAgo.justNow": "Jus naow",
+    "common.timeAgo.minutes": "{{count}}m ago",
+    "common.timeAgo.hours": "{{count}}h ago",
+    "common.timeAgo.days": "{{count}}d ago",
+    "common.timeAgo.weeks": "{{count}}w ago",
+    "common.timeAgo.months": "{{count}}mo ago",
+    "common.timeAgo.years": "{{count}}y ago",
+
+    "common.beta": "Beta",
+
+    "common.loading": "Loadin…",
+
+    "common.yes": "Yez",
+    "common.no": "No",
+    "common.cancel": "Kansul",
+    "common.save": "Saev",
+    "common.close": "Klose",
+    "common.ok": "K",
+
+    "common.deleted": "Deletid",
+    "common.delete": "Delet",
+    "common.revoke": "Revowk",
+
+    // --- End common names
+
+    // --- Start settings translations
+
+    "settings.title": "Settingz",
+
+    "settings.tab.plugins": "Pluginz",
+    "settings.tab.plugins.desc": "Modify ur OmniPlayr xperiens by usin pluginz",
+
+    "settings.tab.people": "Peepl",
+    "settings.tab.people.desc": "Manaj ur accountz",
+
+    "settings.tab.appearance": "Aperans",
+    "settings.tab.appearance.desc": "Modify teh lookz n feel of OmniPlayr",
+
+    "settings.tab.system": "Sistim",
+    "settings.tab.system.desc": "Chek logz, reboot ur sistim n modify config filez",
+
+    "settings.tab.about": "About",
+    "settings.tab.about.desc": "Vershun informashun, kreditz, n moar",
+
+    "settings.tab.appearance.theme": "Theem",
+    "settings.tab.appearance.theme.desc": "Chanje how OmniPlayr lookz",
+
+    "settings.tab.appearance.colors": "Colorz",
+    "settings.tab.appearance.colors.desc": "Customiz aksent colorz",
+
+    "settings.tab.appearance.fonts": "Fontz",
+    "settings.tab.appearance.fonts.desc": "Ajust typografee",
+
+    "settings.tab.appearance.language": "Langwij",
+    "settings.tab.appearance.language.desc": "Selekt ur preferrd langwij",
+
+    "settings.tab.system.logs": "Logz",
+    "settings.tab.system.logs.desc": "View sistim logz",
+
+    "settings.tab.system.power": "Powr Opshunz",
+    "settings.tab.system.power.desc": "Reboot, shutdown, saef moede n moar",
+
+    "settings.tab.system.terminal": "Turminul",
+    "settings.tab.system.terminal.desc": "Run commandz on teh servur",
+
+    "settings.tab.system.config": "Konfig",
+    "settings.tab.system.config.desc": "Edit konfigureshun filez",
+
+    "settings.tab.people.profile": "Profiel",
+    "settings.tab.people.profile.desc": "Edit ur profiel",
+
+    "settings.tab.people.other": "Othr Peepl",
+    "settings.tab.people.other.desc": "Manaj othr accountz",
+
+    // --- End settings translations
+
+    // --- Start sidebar translations    
+
+    "sidebar.tab.home": "Hoem",
+    "sidebar.tab.settings": "Settingz",
+    "sidebar.devmode": "Dev Moede",
+
+    // --- End sidebar translations
+
+    // --- Start shutdown & updating translations
+
+    "shutdown.title": "Servur haz shutdown",
+    "shutdown.comment": "Teh sistim iz currently offline. Plz turn on ur servur 2 continu usin OmniPlayr.",
+
+    "updating.title": "Servur iz updatin",
+    "updating.comment": "Teh sistim iz currently updatin, u will be redirectid bak wen teh update iz komplet.",
+
+    // --- End shutdown & updating translations
+
+    // --- Start notifications translations
+
+    "notifications.title": "Notifikashunz",
+    "notifications.empty": "Iz a lil empty heer... *sits in box*",
+    "notifications.delete": "Delet",
+
+    // --- End notifications translations
+
+    // --- Start login translations
+
+    "login.success": "Loggd in successfully! Yay!",
+    "login.title": "Login",
+    "login.subtitle": "Plz enter teh servur passwurd 2 continu",
+    "login.button": "Login",
+
+    // --- End login translations
+
+    // --- Start header translations
+
+    "header.update": "Update Reddy",
+    "header.safemode": "Saef Moede",
+
+    // --- End header translations
+
+    // --- Start Fail page translations
+    "fail.title": "Bakend faild 2 start",
+    "fail.subtitle": "An unexpektid errur occurd wile bootin teh servur.",
+    "fail.subtitle2": "Teh sistim cud not komplet startup. Plz tri agin latr.",
+    "fail.subtitle3": "If teh problim persists, plz kontakt support.",
+    // --- End Fail page translations
+
+    // --- Start Account Select translations
+    "accountSelect.title": "Hoo iz listenin?",
+    // --- End Account Select translations
+
+    // --- Start Theme translations
+    "settings.theme.dark": "Drak",
+    "settings.theme.light": "Liet",
+    "settings.theme.transparent_shell": "Uze a transparent shell <beta>Beta</beta>",
+    "settings.theme.transparent_shell.desc": "Uze a transparent shell if u haz a browser dat haz a <theme_link>transparent shell/ui</theme_link>.",
+    "settings.theme.system": "Prefer sistim theem",
+    "settings.theme.system.desc": "Uze teh theem applyed 2 ur devies.",
+    // --- End Theme translations
+
+    // --- Start Profile translations
+    "settings.profile.device_unknown": "Unknon Devies",
+    "settings.profile.browser_unknown": "Unknon Browser",
+
+    "settings.profile.about": "About Meh",
+    "settings.profile.nobio": "No bio yet. Sadface.",
+
+    "settings.profile.created.tooltip": "Dis iz wen u creatid ur account",
+    "settings.profile.role.tooltip": "Dis iz ur roal on OmniPlayr",
+
+    "settings.profile.about.placeholder": "Rite sumfing about urself...",
+    "settings.profile.nickname.placeholder": "Display Naem",
+
+    "settings.profile.logins": "Loginz",
+
+    "settings.profile.logins.this_device": "Dis devies",
+    // --- End Profile translations
+
+    // --- Start Power Options translations
+    "settings.power.safe_mode": "Saef Moede",
+    "settings.power.safe_mode.desc.active": "Saef moede iz aktiv. All pluginz r disabld on startup.",
+    "settings.power.safe_mode.desc.inactive": "Saef moede iz off. Pluginz load normally on startup.",
+    "settings.power.safe_mode.restart.enabled": "Restart requyrd 2 taek effekt aftur disablin.",
+    "settings.power.safe_mode.restart.disabled": "Restart requyrd 2 taek effekt aftur enablin.",
+
+    "settings.power.safe_mode.disable": "Disabl Saef Moede",
+    "settings.power.safe_mode.enable": "Enabl Saef Moede",
+
+    "settings.power.reboot": "Reboot",
+    "settings.power.reboot.desc": "Restart teh servur. Teh paej will reload automatikally aftur a few sekonds.",
+    "settings.power.reboot.done": "Rebootin, paej will reload shortly...",
+
+    "settings.power.reboot.confirm": "R u suer u want 2 reboot?",
+    "settings.power.reboot.confirm.yes": "Yez, reboot",
+    "settings.power.reboot.confirm.no": "No, dun reboot",
+
+    "settings.power.reboot.button": "Reboot",
+
+    "settings.power.shutdown": "Shutdown",
+    "settings.power.shutdown.desc": "Shut down teh servur completly. Manual restart will b requyrd.",
+    "settings.power.shutdown.done": "Shuttin down...",
+
+    "settings.power.shutdown.confirm": "R u suer u want 2 shutdown?",
+    "settings.power.shutdown.confirm.yes": "Yez, shutdown",
+    "settings.power.shutdown.confirm.no": "No, dun shutdown",
+
+    "settings.power.shutdown.button": "Shutdown",
+    // --- End Power Options translations
+
+    // --- Start Font translations
+    "settings.fonts.aa": "Aa",
+    // --- End Font translations
+
+    // --- Start Config translations
+    "settings.config.warning": "Deez settingz r advansed settingz, u shud not modify it unles u kno wat u r doin.",
+    "settings.config.search_placeholder": "Serch… (e.g. type:string)",
+    "settings.config.source.backend": "bakend",
+    "settings.config.source.frontend": "fruntend",
+    "settings.config.searching": "Serchin…",
+    "settings.config.empty.type_value": "Typ a value aftur teh colon 2 serch",
+    "settings.config.empty.select_file": "Selekt a config fiel 2 edit",
+    "settings.config.empty.loading": "Loadin…",
+    "settings.config.field.live": "live",
+    "settings.config.field.live_tooltip": "Changez apply without restart",
+    "settings.config.field.default": "defalt",
+    "settings.config.field.restore": "Restor",
+    "settings.config.field.true": "Tru",
+    "settings.config.field.false": "Fals",
+    "settings.config.field.value": "value",
+    "settings.config.unsaved": "Careful, u haz unsavd changez",
+    "settings.config.reset_all": "Reset all",
+    "settings.config.save_changes": "Saev changez",
+    "settings.config.saving": "Saevin…",
+    "settings.config.toast.saved": "Savd successfully, plz restart ur sistim 4 changez 2 taek effekt",
+    "settings.config.toast.save_failed": "Faild 2 saev",
+    "settings.config.no_results": "No matchin config keyz found",
+    // --- End Config translations
+
+    // --- Start Other People translations
+    "settings.people.other.select": "Selekt a profiel 2 edit",
+    "settings.people.other.new_user": "Nu Usr",
+    "settings.people.other.create_desc": "Creat a nu usr",
+    "settings.people.other.tooltip.change_view": "Chanje view",
+    "settings.people.other.section.account_options": "Account Opshunz",
+    "settings.people.other.section.actions": "Akshunz",
+    "settings.people.other.action.edit_role": "Edit Roal",
+    "settings.people.other.action.remove_pfp": "Remov Profiel Piktur",
+    "settings.people.other.action.delete_account": "Delet Account",
+    "settings.people.other.action.revoke_tokens": "Revowk All Tokenz",
+    "settings.people.other.role.title": "Edit Roal",
+    "settings.people.other.role.subtitle": "Selekt a roal 4 @{{name}}",
+    "settings.people.other.role.user": "Usr",
+    "settings.people.other.role.admin": "Admin",
+    "settings.people.other.role.apply": "Apply",
+    "settings.people.other.delete.title": "Delet '{{name}}'?",
+    "settings.people.other.delete.desc1": "R u suer u want 2 delet dis account? Dis akshun cannot b undone.",
+    "settings.people.other.delete.desc2": "All data associatid wiv dis account will b permanentlee deletid n cannot b recoverd.",
+    "settings.people.other.delete.desc3": "Dis usr will also b loggd out of all deviesez.",
+    "settings.people.other.delete.confirm": "Confirm Deleshun",
+    "settings.people.other.revoke.title": "Revowk all tokenz 4 '{{name}}'?",
+    "settings.people.other.revoke.desc1": "R u suer u want 2 revowk all tokenz 4 dis account? Dis akshun cannot b undone.",
+    "settings.people.other.revoke.desc2": "Dis usr will b loggd out of all deviesez. N all tokenz will b revokd.",
+    "settings.people.other.revoke.confirm": "Revowk Tokenz",
+    "settings.people.other.remove_pfp.title": "Remov profiel piktur 4 '{{name}}'?",
+    "settings.people.other.remove_pfp.desc1": "R u suer u want 2 remov teh profiel piktur 4 dis account? Dis akshun cannot b undone.",
+    "settings.people.other.remove_pfp.desc2": "Teh usr will need 2 upload a nu profiel piktur.",
+    "settings.people.other.remove_pfp.confirm": "Remov Profiel Piktur",
+    "settings.people.other.create.title": "Creat Account",
+    "settings.people.other.create.subtitle": "Fill in teh detailz 4 teh nu usr.",
+    "settings.people.other.create.username_placeholder": "Usernaem...",
+    "settings.people.other.create.confirm": "Creat",
+    "settings.people.other.search_placeholder": "Serch...",
+    // --- End Other People translations
+
+    // --- Start Plugins translations
+    "settings.plugins.restart_banner": "Restart teh sistim 2 apply teh changez.",
+    "settings.plugins.installed_title": "Installd pluginz",
+    "settings.plugins.install_title": "Install Pluginz",
+    "settings.plugins.search_placeholder": "Serch 4 pluginz...",
+    "settings.plugins.search_results": "Serch resultz",
+    "settings.plugins.top_packages": "Top pakagez",
+    "settings.plugins.no_packages": "No pakagez found.",
+    "settings.plugins.badge.installed": "Installd",
+    "settings.plugins.badge.installing": "Installin…",
+    "settings.plugins.badge.update": "Update",
+    "settings.plugins.badge.install": "Install",
+    "settings.plugins.menu.view_registry": "View on Registree",
+    "settings.plugins.badge.backend_version": "Bakend v{{version}}",
+    "settings.plugins.badge.frontend_version": "Fruntend v{{version}}",
+    // --- End Plugins translations
+
+    // --- Start Logs translations
+    "settings.logs.hours.1": "Last 1 hour",
+    "settings.logs.hours.6": "Last 6 hourz",
+    "settings.logs.hours.24": "Last 24 hourz",
+    "settings.logs.hours.48": "Last 48 hourz",
+    "settings.logs.hours.168": "Last 7 dayz",
+    "settings.logs.hours.720": "Last 30 dayz",
+    "settings.logs.level.all": "All levelz",
+    "settings.logs.level.inf": "Info",
+    "settings.logs.level.suc": "Sucsess",
+    "settings.logs.level.wrn": "Warnin",
+    "settings.logs.level.err": "Errur",
+    "settings.logs.level.crt": "Kritikal",
+    "settings.logs.level.dbg": "Debug",
+    "settings.logs.level.diag_all": "Diag (all)",
+    "settings.logs.level.dig": "Diag",
+    "settings.logs.level.wdg": "Diag Warnin",
+    "settings.logs.level.edg": "Diag Errur",
+    "settings.logs.level.cdg": "Diag Kritikal",
+    "settings.logs.sort.time": "Sort: tiem",
+    "settings.logs.sort.file": "Sort: fiel",
+    "settings.logs.auto_refresh": "Auto-refresh",
+    "settings.logs.refresh": "Refresh",
+    "settings.logs.loading_older": "Loadin older…",
+    "settings.logs.beginning": "— beginnin of log —",
+    "settings.logs.empty": "No logz found",
+    "settings.logs.new_count": "{{count}} nu",
+    "settings.logs.footer.entries_one": "{{count}} entree",
+    "settings.logs.footer.entries_other": "{{count}} entreez",
+    "settings.logs.footer.filtered": "(filterd from {{total}})",
+    // --- End Logs translations
+
+    // --- Start About translations
+    "settings.about.update.title": "Sistim Update",
+    "settings.about.update.status": "Status:",
+    "settings.about.update.available": "Update Availabl",
+    "settings.about.update.up_to_date": "Up 2 date",
+    "settings.about.update.install": "Install Naow",
+    "settings.about.update.check": "Chek 4 Updatez",
+    "settings.about.version_credits": "Vershun & Kreditz",
+    "settings.about.github_stale": "Cud not reech GitHub (raet limit or network ishue). Showin cachd data from a previus seshun.",
+    "settings.about.dev_warning": "Dis bild iz currently in development n may b unstable or inkomplet, uze at ur own risk. Plz report any ishues on <github>GitHub</github>",
+    "settings.about.contributors": "Contributorz",
+    "settings.about.license": "Licens",
+    "settings.about.license.loading": "Loadin...",
+    "settings.about.version.version": "Vershun",
+    "settings.about.version.latest": "(latest)",
+    "settings.about.version.year": "Yeer",
+    "settings.about.version.month": "Munth",
+    "settings.about.version.bugfix": "Bugfix",
+    // --- End About translations
+
+    // --- Start Colors translations
+    "settings.colors.reset": "Reset 2 defalt",
+    // --- End Colors translations
+
+    // --- Start Language translations
+    "settings.language.system": "Uze sistim langwij",
+    "settings.language.system.desc": "Uze teh langwij set on ur devies.",
+    // --- End Language translations
+}

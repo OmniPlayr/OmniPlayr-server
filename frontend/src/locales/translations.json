@@ -28,5 +28,15 @@
             "avatar": "https://omniplayr.wokki20.nl/branding/teams/OmniPlayr-AI-translated.png",
             "org": true
         }
+    },
+    "lol": {
+        "language": "Lolcat",
+        "flag": "https://omniplayr.wokki20.nl/flags/lolcat.png",
+        "author": {
+            "name": "OmniPlayr/AI-translated",
+            "url": "https://github.com/OmniPlayr",
+            "avatar": "https://omniplayr.wokki20.nl/branding/teams/OmniPlayr-AI-translated.png",
+            "org": true
+        }
     }
 }
