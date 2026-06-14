@@ -123,7 +123,7 @@ function Language() {
                     />
                 </div>
                 <div className={`settings-dropdown-list ${open ? 'open' : ''}`}>
-                    {languages.map(([code, data]: any) => (
+                    {languages.sort((a: any, b: any) => a[1].language.localeCompare(b[1].language)).map(([code, data]: any) => (
                         <div
                             key={code}
                             className='settings-dropdown-item'

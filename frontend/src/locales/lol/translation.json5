@@ -121,6 +121,11 @@
     "login.subtitle": "Plz enter teh servur passwurd 2 continu",
     "login.button": "Login",
 
+    "login.password.popup.title": "Gib Paswurd",
+    "login.password.popup.text": "Tipe ur akkownt paswurd 2 continue, kthx.",
+    "login.password.popup.placeholder": "Paswurd",
+    "login.password.popup.button": "Log In Plz",
+
     // --- End login translations
 
     // --- Start header translations
@@ -166,6 +171,36 @@
     "settings.profile.logins": "Loginz",
 
     "settings.profile.logins.this_device": "Dis devies",
+    
+    "settings.profile.security": "Keepin Ur Stuffz Safe",
+    "settings.profile.password": "Seekrit Wurd",
+    "settings.profile.password.text": "Settin a seekrit wurd can helps u stop bad kittehs frm gettin in ur account, kthx.",
+
+    "settings.profile.password.change": "Chanj Seekrit Wurd",
+    "settings.profile.password.set": "Set Seekrit Wurd",
+
+    "settings.profile.password.popup.title.change": "Chanj Ur Paswurd",
+    "settings.profile.password.popup.title.set": "Set Ur Paswurd",
+
+    "settings.profile.password.popup.submit.set": "Set Paswurd Plz",
+    "settings.profile.password.popup.submit.change": "Updait Paswurd Kthx",
+
+    "settings.profile.password.popup.text": "Set a paswurd 2 keep ur akkownt safez.",
+
+    "settings.profile.password.popup.text.new": "Tipe in a new paswurd plz.",
+    "settings.profile.password.popup.text.current": "Tipe ur old paswurd, k.",
+    "settings.profile.password.popup.text.confirm": "Tipe it agen 2 make shur.",
+
+    "settings.profile.password.popup.placeholder.current": "Old Paswurd",
+    "settings.profile.password.popup.placeholder.new": "New Paswurd",
+    "settings.profile.password.popup.placeholder.confirm": "Confurm Paswurd",
+
+    "settings.profile.password.popup.error.confirm": "Confurmd paswurd no match new paswurd, oh noes.",
+    "settings.profile.password.popup.error.current": "Old paswurd iz rong, u doin it wrong.",
+    "settings.profile.password.popup.error.wrong": "Sumthing gone rong, oh noes.",
+
+    "settings.profile.password.toast.changed": "Paswurd changd, kthxbai!",
+    "settings.profile.password.toast.set": "Paswurd set, yay 4 u!",
     // --- End Profile translations
 
     // --- Start Power Options translations

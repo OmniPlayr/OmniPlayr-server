@@ -120,6 +120,11 @@
     "login.title": "Inloggen",
     "login.subtitle": "Voer het serverwachtwoord in om door te gaan",
     "login.button": "Inloggen",
+    
+    "login.password.popup.title": "Voer wachtwoord in",
+    "login.password.popup.text": "Om door te gaan, voer het wachtwoord van je account in.",
+    "login.password.popup.placeholder": "Wachtwoord",
+    "login.password.popup.button": "Inloggen",
 
     // --- End login translations
 
@@ -166,6 +171,36 @@
     "settings.profile.logins": "Aanmeldingen",
 
     "settings.profile.logins.this_device": "Dit apparaat",
+
+    "settings.profile.security": "Beveiliging",
+    "settings.profile.password": "Wachtwoord",
+    "settings.profile.password.text": "Het instellen van een wachtwoord zorgt er voor dat je account veilig blijft.",
+
+    "settings.profile.password.change": "Verander Wachtwoord",
+    "settings.profile.password.set": "Stel Wachtwoord In",
+
+    "settings.profile.password.popup.title.change": "Verander Wachtwoord",
+    "settings.profile.password.popup.title.set": "Stel Wachtwoord In",
+
+    "settings.profile.password.popup.submit.set": "Stel Wachtwoord In",
+    "settings.profile.password.popup.submit.change": "Verander Wachtwoord",
+
+    "settings.profile.password.popup.text": "Stel een wachtwoord in om je account veilig te houden.",
+
+    "settings.profile.password.popup.text.new": "Voer een nieuw wachtwoord in.",
+    "settings.profile.password.popup.text.current": "Voer je huidige wachtwoord in.",
+    "settings.profile.password.popup.text.confirm": "Voer je wachtwoord opnieuw in.",
+
+    "settings.profile.password.popup.placeholder.current": "Huidig Wachtwoord",
+    "settings.profile.password.popup.placeholder.new": "Nieuw Wachtwoord",
+    "settings.profile.password.popup.placeholder.confirm": "Bevestig Wachtwoord",
+
+    "settings.profile.password.popup.error.confirm": "De wachtwoord herhaling komt niet overeen.",
+    "settings.profile.password.popup.error.current": "Het oude wachtwoord is onjuist.",
+    "settings.profile.password.popup.error.wrong": "Er is iets fout gegaan.",
+
+    "settings.profile.password.toast.changed": "Wachtwoord gewijzigd.",
+    "settings.profile.password.toast.set": "Wachtwoord ingesteld.",
     // --- End Profile translations
 
     // --- Start Power Options translations

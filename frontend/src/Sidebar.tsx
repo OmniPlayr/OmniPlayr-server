@@ -8,7 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import { storeAccount } from './modules/account';
 import { usePlugins } from './modules/usePlugins';
 import { getTabs, onPluginsLoaded, type PluginTab } from './modules/plugins';
-import { createPopup } from './modules/PopupContext';
+import { createPopup, closePopup } from './modules/PopupContext';
 
 import { useTranslation } from 'react-i18next';
 
@@ -31,13 +31,6 @@ interface SidebarProps {
     isOpen?: boolean;
     onClose?: () => void;
     settingsBadgeCount?: number;
-}
-
-async function loginAccount(id: string) {
-    const tokenInfo = await api("/accounts/login", { user_id: id }) as any;
-    storeAccount(tokenInfo?.token);
-    window.history.pushState({}, '', '/');
-    window.dispatchEvent(new Event('account-switched'));
 }
 
 function showDevPopup() {
@@ -94,6 +87,63 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
         onClose?.();
     }
 
+    function loginAccountPassword(id: string) {
+        const formRef = { password: '' };
+
+        function PasswordPopup() {
+            const [password, setPassword] = useState('');
+
+            function handlePasswordChange(e: any) {
+                setPassword(e.target.value);
+                formRef.password = e.target.value;
+            }
+
+            return (
+                <div className='enter-password-popup-content'>
+                    <div className='enter-password-popup-title'>{t('login.password.popup.title')}</div>
+                    <div className='enter-password-popup-text'>{t('login.password.popup.text')}</div>
+                    <input type="password" placeholder={t('login.password.popup.placeholder')} value={password} onChange={handlePasswordChange} />
+                </div>
+            );
+        }
+
+        createPopup({
+            id: "enter-password",
+            title: t('login.password.popup.title'),
+            close_button: true,
+            content: <PasswordPopup />,
+            buttons: [
+                {
+                    label: t('common.cancel'),
+                    type: 'secondary',
+                    onClick: () => closePopup('enter-password')
+                },
+                {
+                    label: t('login.password.popup.button'),
+                    type: 'primary',
+                    onClick: async () => {
+                        const data = await api("/accounts/login", { user_id: id, password: formRef.password }) as any;
+                        storeAccount(data?.token);
+                        window.history.pushState({}, '', '/');
+                        window.dispatchEvent(new Event('account-switched'));
+                        closePopup('enter-password');
+                    }
+                }
+            ]
+        });
+    }
+
+    async function loginAccount(id: string, password_protected: boolean) {
+        if (password_protected) {
+            loginAccountPassword(id);
+            return;
+        }
+        const tokenInfo = await api("/accounts/login", { user_id: id }) as any;
+        storeAccount(tokenInfo?.token);
+        window.history.pushState({}, '', '/');
+        window.dispatchEvent(new Event('account-switched'));
+    }
+
     return (
         <>
             {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
@@ -147,7 +197,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                                 <div className="user-switch-account" onClick={openAccountSelect}>
                                     <div className="account-select__dash">
                                         {accounts.map((acc: any) => (
-                                            <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loginAccount(acc.id)}>
+                                            <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loginAccount(acc.id, acc?.password_protected)}>
                                                 <img draggable="false" className="user-avatar" src={acc.avatar_b64 || defaultPfp} alt={acc.name} />
                                                 <div className="user-info">
                                                     <p className="user-nickname">{acc.nickname || acc.name}</p>

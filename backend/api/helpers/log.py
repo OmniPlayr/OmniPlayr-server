@@ -5,6 +5,7 @@ import threading
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
+import asyncio
 
 _lock = threading.Lock()
 _log_dir: Path | None = None
@@ -217,7 +218,32 @@ def setup_exception_hook() -> None:
         _original(exc_type, exc_value, exc_tb)
 
     sys.excepthook = _hook
+    
+def setup_thread_exception_hook() -> None:
+    _original = threading.excepthook
 
+    def _hook(args):
+        tb_text = "".join(traceback.format_tb(args.exc_traceback)).strip()
+        msg = f"Unhandled {args.exc_type.__name__} in thread '{args.thread.name}': {args.exc_value}"
+        if tb_text:
+            msg = f"{msg}\n{tb_text}"
+        log(msg, level="critical", source="threading")
+        if _original:
+            _original(args)
+
+    threading.excepthook = _hook
+
+
+def setup_asyncio_exception_handler(loop: asyncio.AbstractEventLoop) -> None:
+    def _handler(loop, context):
+        exc = context.get("exception")
+        msg = context.get("message", "Unhandled asyncio error")
+        if exc:
+            tb_text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)).strip()
+            msg = f"{msg}\n{tb_text}"
+        log(msg, level="critical", source="asyncio")
+
+    loop.set_exception_handler(_handler)
 
 def get_logs(
     since_hours: int = 24,

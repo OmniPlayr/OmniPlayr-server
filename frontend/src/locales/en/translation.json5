@@ -120,6 +120,11 @@
     "login.title": "Login",
     "login.subtitle": "Please enter the server password to continue",
     "login.button": "Login",
+    
+    "login.password.popup.title": "Enter Password",
+    "login.password.popup.text": "Please enter your password to continue",
+    "login.password.popup.placeholder": "Password",
+    "login.password.popup.button": "Log In",
 
     // --- End login translations
 
@@ -166,6 +171,36 @@
     "settings.profile.logins": "Logins",
 
     "settings.profile.logins.this_device": "This device",
+
+    "settings.profile.security": "Security",
+    "settings.profile.password": "Password",
+    "settings.profile.password.text": "Setting a password can help you prevent unauthorized access to your account.",
+
+    "settings.profile.password.change": "Change Password",
+    "settings.profile.password.set": "Set Password",
+
+    "settings.profile.password.popup.title.change": "Change Password",
+    "settings.profile.password.popup.title.set": "Set Password",
+
+    "settings.profile.password.popup.submit.set": "Set Password",
+    "settings.profile.password.popup.submit.change": "Update Password",
+
+    "settings.profile.password.popup.text": "Set a password to secure your account.",
+
+    "settings.profile.password.popup.text.new": "Enter a new password.",
+    "settings.profile.password.popup.text.current": "Enter your current password.",
+    "settings.profile.password.popup.text.confirm": "Re-enter your password to confirm.",
+
+    "settings.profile.password.popup.placeholder.current": "Current Password",
+    "settings.profile.password.popup.placeholder.new": "New Password",
+    "settings.profile.password.popup.placeholder.confirm": "Confirm Password",
+
+    "settings.profile.password.popup.error.confirm": "Confirmed password does not match the new password.",
+    "settings.profile.password.popup.error.current": "Old password is incorrect.",
+    "settings.profile.password.popup.error.wrong": "Something went wrong.",
+
+    "settings.profile.password.toast.changed": "Password changed successfully.",
+    "settings.profile.password.toast.set": "Password set successfully.",
     // --- End Profile translations
 
     // --- Start Power Options translations

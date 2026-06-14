@@ -121,6 +121,11 @@
     "login.subtitle": "State the secret password to come aboard, landlubber",
     "login.button": "Board",
 
+    "login.password.popup.title": "State Yer Password",
+    "login.password.popup.text": "Speak yer account password to come aboard.",
+    "login.password.popup.placeholder": "Password",
+    "login.password.popup.button": "Set Sail",
+
     // --- End login translations
 
     // --- Start header translations
@@ -166,6 +171,36 @@
     "settings.profile.logins": "Boardings",
 
     "settings.profile.logins.this_device": "This vessel",
+
+    "settings.profile.security": "Safekeepin' Yer Booty",
+    "settings.profile.password": "Secret Pirate Code",
+    "settings.profile.password.text": "Settin' a secret code can help ye keep scurvy landlubbers from plunderin' yer account, arrr!",
+
+    "settings.profile.password.change": "Change Yer Secret Code",
+    "settings.profile.password.set": "Set Yer Secret Code",
+
+    "settings.profile.password.popup.title.change": "Change Th' Password",
+    "settings.profile.password.popup.title.set": "Set Th' Password",
+
+    "settings.profile.password.popup.submit.set": "Set Th' Password",
+    "settings.profile.password.popup.submit.change": "Update Th' Password",
+
+    "settings.profile.password.popup.text": "Set a password to guard yer booty, er, account.",
+
+    "settings.profile.password.popup.text.new": "Enter a new password, matey.",
+    "settings.profile.password.popup.text.current": "Enter yer current password, if ye please.",
+    "settings.profile.password.popup.text.confirm": "Re-enter yer password to confirm, savvy?",
+
+    "settings.profile.password.popup.placeholder.current": "Current Password",
+    "settings.profile.password.popup.placeholder.new": "New Password",
+    "settings.profile.password.popup.placeholder.confirm": "Confirm Password",
+
+    "settings.profile.password.popup.error.confirm": "Th' confirmed password don't match th' new one, arrr.",
+    "settings.profile.password.popup.error.current": "Old password be incorrect, ye scurvy dog.",
+    "settings.profile.password.popup.error.wrong": "Somethin' went wrong on th' high seas.",
+
+    "settings.profile.password.toast.changed": "Password be changed, arrr!",
+    "settings.profile.password.toast.set": "Password be set, ye scallywag!",
     // --- End Profile translations
 
     // --- Start Power Options translations

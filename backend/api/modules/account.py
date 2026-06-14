@@ -17,6 +17,7 @@ from api.helpers.account import (
     revoke_token,
     delete_account_token,
     delete_profile_picture,
+    verify_account_password,
 )
 
 router = APIRouter()
@@ -32,9 +33,12 @@ class AccountUpdate(BaseModel):
     avatar_b64: str | None = None
     nickname: str | None = None
     about: str | None = None
+    password: str | None = None
+    old_password: str | None = None
     
 class AccountLogin(BaseModel):
     user_id: int
+    password: str | None = None
 
 class AccountRevokeAll(BaseModel):
     user_id: int
@@ -55,8 +59,6 @@ def get_accounts(auth=Depends(verify_auth)):
     return result
 
 # This is for logging into an account
-# This currently does not require authentication, but is planned
-# TODO: Make it so you can add authentication
 @router.post("/login")
 def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
     
@@ -65,6 +67,20 @@ def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
     if not auth:
         log("POST /accounts/login: auth check failed", "debug", "module.account")
         raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    password_protected = False
+        
+    auth_result = verify_account_password(body.user_id, body.password)
+
+    if auth_result in ("not_found", "no_match"):
+        log(f"POST /accounts/login: auth failed for user_id={body.user_id}", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    elif auth_result == "match":
+        log(f"POST /accounts/login: auth ok for user_id={body.user_id}", "debug", "module.account")
+        password_protected = True
+    else:
+        log(f"POST /accounts/login: no password for user_id={body.user_id}", "debug", "module.account")
+        password_protected = False
     
     useragent = ""
     ip_address = ""
@@ -78,7 +94,7 @@ def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
     log(f"POST /accounts/login: auth ok, creating token for user_id={body.user_id}", "debug", "module.account")
     result = create_account_token(
         body.user_id,
-        False,
+        password_protected,
         useragent,
         ip_address
     )
@@ -216,7 +232,7 @@ def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(v
             raise HTTPException(status_code=403, detail="Forbidden")
 
     log(f"PATCH /accounts/{account_id}: all checks passed, updating", "debug", "module.account")
-    updated = update_account(account_id, None, body.role, body.avatar_b64, body.nickname, body.about)
+    updated = update_account(account_id, None, body.role, body.avatar_b64, body.nickname, body.about, body.password, body.old_password)
     log(f"PATCH /accounts/{account_id}: update complete", "debug", "module.account")
     return updated
 

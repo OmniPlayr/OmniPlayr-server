@@ -9,6 +9,8 @@ def password_hash(password: str) -> str:
     return hashed
 
 def password_check(password: str, hash: str) -> bool:
+    if password is None and hash is None: return True
+    if password is None or hash is None: return False
     log("Checking password against hash", "debug", "passwords")
     result = bcrypt.checkpw(password.encode('utf-8'), hash.encode('utf-8'))
     log(f"Password check result: {'match' if result else 'no match'}", "debug", "passwords")

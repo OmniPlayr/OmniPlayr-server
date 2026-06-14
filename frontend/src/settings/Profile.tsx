@@ -3,9 +3,11 @@ import api from '../modules/api';
 import { useEffect, useState, useRef } from 'react';
 import defaultPfp from '../assets/images/default-pfp-dark.svg';
 import { Tooltip } from 'react-tooltip';
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, Pencil, Upload, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, Info, Pencil, Upload, X } from 'lucide-react';
 import { getAccount } from '../modules/account';
 import { useTranslation } from 'react-i18next';
+import { createPopup, closePopup } from '../modules/PopupContext';
+import { makeToast } from '@wokki20/jspt';
 
 let cachedAccount: any = null;
 let fetchPromise: Promise<any> | null = null;
@@ -172,6 +174,147 @@ function Profile() {
         }
     });
 
+    function openChangePasswordPopup(password_protected: boolean, incorrect_current_password: boolean = false, something_wrong: boolean = false) {
+        const formRef = { current_password: '', new_password: ''};
+        
+        function ChangePasswordPopup() {
+            const [current_password, setCurrentPassword] = useState('');
+            const [new_password, setNewPassword] = useState('');
+            const [confirm_password, setConfirmPassword] = useState('');
+            const [confirmPasswordError, setConfirmPasswordError] = useState(false);
+
+            function handleCurrentPasswordChange(e: any) {
+                setCurrentPassword(e.target.value);
+                formRef.current_password = e.target.value;
+            }
+
+            function handleNewPasswordChange(e: any) {
+                setNewPassword(e.target.value);
+                formRef.new_password = e.target.value;
+            }
+
+            function handleConfirmPasswordChange(e: any) {
+                setConfirmPassword(e.target.value);
+
+                if (e.target.value !== new_password) {
+                    setConfirmPasswordError(true);
+                } else {
+                    setConfirmPasswordError(false);
+                }
+            }
+
+            return (
+                <div className='change-password-popup-content'>
+                    <h2 className='change-password-popup-title'>{password_protected ? t('settings.profile.password.popup.title.change') : t('settings.profile.password.popup.title.set')}</h2>
+                    <p className='change-password-popup-text'>{t('settings.profile.password.popup.text')}</p>
+                    <div className='change-password-popup-inputs'>
+                        {password_protected && 
+                            <>
+                            <div className='change-password-popup-group'>
+                                <p>{t('settings.profile.password.popup.text.current')}</p>
+                                <input
+                                    type='password'
+                                    placeholder={t('settings.profile.password.popup.placeholder.current')}
+                                    onChange={handleCurrentPasswordChange}
+                                    value={current_password}
+                                />
+                            </div>
+                            <div className='change-password-popup-separator' />
+                            </>
+                        }
+                        <div className='change-password-popup-group'>
+                            <p>{t('settings.profile.password.popup.text.new')}</p>
+                            <input
+                                type='password'
+                                placeholder={t('settings.profile.password.popup.placeholder.new')}
+                                onChange={handleNewPasswordChange}
+                                value={new_password}
+                            />
+                        </div>
+                        <div className='change-password-popup-group'>
+                            <p>{t('settings.profile.password.popup.text.confirm')}</p>
+                            <input
+                                type='password'
+                                placeholder={t('settings.profile.password.popup.placeholder.confirm')}
+                                onChange={handleConfirmPasswordChange}
+                                value={confirm_password}
+                            />
+                        </div>
+                    </div>
+                    {confirmPasswordError && 
+                        <div className="change-password-popup-error">
+                            <Info className='change-password-popup-error-icon' />
+                            <p className='change-password-popup-error-text'>{t('settings.profile.password.popup.error.confirm')}</p>
+                        </div>
+                    }
+                    {incorrect_current_password && 
+                        <div className="change-password-popup-error">
+                            <Info className='change-password-popup-error-icon' />
+                            <p className='change-password-popup-error-text'>{t('settings.profile.password.popup.error.current')}</p>
+                        </div>
+                    }
+                    {something_wrong && 
+                        <div className="change-password-popup-error">
+                            <Info className='change-password-popup-error-icon' />
+                            <p className='change-password-popup-error-text'>{t('settings.profile.password.popup.error.wrong')}</p>
+                        </div>
+                    }
+                </div>
+            );
+        }
+
+        createPopup({
+            id: 'change-password',
+            title: password_protected ? t('settings.profile.password.popup.title.change') : t('settings.profile.password.popup.title.set'),
+            close_button: true,
+            mobileFullscreen: true,
+            content: <ChangePasswordPopup />,
+            buttons: [
+                {
+                    label: t('common.cancel'),
+                    type: 'secondary',
+                    onClick: () => closePopup('change-password'),
+                },
+                {
+                    label: password_protected ? t('settings.profile.password.popup.submit.change') : t('settings.profile.password.popup.submit.set'),
+                    type: 'primary',
+                    onClick: async () => {
+                        if (password_protected) {
+                            await changePassword(formRef.current_password, formRef.new_password);
+                        } else {
+                            await setPassword(formRef.new_password);
+                        }
+                    },
+                },
+            ]
+        })
+    }
+
+
+    const changePassword = async (current_password: string, new_password: string) => {
+        const res = await api(`/accounts/${account?.id}`, { old_password: current_password, password: new_password }, undefined, false, false, 'PATCH');
+        if (res === null) {
+            openChangePasswordPopup(true, true, false);
+        } else {
+            closePopup('change-password');
+            makeToast({ message: t('settings.profile.password.toast.changed'), style: "default", duration: 5000 });
+        }
+    }
+
+    const setPassword = async (new_password: string) => {
+        const res = await api(`/accounts/${account?.id}`, { password: new_password }, undefined, false, false, 'PATCH');
+        if (res === null) {
+            openChangePasswordPopup(false, false, true);
+        } else {
+            closePopup('change-password');
+            makeToast({ message: t('settings.profile.password.toast.set'), style: "default", duration: 5000 });
+        }
+    }
+
+    const handlePassword = () => {
+        openChangePasswordPopup(account?.password_protected);
+    }
+
     const displayAvatar = editAvatar ?? account?.avatar_b64 ?? defaultPfp;
 
     return (
@@ -236,6 +379,16 @@ function Profile() {
                                     <button className='profile-section-edit-button save' onClick={saveEditing}><Check className='profile-section-edit-icon' /></button>
                                 </>
                             }
+                        </div>
+                    </div>
+                    <div className='profile-security'>
+                        <p className='profile-security-title'>{t('settings.profile.security')}</p>
+                        <div className='profile-security-password'>
+                            <div className="profile-security-password-title-text">
+                                <p className='profile-security-password-title'>{t('settings.profile.password')}</p>
+                                <p className='profile-security-password-text'>{t('settings.profile.password.text')}</p>
+                            </div>
+                            <button className='profile-security-password-button' onClick={handlePassword}>{account?.password_protected ? t('settings.profile.password.change') : t('settings.profile.password.set')}</button>
                         </div>
                     </div>
                     <div className='profile-tokens'>

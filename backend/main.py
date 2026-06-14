@@ -1,16 +1,16 @@
 import os
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from api.helpers.db import init_db
 from api.router import router
 from api.helpers.config import load_configs, get_config
 from api.helpers.plugins import load_plugins, get_plugin_router
 from api.helpers.config_watcher import start_config_watcher
-from api.helpers.log import log
+from api.helpers.log import log, setup_exception_hook, setup_thread_exception_hook, setup_asyncio_exception_handler, log_exception
 from api.helpers.notifications import notify_sync, set_main_loop
 from api.helpers.account import list_accounts
 from api.helpers.diagnostics import start_diagnostics
@@ -19,9 +19,12 @@ from api.helpers.https_proxy import start_https_proxy
 
 import asyncio
 
+# This makes sure any errors get logged into the log files
+setup_exception_hook()
+setup_thread_exception_hook()
+
 _SAFE_MODE_FILE = ".safe_mode"
 _UPDATE_MARKER = ".update_applied"
-
 
 def _notify_admins_update():
     if not os.path.exists(_UPDATE_MARKER):
@@ -56,7 +59,9 @@ def _notify_admins():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    set_main_loop(asyncio.get_event_loop())
+    loop = asyncio.get_event_loop()
+    set_main_loop(loop)
+    setup_asyncio_exception_handler(loop)
 
     # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
     start_config_watcher()
@@ -102,10 +107,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# This handles errors for the API and sends them to the log
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log_exception(exc, f"Unhandled error on {request.method} {request.url.path}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 # This sets the /api prefix for in the url, so that we can use /api/...
 app.include_router(router, prefix="/api")
 app.include_router(health_router, prefix="/api")
-
 if __name__ == "__main__":
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
     uvicorn.run(

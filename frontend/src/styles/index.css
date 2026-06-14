@@ -226,6 +226,7 @@ input.switch:checked::after {
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 1000;
 }
 
 .op-popup {
@@ -422,4 +423,18 @@ input.switch:checked::after {
     .op-popup.mobile-fullscreen .op-popup-title-content {
         align-items: end;
     }
+}
+
+/* Account Login Popup */
+.enter-password-popup-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--clr-text-a0);
+}
+
+.enter-password-popup-text {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--clr-text-a30);
+    margin-bottom: 10px;
 }

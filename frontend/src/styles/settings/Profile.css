@@ -6,7 +6,8 @@
 }
 
 .profile-preview,
-.profile-tokens {
+.profile-tokens,
+.profile-security {
     display: flex;
     flex-direction: row;
     gap: 30px;
@@ -50,7 +51,8 @@
     color: var(--clr-text-a30);
 }
 
-.profile-section-about-title {
+.profile-section-about-title,
+.profile-security-title {
     font-size: 18px;
     font-weight: 600;
 }
@@ -362,4 +364,67 @@
 .profile-edit-bio:focus {
     outline: none;
     border: 1px solid var(--clr-popup-a50);
+}
+
+.profile-security {
+    flex-direction: column;
+    gap: 10px;
+}
+
+.profile-security-password {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.profile-security-password-title-text {
+    flex-direction: column;
+}
+
+.profile-security-password-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+.profile-security-password-text {
+    font-size: 13px;
+    color: var(--clr-text-a30);
+}
+
+.change-password-popup-inputs {
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    gap: 10px;
+}
+.change-password-popup-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+}
+
+.change-password-popup-title {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.change-password-popup-text {
+    font-size: 16px;
+    color: var(--clr-text-a30);
+    margin-bottom: 10px;
+}
+
+.change-password-popup-error {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    padding: 5px 10px;
+    background-color: var(--clr-danger-a0);
+    border: 1px solid var(--clr-danger-a20);
+    border-radius: 10px;
+    color: var(--clr-text-a0);
+    font-size: 16px;
+    margin-top: 10px;
 }

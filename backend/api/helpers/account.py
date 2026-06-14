@@ -1,13 +1,17 @@
 from api.helpers.db import get_conn
 from api.helpers.log import log
 import secrets
+from api.helpers.passwords import password_hash, password_check
 
 def list_accounts():
     log("Listing all accounts", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, nickname, role, avatar_b64, created_at, about FROM accounts ORDER BY id")
+            cur.execute("SELECT id, name, nickname, role, avatar_b64, created_at, about, password FROM accounts ORDER BY id")
             rows = cur.fetchall()
+            for row in rows:
+                row["password_protected"] = bool(row["password"])
+                row.pop("password")
             log(f"Found {len(rows)} account(s)", "debug", "account")
             return rows
 
@@ -17,10 +21,14 @@ def get_account(account_id: int):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, name, nickname, role, avatar_b64, created_at, about FROM accounts WHERE id = %s",
+                "SELECT id, name, nickname, role, avatar_b64, created_at, about, password FROM accounts WHERE id = %s",
                 (account_id,),
             )
             row = cur.fetchone()
+
+            if row is not None:
+                row["password_protected"] = bool(row["password"])
+                row.pop("password")
             
             cur.execute(
                 "SELECT token, password_protected, revoked, user_agent, ip_address, created_at FROM account_tokens WHERE account_id = %s",
@@ -61,8 +69,35 @@ def create_account(name: str, role: str, avatar_b64: str | None):
     return row
 
 
-def update_account(account_id: int, name: str | None, role: str | None, avatar_b64: str | None, nickname: str | None = None, about: str | None = None):
-    log(f"Updating account id={account_id} name={name!r} nickname={nickname!r} about={about!r} role={role!r} has_avatar={avatar_b64 is not None}", "debug", "account")
+def update_account(account_id: int, name: str | None, role: str | None, avatar_b64: str | None, nickname: str | None = None, about: str | None = None, password: str | None = None, old_password: str | None = None):
+    remove_password = password == ""
+    hashed_password = password_hash(password) if password else None
+    log(f"Updating account id={account_id} name={name!r} nickname={nickname!r} about={about!r} role={role!r} has_avatar={avatar_b64 is not None} has_password={hashed_password is not None} remove_password={remove_password}", "debug", "account")
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT password FROM accounts WHERE id = %s", (account_id,))
+            row = cur.fetchone()
+            if row is None:
+                log(f"Account id={account_id} not found", "debug", "account")
+                return None
+            
+            if password is not None and old_password is None:
+                if not row["password"]:
+                    log(f"Account id={account_id} has no old password", "debug", "account")
+                    pass
+                else:
+                    log(f"Updating account id={account_id} requires old password", "debug", "account")
+                    return None
+            
+            if old_password is not None and password is not None:
+                if not row["password"]:
+                    log(f"Account id={account_id} has no old password", "debug", "account")
+                    pass
+                if not password_check(old_password, row["password"]):
+                    log(f"Account id={account_id} old password incorrect", "debug", "account")
+                    return None
+
     fields = []
     values = []
     if name is not None:
@@ -80,6 +115,11 @@ def update_account(account_id: int, name: str | None, role: str | None, avatar_b
     if about is not None:
         fields.append("about = %s")
         values.append(about)
+    if hashed_password is not None:
+        fields.append("password = %s")
+        values.append(hashed_password)
+    elif remove_password:
+        fields.append("password = NULL")
     if not fields:
         log(f"No fields to update for account id={account_id}, returning current data", "debug", "account")
         return get_account(account_id)
@@ -93,6 +133,12 @@ def update_account(account_id: int, name: str | None, role: str | None, avatar_b
                 values,
             )
             row = cur.fetchone()
+            if row is not None and (hashed_password is not None or remove_password):
+                cur.execute(
+                    "UPDATE account_tokens SET revoked = true WHERE account_id = %s AND revoked = false",
+                    (account_id,),
+                )
+                log(f"Revoked all active tokens for account id={account_id} after password change", "debug", "account")
         conn.commit()
     if row is None:
         log(f"Account id={account_id} not found during update, nothing returned", "debug", "account")
@@ -136,6 +182,22 @@ def delete_account(account_id: int, force: bool = False) -> bool:
     else:
         log(f"Account id={account_id} not found, nothing deleted", "debug", "account")
     return deleted is not None
+
+
+# This checks if the user has a password set and if the password is correct
+def verify_account_password(account_id: int, password: str) -> str:
+    log(f"Verifying account password for account id={account_id}", "debug", "account")
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT password FROM accounts WHERE id = %s", (account_id,))
+            row = cur.fetchone()
+            if row is None:
+                log(f"Account id={account_id} not found", "debug", "account")
+                return "not_found"
+            if not row["password"]:
+                log(f"Account id={account_id} has no password", "debug", "account")
+                return "no_password"
+            return "match" if password_check(password, row["password"]) else "no_match"
 
 def create_account_token(account_id: int, password_protected: bool = False, user_agent: str | None = None, ip_address: str | None = None):
     log(f"Creating account token for account id={account_id}", "debug", "account")
