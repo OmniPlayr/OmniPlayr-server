@@ -1,14 +1,14 @@
 import './styles/Sidebar.css';
 import defaultPfp from "./assets/images/default-pfp-dark.svg";
-import { Plus, Settings, House, ChevronDown } from 'lucide-react';
+import { Settings, House, ChevronDown, ArrowRightToLine, X } from 'lucide-react';
 import { isDev } from './modules/dev';
 import api from './modules/api';
-import { useEffect, useState } from 'react';
-import { useSearchParams } from "react-router-dom";
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { storeAccount } from './modules/account';
 import { usePlugins } from './modules/usePlugins';
 import { getTabs, onPluginsLoaded, type PluginTab } from './modules/plugins';
-import { createPopup, closePopup } from './modules/PopupContext';
+import { createPopup } from './modules/PopupContext';
+import { makeToast } from '@wokki20/jspt';
 
 import { useTranslation } from 'react-i18next';
 
@@ -64,6 +64,13 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
     const [accounts, setAccounts] = useState<any[]>([]);
     const [accounts_loaded, setAccountsLoaded] = useState(false);
     const [tabs, setTabs] = useState<PluginTab[]>([]);
+    const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+    const [password, setPassword] = useState('');
+    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+    const [openPasswordPopup, setPasswordPopup] = useState(false);
+    const [openTwoFaPopup, setTwoFaPopup] = useState(false);
+    const twoFaInputsRef = useRef<HTMLDivElement>(null);
+    const twoFaCodeRef = useRef('');
 
     const { t } = useTranslation();
 
@@ -87,61 +94,127 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
         onClose?.();
     }
 
-    function loginAccountPassword(id: string) {
-        const formRef = { password: '' };
-
-        function PasswordPopup() {
-            const [password, setPassword] = useState('');
-
-            function handlePasswordChange(e: any) {
-                setPassword(e.target.value);
-                formRef.password = e.target.value;
-            }
-
-            return (
-                <div className='enter-password-popup-content'>
-                    <div className='enter-password-popup-title'>{t('login.password.popup.title')}</div>
-                    <div className='enter-password-popup-text'>{t('login.password.popup.text')}</div>
-                    <input type="password" placeholder={t('login.password.popup.placeholder')} value={password} onChange={handlePasswordChange} />
-                </div>
-            );
-        }
-
-        createPopup({
-            id: "enter-password",
-            title: t('login.password.popup.title'),
-            close_button: true,
-            content: <PasswordPopup />,
-            buttons: [
-                {
-                    label: t('common.cancel'),
-                    type: 'secondary',
-                    onClick: () => closePopup('enter-password')
-                },
-                {
-                    label: t('login.password.popup.button'),
-                    type: 'primary',
-                    onClick: async () => {
-                        const data = await api("/accounts/login", { user_id: id, password: formRef.password }) as any;
-                        storeAccount(data?.token);
-                        window.history.pushState({}, '', '/');
-                        window.dispatchEvent(new Event('account-switched'));
-                        closePopup('enter-password');
-                    }
-                }
-            ]
+    function showLoginError(message: string) {
+        makeToast({
+            message,
+            style: 'default-error',
+            icon_left: 'circle-x',
+            icon_left_type: 'lucide_icon',
+            duration: 5000
         });
     }
 
-    async function loginAccount(id: string, password_protected: boolean) {
+    function closePasswordPopup() {
+        setPasswordPopup(false);
+        setSelectedAccountId(null);
+        setPassword('');
+    }
+
+    function closeTwoFaPopup() {
+        setTwoFaPopup(false);
+        setSelectedAccountId(null);
+        setPassword('');
+        twoFaCodeRef.current = '';
+    }
+
+    function getTwoFaInputs() {
+        return Array.from(
+            twoFaInputsRef.current?.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input') ?? []
+        );
+    }
+
+    function handleCodeChange(e: React.ChangeEvent<HTMLInputElement>, index: number) {
+        const inputs = getTwoFaInputs();
+        const value = e.target.value.replace(/\D/g, '').slice(-1);
+        inputs[index].value = value;
+        twoFaCodeRef.current = inputs.map(input => input.value).join('');
+
+        if (value && index < inputs.length - 1) {
+            inputs[index + 1].focus();
+        }
+    }
+
+    function handleCodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
+        const inputs = getTwoFaInputs();
+        if (e.key === 'Backspace' && !inputs[index].value && index > 0) {
+            inputs[index - 1].focus();
+        }
+        if (e.key === 'Enter' && index === inputs.length - 1) {
+            loginWithCode();
+        }
+    }
+
+    function finishLogin(token: string) {
+        storeAccount(token);
+        window.history.pushState({}, '', '/');
+        window.dispatchEvent(new Event('account-switched'));
+    }
+
+    async function loginWithPassword() {
+        if (twoFactorEnabled) {
+            try {
+                const response = await api('/accounts/verify_password', { user_id: selectedAccountId, password });
+                if (response === 'no_match') {
+                    showLoginError(t('login.error.wrong-password'));
+                    return;
+                }
+            } catch (err: any) {
+                const status = err?.status ?? err?.response?.status;
+                if (status === 401 || status === 403) {
+                    showLoginError(t('login.error.wrong-password'));
+                }
+                return;
+            }
+
+            setPasswordPopup(false);
+            setTwoFaPopup(true);
+            return;
+        }
+
+        try {
+            const data = await api('/accounts/login', { user_id: selectedAccountId, password }) as any;
+            if (!data?.token) {
+                showLoginError(t('login.error.wrong-password'));
+                return;
+            }
+            finishLogin(data.token);
+            setPasswordPopup(false);
+            setPassword('');
+        } catch (err: any) {
+            const status = err?.status ?? err?.response?.status;
+            if (status === 401 || status === 403) {
+                showLoginError(t('login.error.wrong-password'));
+            }
+        }
+    }
+
+    async function loginWithCode() {
+        try {
+            const data = await api('/accounts/login', {
+                user_id: selectedAccountId,
+                password,
+                twofa_code: twoFaCodeRef.current
+            }) as any;
+            if (!data?.token) {
+                showLoginError(t('login.error.wrong-code'));
+                return;
+            }
+            finishLogin(data.token);
+            closeTwoFaPopup();
+        } catch {
+            showLoginError(t('login.error.wrong-code'));
+        }
+    }
+
+    async function loginAccount(id: string, password_protected: boolean, two_factor_enabled: boolean) {
         if (password_protected) {
-            loginAccountPassword(id);
+            setSelectedAccountId(id);
+            setTwoFactorEnabled(two_factor_enabled);
+            setPasswordPopup(true);
             return;
         }
         const tokenInfo = await api("/accounts/login", { user_id: id }) as any;
-        storeAccount(tokenInfo?.token);
-        window.history.pushState({}, '', '/');
-        window.dispatchEvent(new Event('account-switched'));
+        finishLogin(tokenInfo?.token);
     }
 
     return (
@@ -197,7 +270,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                                 <div className="user-switch-account" onClick={openAccountSelect}>
                                     <div className="account-select__dash">
                                         {accounts.map((acc: any) => (
-                                            <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loginAccount(acc.id, acc?.password_protected)}>
+                                            <div className="sidebar-user" data-id={acc.id} key={acc.id} onClick={() => loginAccount(acc.id, acc?.password_protected, acc?.two_factor_enabled)}>
                                                 <img draggable="false" className="user-avatar" src={acc.avatar_b64 || defaultPfp} alt={acc.name} />
                                                 <div className="user-info">
                                                     <p className="user-nickname">{acc.nickname || acc.name}</p>
@@ -214,6 +287,59 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                     {isDev() && <p className="sidebar-dev" onClick={showDevPopup}>{t("sidebar.devmode")}</p>}
                 </div>
             </div>
+            {openPasswordPopup && (
+                <div className="password-overlay">
+                    <div className="password-overlay-content">
+                        <div className="password-overlay-title">{t('login.password.popup.title')}</div>
+                        <div className="password-overlay-text">{t('login.password.popup.text')}</div>
+                        <div className="password-overlay-input-container">
+                            <input
+                                type="password"
+                                className="password-overlay-input"
+                                placeholder={t('login.password.popup.placeholder')}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && loginWithPassword()}
+                                autoFocus
+                            />
+                            <button className="password-overlay-button" onClick={loginWithPassword}>
+                                <ArrowRightToLine className="password-overlay-button-icon" />
+                            </button>
+                        </div>
+                    </div>
+                    <X className="password-overlay-close" onClick={closePasswordPopup} />
+                </div>
+            )}
+            {openTwoFaPopup && (
+                <div className="check-2fa-overlay">
+                    <div className="check-2fa-overlay-content">
+                        <div className="check-2fa-overlay-title">{t('login.2fa.popup.title')}</div>
+                        <div className="check-2fa-overlay-text">{t('login.2fa.popup.text')}</div>
+                        <div className="check-2fa-popup-code-group" ref={twoFaInputsRef}>
+                            {[0, 1, 2, 3, 4, 5].map((index) => (
+                                <Fragment key={index}>
+                                    {index === 3 && <div className="check-2fa-code-popup-spacer" />}
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={1}
+                                        placeholder={`${index + 1}`}
+                                        className="check-2fa-code-popup-input"
+                                        onChange={(e) => handleCodeChange(e, index)}
+                                        onKeyDown={(e) => handleCodeKeyDown(e, index)}
+                                        autoFocus={index === 0}
+                                    />
+                                </Fragment>
+                            ))}
+                            <div className="check-2fa-code-popup-spacer" />
+                            <button className="check-2fa-popup-button" onClick={loginWithCode}>
+                                <ArrowRightToLine className="check-2fa-popup-button-icon" />
+                            </button>
+                        </div>
+                    </div>
+                    <X className="check-2fa-overlay-close" onClick={closeTwoFaPopup} />
+                </div>
+            )}
         </>
     )
 }

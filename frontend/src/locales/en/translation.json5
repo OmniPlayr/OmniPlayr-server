@@ -128,6 +128,12 @@
     "login.password.popup.placeholder": "Password",
     "login.password.popup.button": "Log In",
 
+    "login.2fa.popup.title": "Enter Code",
+    "login.2fa.popup.text": "Please enter the code from your authenticator app to continue",
+    
+    "login.error.wrong-code": "The code you entered is incorrect.",
+    "login.error.wrong-password": "The password you entered is incorrect.",
+
     // --- End login translations
 
     // --- Start header translations

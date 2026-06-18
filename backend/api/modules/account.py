@@ -117,6 +117,17 @@ def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
 
     return result
 
+@router.post("/verify_password")
+def password_verify(body: AccountLogin, auth=Depends(verify_auth)):
+    log("POST /accounts/verify_password requested", "debug", "module.account")
+    if not auth:
+        log("POST /accounts/verify_password: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    log("POST /accounts/verify_password: auth ok, verifying password", "debug", "module.account")
+    result = verify_account_password(body.user_id, body.password)
+    log("POST /accounts/verify_password: password verified", "debug", "module.account")
+    return result
+
 # This is for revoking a token from an account
 @router.post("/revoke")
 def revoke(body: AccountRevoke, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):

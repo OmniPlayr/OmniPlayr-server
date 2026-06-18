@@ -128,6 +128,12 @@
     "login.password.popup.placeholder": "Paswurd",
     "login.password.popup.button": "Log In Plz",
 
+    "login.2fa.popup.title": "Enthr code",
+    "login.2fa.popup.text": "Plz enthr teh code frum ur authenticator app to continoo",
+
+    "login.error.wrong-code": "Teh code u entered iz wrong.",
+    "login.error.wrong-password": "Teh password u entered iz wrong.",
+
     // --- End login translations
 
     // --- Start header translations
@@ -203,6 +209,33 @@
 
     "settings.profile.password.toast.changed": "Paswurd changd, kthxbai!",
     "settings.profile.password.toast.set": "Paswurd set, yay 4 u!",
+
+    "settings.profile.2fa": "2FA",
+    "settings.profile.2fa.text": "Turn on 2FA to add an extra layer ov securiteh to ur account.",
+
+    "settings.profile.2fa.set": "Turn on 2FA",
+    "settings.profile.2fa.disable": "Turn off 2FA",
+
+    "settings.profile.2fa.popup.title": "Turn on 2FA",
+    "settings.profile.2fa.popup.text": "Turn on 2FA to add an extra layer ov securiteh to ur account.",
+
+    "settings.profile.2fa.popup.error.password": "U must haz a password to turn on 2FA",
+
+    "settings.profile.2fa.popup.scanqr": "Plz scan teh QR code wif ur authenticator app.",
+    "settings.profile.2fa.popup.noqr": "If u cant scan teh QR code, plz use teh code below.",
+    "settings.profile.2fa.popup.added": "Once u haz added teh code to ur authenticator app, click teh button below to continue.",
+
+    "settings.profile.2fa.popup.code.title": "Enter teh code",
+    "settings.profile.2fa.popup.code-text": "Enter teh code frum ur authenticator app to continue.",
+
+    "settings.profile.2fa.popup.error.code": "Teh code u entered iz incorrect.",
+    "settings.profile.2fa.toast.enabled": "2FA enabled successfully.",
+
+    "settings.profile.2fa.toast.disabled": "2FA removed successfully.",
+    "settings.profile.2fa.disable.title": "Turn off 2FA",
+    "settings.profile.2fa.disable.text": "R u sure u wantz to turn off 2FA? Dis will delete 2FA frum ur account, but u can turn it on again any tiem.",
+    "settings.profile.2fa.disable.enter-code": "Plz enter teh code frum ur authenticator app to confirm.",
+    
     // --- End Profile translations
 
     // --- Start Power Options translations

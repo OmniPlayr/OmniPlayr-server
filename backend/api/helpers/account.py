@@ -368,24 +368,21 @@ def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = Fal
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT two_factor_secret FROM accounts WHERE id = %s AND two_factor_secret IS NOT NULL AND password IS NOT NULL",
+                "SELECT two_factor_secret, two_factor_enabled FROM accounts WHERE id = %s AND password IS NOT NULL",
                 (account_id,)
             )
-            secret = cur.fetchone()
-            if secret is None:
+            account = cur.fetchone()
+
+            if account is None or account["two_factor_secret"] is None:
                 log(f"Account id={account_id} does not have a 2FA secret", "warn", "account")
                 return "no_secret"
-            if allow_enabled_bypass is False:
-                cur.execute(
-                    "SELECT two_factor_enabled FROM accounts WHERE id = %s AND two_factor_enabled = true",
-                    (account_id,)
-                )
-                two_factor_enabled = cur.fetchone()
-                if two_factor_enabled["two_factor_enabled"] is False and two_factor_enabled is not None:
-                    log(f"Account id={account_id} does not have 2FA enabled", "warn", "account")
-                    return "not_enabled"
-            
-            totp = pyotp.TOTP(secret["two_factor_secret"])
+
+            if allow_enabled_bypass is False and account["two_factor_enabled"] is False:
+                log(f"Account id={account_id} does not have 2FA enabled", "warn", "account")
+                return "no_secret"
+
+            totp = pyotp.TOTP(account["two_factor_secret"])
+
             if totp.verify(code, valid_window=1):
                 log(f"2FA code verified for account id={account_id}", "debug", "account")
                 cur.execute(
@@ -395,6 +392,7 @@ def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = Fal
                 conn.commit()
                 log(f"2FA enabled for account id={account_id}", "debug", "account")
                 return "success"
+
             log(f"2FA code verification failed for account id={account_id}", "warn", "account")
             return "failed"
 

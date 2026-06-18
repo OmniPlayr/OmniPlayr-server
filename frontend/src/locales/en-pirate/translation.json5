@@ -128,6 +128,12 @@
     "login.password.popup.placeholder": "Password",
     "login.password.popup.button": "Set Sail",
 
+    "login.2fa.popup.title": "Enter Yer Code",
+    "login.2fa.popup.text": "Enter th' code from yer authenticator app t' continue, matey",
+
+    "login.error.wrong-code": "Th' code ye entered be incorrect, matey.",
+    "login.error.wrong-password": "Th' password ye entered be incorrect, matey.",
+
     // --- End login translations
 
     // --- Start header translations
@@ -203,6 +209,33 @@
 
     "settings.profile.password.toast.changed": "Password be changed, arrr!",
     "settings.profile.password.toast.set": "Password be set, ye scallywag!",
+
+    "settings.profile.2fa": "2FA",
+    "settings.profile.2fa.text": "Enable 2FA t' add an extra layer o' security t' yer account.",
+
+    "settings.profile.2fa.set": "Enable 2FA",
+    "settings.profile.2fa.disable": "Disable 2FA",
+
+    "settings.profile.2fa.popup.title": "Enable 2FA",
+    "settings.profile.2fa.popup.text": "Enable 2FA t' add an extra layer o' security t' yer account.",
+
+    "settings.profile.2fa.popup.error.password": "Ye must have a password t' enable 2FA",
+
+    "settings.profile.2fa.popup.scanqr": "Scan th' QR code with yer authenticator app, matey.",
+    "settings.profile.2fa.popup.noqr": "If ye cannot scan th' QR code, use th' code below.",
+    "settings.profile.2fa.popup.added": "Once ye have added th' code t' yer authenticator app, press th' button below t' continue.",
+
+    "settings.profile.2fa.popup.code.title": "Enter th' code",
+    "settings.profile.2fa.popup.code-text": "Enter th' code from yer authenticator app t' continue.",
+
+    "settings.profile.2fa.popup.error.code": "Th' code ye entered be incorrect.",
+    "settings.profile.2fa.toast.enabled": "2FA enabled successfully, matey.",
+
+    "settings.profile.2fa.toast.disabled": "2FA removed successfully, matey.",
+    "settings.profile.2fa.disable.title": "Disable 2FA",
+    "settings.profile.2fa.disable.text": "Arrr, be ye sure ye want t' disable 2FA? This will remove 2FA from yer account, but ye can enable it again at any time.",
+    "settings.profile.2fa.disable.enter-code": "Enter th' code from yer authenticator app t' confirm.",
+    
     // --- End Profile translations
 
     // --- Start Power Options translations

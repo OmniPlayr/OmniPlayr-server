@@ -128,6 +128,12 @@
     "login.password.popup.placeholder": "Wachtwoord",
     "login.password.popup.button": "Inloggen",
 
+    "login.2fa.popup.title": "Voer code in",
+    "login.2fa.popup.text": "Voer de code uit je authenticator-app in om verder te gaan",
+
+    "login.error.wrong-code": "De code die je hebt ingevoerd is onjuist.",
+    "login.error.wrong-password": "Het wachtwoord dat je hebt ingevoerd is onjuist.",
+
     // --- End login translations
 
     // --- Start header translations
@@ -203,6 +209,32 @@
 
     "settings.profile.password.toast.changed": "Wachtwoord gewijzigd.",
     "settings.profile.password.toast.set": "Wachtwoord ingesteld.",
+
+    "settings.profile.2fa": "2FA",
+    "settings.profile.2fa.text": "Schakel 2FA in om een extra beveiligingslaag aan je account toe te voegen.",
+
+    "settings.profile.2fa.set": "2FA inschakelen",
+    "settings.profile.2fa.disable": "2FA uitschakelen",
+
+    "settings.profile.2fa.popup.title": "2FA inschakelen",
+    "settings.profile.2fa.popup.text": "Schakel 2FA in om een extra beveiligingslaag aan je account toe te voegen.",
+
+    "settings.profile.2fa.popup.error.password": "Je moet een wachtwoord hebben om 2FA in te schakelen",
+
+    "settings.profile.2fa.popup.scanqr": "Scan de QR-code met je authenticatie-app.",
+    "settings.profile.2fa.popup.noqr": "Als je de QR-code niet kunt scannen, gebruik dan de onderstaande code.",
+    "settings.profile.2fa.popup.added": "Zodra je de code hebt toegevoegd aan je authenticatie-app, klik je op de onderstaande knop om verder te gaan.",
+
+    "settings.profile.2fa.popup.code.title": "Voer de code in",
+    "settings.profile.2fa.popup.code-text": "Voer de code uit je authenticatie-app in om verder te gaan.",
+
+    "settings.profile.2fa.popup.error.code": "De ingevoerde code is onjuist.",
+    "settings.profile.2fa.toast.enabled": "2FA succesvol ingeschakeld.",
+
+    "settings.profile.2fa.toast.disabled": "2FA succesvol verwijderd.",
+    "settings.profile.2fa.disable.title": "2FA uitschakelen",
+    "settings.profile.2fa.disable.text": "Weet je zeker dat je 2FA wilt uitschakelen? Dit verwijdert 2FA van je account, maar je kunt het op elk moment opnieuw inschakelen.",
+    "settings.profile.2fa.disable.enter-code": "Voer de code uit je authenticatie-app in om te bevestigen.",
     // --- End Profile translations
 
     // --- Start Power Options translations
