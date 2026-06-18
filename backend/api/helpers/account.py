@@ -2,12 +2,16 @@ from api.helpers.db import get_conn
 from api.helpers.log import log
 import secrets
 from api.helpers.passwords import password_hash, password_check
+import pyotp
+import qrcode
+import io
+import base64
 
 def list_accounts():
     log("Listing all accounts", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, nickname, role, avatar_b64, created_at, about, password FROM accounts ORDER BY id")
+            cur.execute("SELECT id, name, nickname, role, avatar_b64, created_at, about, password, two_factor_enabled FROM accounts ORDER BY id")
             rows = cur.fetchall()
             for row in rows:
                 row["password_protected"] = bool(row["password"])
@@ -21,7 +25,7 @@ def get_account(account_id: int):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, name, nickname, role, avatar_b64, created_at, about, password FROM accounts WHERE id = %s",
+                "SELECT id, name, nickname, role, avatar_b64, created_at, about, password, two_factor_enabled FROM accounts WHERE id = %s",
                 (account_id,),
             )
             row = cur.fetchone()
@@ -296,3 +300,127 @@ def delete_account_token(account_id: int, token: str):
 
     log(f"Revoked token deleted for account id={account_id}", "debug", "account")
     return True
+
+# This creates the 2FA Secret and QR code, and returns it
+def create_2fa_setup(account_id: int):
+    log(f"Creating 2FA setup for account id={account_id}", "debug", "account")
+    secret = pyotp.random_base32()
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:            
+            log(f"Checking if account id={account_id} has a password", "debug", "account")            
+            log(f"Getting username for account id={account_id}", "debug", "account")
+            cur.execute(
+                "SELECT two_factor_enabled FROM accounts WHERE id = %s",
+                (account_id,)
+            )
+            two_factor_enabled = cur.fetchone()
+            if two_factor_enabled["two_factor_enabled"] is True and two_factor_enabled is not None:
+                log(f"Account id={account_id} already has 2FA enabled", "warn", "account")
+                return {
+                    "secret": None,
+                    "qr": None,
+                    "message": "2FA already enabled"
+                }
+            
+            cur.execute(
+                "SELECT name FROM accounts WHERE id = %s AND password IS NOT NULL",
+                (account_id,)
+            )
+            username = cur.fetchone()
+            if username is None:
+                log(f"Account id={account_id} does not have a password", "warn", "account")
+                return {
+                    "secret": None,
+                    "qr": None,
+                    "message": "You must have a password to enable 2FA"
+                }
+            log(f"Account id={account_id} has a password", "debug", "account")
+            
+            log(f"Account id={account_id} has username {username['name']}", "debug", "account")
+
+            uri = pyotp.TOTP(secret).provisioning_uri(
+                name=username["name"],
+                issuer_name="OmniPlayr",
+            )
+            log(f"2FA url created for account id={account_id}", "debug", "account")
+            img = qrcode.make(uri)
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            
+            log(f"2FA setting secret for account id={account_id}", "debug", "account")
+            cur.execute(
+                "UPDATE accounts SET two_factor_secret = %s WHERE id = %s",
+                (secret, account_id)
+            )
+            conn.commit()
+            log(f"2FA setup created successfully for account id={account_id}", "debug", "account")
+            return {
+                "secret": secret,
+                "qr": f"data:image/png;base64,{qr_base64}",
+                "message": "Please verify code to enable 2FA"
+            }
+
+# This is to check if the 2FA code is valid, if it is and 2FA is not enabled, it will enable 2FA
+def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = False):
+    log(f"Verifying 2FA code for account id={account_id}", "debug", "account")
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT two_factor_secret FROM accounts WHERE id = %s AND two_factor_secret IS NOT NULL AND password IS NOT NULL",
+                (account_id,)
+            )
+            secret = cur.fetchone()
+            if secret is None:
+                log(f"Account id={account_id} does not have a 2FA secret", "warn", "account")
+                return "no_secret"
+            if allow_enabled_bypass is False:
+                cur.execute(
+                    "SELECT two_factor_enabled FROM accounts WHERE id = %s AND two_factor_enabled = true",
+                    (account_id,)
+                )
+                two_factor_enabled = cur.fetchone()
+                if two_factor_enabled["two_factor_enabled"] is False and two_factor_enabled is not None:
+                    log(f"Account id={account_id} does not have 2FA enabled", "warn", "account")
+                    return "not_enabled"
+            
+            totp = pyotp.TOTP(secret["two_factor_secret"])
+            if totp.verify(code, valid_window=1):
+                log(f"2FA code verified for account id={account_id}", "debug", "account")
+                cur.execute(
+                    "UPDATE accounts SET two_factor_enabled = true WHERE id = %s AND two_factor_enabled = false",
+                    (account_id,)
+                )
+                conn.commit()
+                log(f"2FA enabled for account id={account_id}", "debug", "account")
+                return "success"
+            log(f"2FA code verification failed for account id={account_id}", "warn", "account")
+            return "failed"
+
+# This deletes 2fa for an account if its enabled 
+def delete_2fa(account_id: int, code: str):
+    log(f"Deleting 2FA for account id={account_id}", "debug", "account")
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT two_factor_secret FROM accounts WHERE id = %s AND two_factor_secret IS NOT NULL AND password IS NOT NULL",
+                (account_id,)
+            )
+            secret = cur.fetchone()
+            if secret is None:
+                log(f"Account id={account_id} does not have a 2FA secret", "warn", "account")
+                return "no_secret"
+            
+            totp = pyotp.TOTP(secret["two_factor_secret"])
+            if totp.verify(code, valid_window=1):
+                log(f"2FA code verified for account id={account_id}", "debug", "account")
+                cur.execute(
+                    "UPDATE accounts SET two_factor_enabled = false, two_factor_secret = NULL WHERE id = %s AND two_factor_enabled = true",
+                    (account_id,)
+                )
+                conn.commit()
+                log(f"2FA deleted for account id={account_id}", "debug", "account")
+                return "success"
+            log(f"2FA code verification failed for account id={account_id}", "warn", "account")
+            return "failed"

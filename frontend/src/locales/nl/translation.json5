@@ -30,6 +30,8 @@
     "common.save": "Opslaan",
     "common.close": "Sluiten",
     "common.ok": "OK",
+    "common.next": "Volgende",
+    "common.confirm": "Bevestigen",
 
     "common.deleted": "Verwijderd",
     "common.delete": "Verwijderen",

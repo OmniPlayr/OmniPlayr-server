@@ -30,6 +30,8 @@
     "common.save": "Save",
     "common.close": "Close",
     "common.ok": "OK",
+    "common.next": "Next",
+    "common.confirm": "Confirm",
 
     "common.deleted": "Deleted",
     "common.delete": "Delete",
@@ -201,6 +203,32 @@
 
     "settings.profile.password.toast.changed": "Password changed successfully.",
     "settings.profile.password.toast.set": "Password set successfully.",
+
+    "settings.profile.2fa": "2FA",
+    "settings.profile.2fa.text": "Enable 2FA to add an extra layer of security to your account.",
+
+    "settings.profile.2fa.set": "Enable 2FA",
+    "settings.profile.2fa.disable": "Disable 2FA",
+
+    "settings.profile.2fa.popup.title": "Enable 2FA",
+    "settings.profile.2fa.popup.text": "Enable 2FA to add an extra layer of security to your account.",
+
+    "settings.profile.2fa.popup.error.password": "You must have a password to enable 2FA",
+
+    "settings.profile.2fa.popup.scanqr": "Please scan the QR code with your authenticator app.",
+    "settings.profile.2fa.popup.noqr": "If you cannot scan the QR code, please use the code below.",
+    "settings.profile.2fa.popup.added": "Once you have added the code to your authenticator app, click the button below to continue.",
+
+    "settings.profile.2fa.popup.code.title": "Enter the code",
+    "settings.profile.2fa.popup.code-text": "Enter the code from your authenticator app to continue.",
+
+    "settings.profile.2fa.popup.error.code": "The code you entered is incorrect.",
+    "settings.profile.2fa.toast.enabled": "2FA enabled successfully.",
+
+    "settings.profile.2fa.toast.disabled": "2FA removed successfully.",
+    "settings.profile.2fa.disable.title": "Disable 2FA",
+    "settings.profile.2fa.disable.text": "Are you sure you want to disable 2FA? This will delete 2FA for your account, but you can re-enable it at any time.",
+    "settings.profile.2fa.disable.enter-code": "Please enter the code from your authenticator app to confirm.",
     // --- End Profile translations
 
     // --- Start Power Options translations

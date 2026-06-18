@@ -20,7 +20,9 @@ SCHEMA = {
         "about": "TEXT DEFAULT NULL",
         "role": "VARCHAR(50) NOT NULL DEFAULT 'user'",
         "avatar_b64": "TEXT",
-        "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+        "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+        "two_factor_secret": "TEXT DEFAULT NULL",
+        "two_factor_enabled": "BOOLEAN NOT NULL DEFAULT FALSE"
     },
     "server": {
         "id": "INT PRIMARY KEY DEFAULT 1",

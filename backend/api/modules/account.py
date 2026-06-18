@@ -18,6 +18,9 @@ from api.helpers.account import (
     delete_account_token,
     delete_profile_picture,
     verify_account_password,
+    create_2fa_setup,
+    verify_2fa_code,
+    delete_2fa,
 )
 
 router = APIRouter()
@@ -27,6 +30,8 @@ class AccountCreate(BaseModel):
     role: str = "user"
     avatar_b64: str | None = None
 
+class Account2FaVerify(BaseModel):
+    code: str
 
 class AccountUpdate(BaseModel):
     role: str | None = None
@@ -39,6 +44,7 @@ class AccountUpdate(BaseModel):
 class AccountLogin(BaseModel):
     user_id: int
     password: str | None = None
+    twofa_code: str | None = None
 
 class AccountRevokeAll(BaseModel):
     user_id: int
@@ -81,6 +87,14 @@ def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
     else:
         log(f"POST /accounts/login: no password for user_id={body.user_id}", "debug", "module.account")
         password_protected = False
+        
+    result_2fa = verify_2fa_code(body.user_id, body.twofa_code)
+    
+    if result_2fa == "failed":
+        log(f"POST /accounts/login: 2fa failed for user_id={body.user_id}", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    elif result_2fa == "success":
+        log(f"POST /accounts/login: 2fa ok for user_id={body.user_id}", "debug", "module.account")
     
     useragent = ""
     ip_address = ""
@@ -235,6 +249,87 @@ def update_existing_account(account_id: int, body: AccountUpdate, auth=Depends(v
     updated = update_account(account_id, None, body.role, body.avatar_b64, body.nickname, body.about, body.password, body.old_password)
     log(f"PATCH /accounts/{account_id}: update complete", "debug", "module.account")
     return updated
+
+# This is for enabling 2FA
+@router.get("/{account_id}/2fa", status_code=201)
+def enable_2fa(account_id: int, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    log(f"GET /accounts/{account_id}/2fa requested", "debug", "module.account")
+    if not auth:
+        log(f"GET /accounts/{account_id}/2fa: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not x_account_token:
+        log(f"GET /accounts/{account_id}/2fa: missing account token header", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    log(f"GET /accounts/{account_id}/2fa: checking account exists", "debug", "module.account")
+    existing = get_account(account_id)
+    if not existing:
+        log(f"GET /accounts/{account_id}/2fa: account not found", "debug", "module.account")
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    log(f"GET /accounts/{account_id}/2fa: checking match_account", "debug", "module.account")
+    if not match_account(account_id, x_account_token):
+        log(f"GET /accounts/{account_id}/2fa: match_account failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    log(f"GET /accounts/{account_id}/2fa: match ok, enabling 2fa", "debug", "module.account")
+    result = create_2fa_setup(account_id)
+    log(f"GET /accounts/{account_id}/2fa: 2fa enabled", "debug", "module.account")
+    return result
+
+# This is for verifying 2FA
+@router.post("/{account_id}/2fa", status_code=201)
+def verify_2fa(account_id: int, body: Account2FaVerify, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    log(f"POST /accounts/{account_id}/2fa requested", "debug", "module.account")
+    if not auth:
+        log(f"POST /accounts/{account_id}/2fa: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not x_account_token:
+        log(f"POST /accounts/{account_id}/2fa: missing account token header", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    log(f"POST /accounts/{account_id}/2fa: checking account exists", "debug", "module.account")
+    existing = get_account(account_id)
+    if not existing:
+        log(f"POST /accounts/{account_id}/2fa: account not found", "debug", "module.account")
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    log(f"POST /accounts/{account_id}/2fa: checking match_account", "debug", "module.account")
+    if not match_account(account_id, x_account_token):
+        log(f"POST /accounts/{account_id}/2fa: match_account failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    log(f"POST /accounts/{account_id}/2fa: match ok, verifying 2fa", "debug", "module.account")
+    result = verify_2fa_code(account_id, body.code, True)
+    log(f"POST /accounts/{account_id}/2fa: 2fa verified", "debug", "module.account")
+    return result
+
+# This is for disabling 2FA
+@router.delete("/{account_id}/2fa", status_code=201)
+def disable_2fa(account_id: int, body: Account2FaVerify, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    log(f"DELETE /accounts/{account_id}/2fa requested", "debug", "module.account")
+    if not auth:
+        log(f"DELETE /accounts/{account_id}/2fa: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not x_account_token:
+        log(f"DELETE /accounts/{account_id}/2fa: missing account token header", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    log(f"DELETE /accounts/{account_id}/2fa: checking account exists", "debug", "module.account")
+    existing = get_account(account_id)
+    if not existing:
+        log(f"DELETE /accounts/{account_id}/2fa: account not found", "debug", "module.account")
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    log(f"DELETE /accounts/{account_id}/2fa: checking match_account", "debug", "module.account")
+    if not match_account(account_id, x_account_token):
+        log(f"DELETE /accounts/{account_id}/2fa: match_account failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    log(f"DELETE /accounts/{account_id}/2fa: match ok, disabling 2fa", "debug", "module.account")
+    result = delete_2fa(account_id, body.code)
+    log(f"DELETE /accounts/{account_id}/2fa: 2fa disabled", "debug", "module.account")
+    return result
 
 # This is for deleting a profile picture from an account, for example if it has something innapropriate.
 @router.delete("/{account_id}/pfp", status_code=204)

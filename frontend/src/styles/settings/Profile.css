@@ -371,22 +371,22 @@
     gap: 10px;
 }
 
-.profile-security-password {
+.profile-security-item {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     gap: 20px;
 }
 
-.profile-security-password-title-text {
+.profile-security-item-title-text {
     flex-direction: column;
 }
 
-.profile-security-password-title {
+.profile-security-item-title {
     font-size: 16px;
     font-weight: 600;
 }
-.profile-security-password-text {
+.profile-security-item-text {
     font-size: 13px;
     color: var(--clr-text-a30);
 }
@@ -404,12 +404,14 @@
     width: 100%;
 }
 
-.change-password-popup-title {
+.change-password-popup-title,
+.enable-2fa-popup-title {
     font-size: 20px;
     font-weight: 600;
 }
 
-.change-password-popup-text {
+.change-password-popup-text,
+.enable-2fa-popup-text {
     font-size: 16px;
     color: var(--clr-text-a30);
     margin-bottom: 10px;
@@ -427,4 +429,78 @@
     color: var(--clr-text-a0);
     font-size: 16px;
     margin-top: 10px;
+}
+
+.enable-2fa-popup-qr-image {
+    width: 200px;
+    height: 200px;
+    min-width: 200px;
+    min-height: 200px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    border: 2px solid var(--clr-popup-a50);
+    object-fit: cover;
+    background: linear-gradient(
+        90deg,
+        var(--clr-popup-a0) 0%,
+        var(--clr-popup-a0) 40%,
+        var(--clr-popup-a10) 50%,
+        var(--clr-popup-a0) 60%,
+        var(--clr-popup-a0) 100%
+    );
+    background-size: 300% 100%;
+    animation: loading-qr 2s linear infinite;
+}
+
+@keyframes loading-qr {
+    0% {
+        background-position: 150% 0;
+    }
+
+    100% {
+        background-position: -150% 0;
+    }
+}
+
+.enable-2fa-popup-secret {
+    display: flex;
+    flex-direction: row;
+    width: max-content;
+    background-color: var(--clr-popup-a20);
+    border: 1px solid var(--clr-popup-a50);
+    padding: 5px 10px;
+    border-radius: 5px;
+    color: var(--clr-text-a0);
+    margin-top: 5px;
+    margin-bottom: 5px;
+    user-select: text;
+    font-size: 18px;
+}
+
+.enable-2fa-popup-normal-text {
+    font-size: 17px;
+}
+
+.check-2fa-popup-code-group {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    flex-wrap: nowrap;
+    justify-content: center;
+}
+
+.check-2fa-code-popup-input {
+    width: clamp(32px, 8vw, 50px);
+    height: clamp(32px, 8vw, 50px);
+    min-width: 0;
+    border-radius: 10px;
+    border: 2px solid var(--clr-popup-a50);
+    font-size: clamp(14px, 4vw, 22px);
+    text-align: center;
+    box-sizing: border-box;
 }

@@ -1,6 +1,6 @@
 import '../styles/settings/Profile.css';
 import api from '../modules/api';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Fragment } from 'react';
 import defaultPfp from '../assets/images/default-pfp-dark.svg';
 import { Tooltip } from 'react-tooltip';
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, Info, Pencil, Upload, X } from 'lucide-react';
@@ -87,6 +87,8 @@ function Profile() {
     const [editNickname, setEditNickname] = useState('');
     const [editAbout, setEditAbout] = useState('');
     const [editAvatar, setEditAvatar] = useState<string | null>(null);
+
+    const [enabled2FA, setEnabled2FA] = useState(false);
 
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -290,6 +292,272 @@ function Profile() {
         })
     }
 
+    function openEnable2FAPopup(previous_response: any = null) {
+        const response_2fa_ref = { message: '', secret: '', qr: '' };
+        function Enable2FAPopup() {
+            const [response_2fa, setResponse2FA] = useState<any>(null);
+
+            useEffect(() => {
+                if (previous_response !== null) {
+                    setResponse2FA(previous_response);
+                    response_2fa_ref.message = previous_response?.message;
+                    response_2fa_ref.secret = previous_response?.secret;
+                    response_2fa_ref.qr = previous_response?.qr;
+                    return;
+                }
+                async function get2FAResponse() {
+                    const response: any = await api(`/accounts/${account?.id}/2fa`);
+                    setResponse2FA(response);
+                    response_2fa_ref.message = response?.message;
+                    response_2fa_ref.secret = response?.secret;
+                    response_2fa_ref.qr = response?.qr;
+                }
+                get2FAResponse();
+            }, []);
+            
+            if (response_2fa?.message === 'You must have a password to enable 2FA') {
+                makeToast({
+                    message: t('settings.profile.2fa.popup.error.password'),
+                    style: 'default-error'
+                })
+                closePopup('enable-2fa');
+            }
+
+            return (
+                <div className='enable-2fa-popup-content'>
+                    <h2 className='enable-2fa-popup-title'>{t('settings.profile.2fa.popup.title')}</h2>
+                    <p className='enable-2fa-popup-text'>{t('settings.profile.2fa.popup.text')}</p>
+                    <p className='enable-2fa-popup-normal-text'>{t('settings.profile.2fa.popup.scanqr')}</p>
+                    <img src={response_2fa?.qr} alt='2FA QR Code' className='enable-2fa-popup-qr-image' draggable={false} />
+                    <p className='enable-2fa-popup-normal-text'>{t('settings.profile.2fa.popup.noqr')}</p>
+                    <code className='enable-2fa-popup-secret'>{response_2fa?.secret}</code>
+                    <p className='enable-2fa-popup-normal-text'>{t('settings.profile.2fa.popup.added')}</p>
+                </div>
+            );
+        }
+
+        const nextPopup = () => {
+            check2FACodePopup(response_2fa_ref);
+        }
+
+        createPopup({
+            id: 'enable-2fa',
+            title: t('settings.profile.2fa.popup.title'),
+            close_button: true,
+            navigationIndex: 1,
+            group: '2fa',
+            content: <Enable2FAPopup />,
+            buttons: [
+                {
+                    label: t('common.cancel'),
+                    type: 'secondary',
+                    onClick: () => closePopup('enable-2fa'),
+                },
+                {
+                    label: t('common.next'),
+                    type: 'primary',
+                    onClick: () => nextPopup(),
+                },
+            ]
+        })
+    }
+    function check2FACodePopup(previous_response: any = null) {
+        const response_2fa_ref = { code: '' };
+
+        function Check2FACodePopup() {
+            const [currentCode, setCurrentCode] = useState('');
+
+            function handleCodeChange(e: React.ChangeEvent<HTMLInputElement>, index: number) {
+                const value = e.target.value.replace(/\D/g, '').slice(-1);
+                const inputs = Array.from(
+                    document.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input')
+                );
+
+                inputs[index].value = value;
+
+                const code = inputs.map(input => input.value).join('');
+                setCurrentCode(code);
+                response_2fa_ref.code = code;
+
+                if (value && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            }
+
+            function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
+                const inputs = Array.from(
+                    document.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input')
+                );
+
+                if (e.key === 'Backspace' && !inputs[index].value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            }
+
+            return (
+                <div className='check-2fa-code-popup-content'>
+                    <h2 className='enable-2fa-popup-title'>{t('settings.profile.2fa.popup.code.title')}</h2>
+                    <p className='enable-2fa-popup-normal-text'>{t('settings.profile.2fa.popup.code-text')}</p>
+                    <div className="check-2fa-popup-code-group">
+                        {[0, 1, 2, 3, 4, 5].map((index) => (
+                            <Fragment key={index}>
+                                {index === 3 && <div className='check-2fa-code-popup-spacer'></div>}
+                                <input
+                                    type='text'
+                                    inputMode='numeric'
+                                    maxLength={1}
+                                    placeholder={`${index + 1}`}
+                                    className='check-2fa-code-popup-input'
+                                    onChange={(e) => handleCodeChange(e, index)}
+                                    onKeyDown={(e) => handleKeyDown(e, index)}
+                                />
+                            </Fragment>
+                        ))}
+                    </div>
+                </div>
+            )
+        }
+
+        const previousPopup = () => {
+            openEnable2FAPopup(previous_response);
+        }
+
+        const confirmPopup = async () => {
+            const res = await api(`/accounts/${account?.id}/2fa`, { code: response_2fa_ref.code });
+            if (res === "success") {
+                closePopup('check-2fa-code');
+                makeToast({
+                    message: t('settings.profile.2fa.toast.enabled'),
+                    style: 'default',
+                })
+            } else if (res === "failed") {
+                makeToast({
+                    message: t('settings.profile.2fa.popup.error.code'),
+                    style: 'default-error'
+                })
+            }
+        }
+
+        createPopup({
+            id: 'check-2fa-code',
+            title: t('settings.profile.2fa.popup.title'),
+            close_button: true,
+            navigationIndex: 2,
+            group: '2fa',
+            content: <Check2FACodePopup />,
+            buttons: [
+                {
+                    label: t('common.back'),
+                    type: 'secondary',
+                    onClick: () => previousPopup(),
+                },
+                {
+                    label: t('common.cancel'),
+                    type: 'secondary',
+                    onClick: () => closePopup('check-2fa-code'),
+                },
+                {
+                    label: t('common.confirm'),
+                    type: 'primary',
+                    onClick: () => confirmPopup(),
+                },
+            ]
+        })
+    }
+
+    function disable2FAPopup() {
+        const response_2fa_ref = { code: '' };
+
+        function Disable2FAPopup() {
+            const [currentCode, setCurrentCode] = useState('');
+
+            function handleCodeChange(e: React.ChangeEvent<HTMLInputElement>, index: number) {
+                const value = e.target.value.replace(/\D/g, '').slice(-1);
+                const inputs = Array.from(
+                    document.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input')
+                );
+
+                inputs[index].value = value;
+
+                const code = inputs.map(input => input.value).join('');
+                setCurrentCode(code);
+                response_2fa_ref.code = code;
+
+                if (value && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+            }
+
+            function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
+                const inputs = Array.from(
+                    document.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input')
+                );
+
+                if (e.key === 'Backspace' && !inputs[index].value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            }
+
+            return (
+                <div className='check-2fa-code-popup-content'>
+                    <h2 className='enable-2fa-popup-title'>{t('settings.profile.2fa.disable.title')}</h2>
+                    <p className='enable-2fa-popup-normal-text'>{t('settings.profile.2fa.disable.text')}</p>
+                    <p className='enable-2fa-popup-normal-text'>{t('settings.profile.2fa.disable.enter-code')}</p>
+                    <div className="check-2fa-popup-code-group">
+                        {[0, 1, 2, 3, 4, 5].map((index) => (
+                            <Fragment key={index}>
+                                {index === 3 && <div className='check-2fa-code-popup-spacer'></div>}
+                                <input
+                                    type='text'
+                                    inputMode='numeric'
+                                    maxLength={1}
+                                    placeholder={`${index + 1}`}
+                                    className='check-2fa-code-popup-input'
+                                    onChange={(e) => handleCodeChange(e, index)}
+                                    onKeyDown={(e) => handleKeyDown(e, index)}
+                                />
+                            </Fragment>
+                        ))}
+                    </div>
+                </div>
+            )
+        }
+
+        const confirmDelete = async () => {
+            const res = await api(`/accounts/${account?.id}/2fa`, { code: response_2fa_ref.code }, undefined, false, false, 'DELETE');
+            if (res === "success") {
+                closePopup('disable-2fa');
+                makeToast({
+                    message: t('settings.profile.2fa.toast.disabled'),
+                    style: 'default',
+                })
+            } else if (res === "failed") {
+                makeToast({
+                    message: t('settings.profile.2fa.popup.error.code'),
+                    style: 'default-error'
+                })
+            }
+        }
+
+        createPopup({
+            id: 'disable-2fa',
+            title: t('settings.profile.2fa.popup.title'),
+            close_button: true,
+            content: <Disable2FAPopup />,
+            buttons: [
+                {
+                    label: t('common.cancel'),
+                    type: 'secondary',
+                    onClick: () => closePopup('disable-2fa'),
+                },
+                {
+                    label: t('common.confirm'),
+                    type: 'danger',
+                    onClick: () => confirmDelete(),
+                },
+            ]
+        })
+    }
 
     const changePassword = async (current_password: string, new_password: string) => {
         const res = await api(`/accounts/${account?.id}`, { old_password: current_password, password: new_password }, undefined, false, false, 'PATCH');
@@ -383,12 +651,19 @@ function Profile() {
                     </div>
                     <div className='profile-security'>
                         <p className='profile-security-title'>{t('settings.profile.security')}</p>
-                        <div className='profile-security-password'>
-                            <div className="profile-security-password-title-text">
-                                <p className='profile-security-password-title'>{t('settings.profile.password')}</p>
-                                <p className='profile-security-password-text'>{t('settings.profile.password.text')}</p>
+                        <div className='profile-security-item'>
+                            <div className="profile-security-item-title-text">
+                                <p className='profile-security-item-title'>{t('settings.profile.password')}</p>
+                                <p className='profile-security-item-text'>{t('settings.profile.password.text')}</p>
                             </div>
                             <button className='profile-security-password-button' onClick={handlePassword}>{account?.password_protected ? t('settings.profile.password.change') : t('settings.profile.password.set')}</button>
+                        </div>
+                        <div className='profile-security-item'>
+                            <div className="profile-security-item-title-text">
+                                <p className='profile-security-item-title'>{t('settings.profile.2fa')}</p>
+                                <p className='profile-security-item-text'>{t('settings.profile.2fa.text')}</p>
+                            </div>
+                            <button className='profile-security-2fa-button' onClick={account?.two_factor_enabled ? () => disable2FAPopup() : () => openEnable2FAPopup(null)}>{account?.two_factor_enabled || enabled2FA ? t('settings.profile.2fa.disable') : t('settings.profile.2fa.set')}</button>
                         </div>
                     </div>
                     <div className='profile-tokens'>
