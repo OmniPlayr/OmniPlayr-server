@@ -102,10 +102,6 @@ frontend/src/plugins/
 # Local config
 config.local.json
 
-# AI
-.claude/
-.continue/
-
 # safe mode
 *.safe_mode
 
