@@ -5,7 +5,9 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
       - ./frontend/src/config:/app/src/config
       - ./backend/certs:/app/certs
     container_name: omniplayr_frontend

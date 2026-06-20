@@ -144,6 +144,20 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
         }
     }
 
+    function handleCodePaste(e: React.ClipboardEvent<HTMLInputElement>, index: number) {
+        const inputs = getTwoFaInputs();
+        const digits = e.clipboardData.getData('text').replace(/\D/g, '');
+        if (!digits) return;
+
+        e.preventDefault();
+        const startIndex = digits.length >= inputs.length ? 0 : index;
+        digits.slice(0, inputs.length - startIndex).split('').forEach((digit, offset) => {
+            inputs[startIndex + offset].value = digit;
+        });
+        twoFaCodeRef.current = inputs.map(input => input.value).join('');
+        inputs[Math.min(startIndex + digits.length, inputs.length - 1)].focus();
+    }
+
     function finishLogin(token: string) {
         storeAccount(token);
         window.history.pushState({}, '', '/');
@@ -327,6 +341,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                                         className="check-2fa-code-popup-input"
                                         onChange={(e) => handleCodeChange(e, index)}
                                         onKeyDown={(e) => handleCodeKeyDown(e, index)}
+                                        onPaste={(e) => handleCodePaste(e, index)}
                                         autoFocus={index === 0}
                                     />
                                 </Fragment>

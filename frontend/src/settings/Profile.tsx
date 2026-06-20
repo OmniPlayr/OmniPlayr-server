@@ -394,6 +394,24 @@ function Profile() {
                 }
             }
 
+            function handleCodePaste(e: React.ClipboardEvent<HTMLInputElement>, index: number) {
+                const inputs = Array.from(
+                    document.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input')
+                );
+                const digits = e.clipboardData.getData('text').replace(/\D/g, '');
+                if (!digits) return;
+
+                e.preventDefault();
+                const startIndex = digits.length >= inputs.length ? 0 : index;
+                digits.slice(0, inputs.length - startIndex).split('').forEach((digit, offset) => {
+                    inputs[startIndex + offset].value = digit;
+                });
+                const code = inputs.map(input => input.value).join('');
+                setCurrentCode(code);
+                response_2fa_ref.code = code;
+                inputs[Math.min(startIndex + digits.length, inputs.length - 1)].focus();
+            }
+
             return (
                 <div className='check-2fa-code-popup-content'>
                     <h2 className='enable-2fa-popup-title'>{t('settings.profile.2fa.popup.code.title')}</h2>
@@ -410,6 +428,7 @@ function Profile() {
                                     className='check-2fa-code-popup-input'
                                     onChange={(e) => handleCodeChange(e, index)}
                                     onKeyDown={(e) => handleKeyDown(e, index)}
+                                    onPaste={(e) => handleCodePaste(e, index)}
                                 />
                             </Fragment>
                         ))}
@@ -498,6 +517,24 @@ function Profile() {
                 }
             }
 
+            function handleCodePaste(e: React.ClipboardEvent<HTMLInputElement>, index: number) {
+                const inputs = Array.from(
+                    document.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input')
+                );
+                const digits = e.clipboardData.getData('text').replace(/\D/g, '');
+                if (!digits) return;
+
+                e.preventDefault();
+                const startIndex = digits.length >= inputs.length ? 0 : index;
+                digits.slice(0, inputs.length - startIndex).split('').forEach((digit, offset) => {
+                    inputs[startIndex + offset].value = digit;
+                });
+                const code = inputs.map(input => input.value).join('');
+                setCurrentCode(code);
+                response_2fa_ref.code = code;
+                inputs[Math.min(startIndex + digits.length, inputs.length - 1)].focus();
+            }
+
             return (
                 <div className='check-2fa-code-popup-content'>
                     <h2 className='enable-2fa-popup-title'>{t('settings.profile.2fa.disable.title')}</h2>
@@ -515,6 +552,7 @@ function Profile() {
                                     className='check-2fa-code-popup-input'
                                     onChange={(e) => handleCodeChange(e, index)}
                                     onKeyDown={(e) => handleKeyDown(e, index)}
+                                    onPaste={(e) => handleCodePaste(e, index)}
                                 />
                             </Fragment>
                         ))}

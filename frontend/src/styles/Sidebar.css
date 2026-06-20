@@ -431,9 +431,12 @@
 }
 
 @media screen and (max-width: 768px) {
-    .password-overlay-content,
-    .check-2fa-overlay-content {
+    .password-overlay-content {
         width: 80%;
+    }
+
+    .check-2fa-overlay-content {
+        width: 100%;
     }
 
     .password-overlay-close,

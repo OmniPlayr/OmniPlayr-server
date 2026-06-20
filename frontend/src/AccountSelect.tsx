@@ -72,6 +72,22 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
         }
     }
 
+    function handleCodePaste(e: React.ClipboardEvent<HTMLInputElement>, index: number) {
+        const inputs = Array.from(
+            document.querySelectorAll<HTMLInputElement>('.check-2fa-code-popup-input')
+        );
+        const digits = e.clipboardData.getData('text').replace(/\D/g, '');
+        if (!digits) return;
+
+        e.preventDefault();
+        const startIndex = digits.length >= inputs.length ? 0 : index;
+        digits.slice(0, inputs.length - startIndex).split('').forEach((digit, offset) => {
+            inputs[startIndex + offset].value = digit;
+        });
+        response_2fa_ref.current.code = inputs.map(input => input.value).join('');
+        inputs[Math.min(startIndex + digits.length, inputs.length - 1)].focus();
+    }
+
     async function loginWithPassword() {
         if (twoFactorEnabled) {
             try {
@@ -228,6 +244,7 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                                         className='check-2fa-code-popup-input'
                                         onChange={(e) => handleCodeChange(e, index)}
                                         onKeyDown={(e) => handleKeyDown(e, index)}
+                                        onPaste={(e) => handleCodePaste(e, index)}
                                     />
                                 </Fragment>
                             ))}

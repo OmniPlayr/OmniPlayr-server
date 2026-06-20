@@ -485,7 +485,7 @@
 .check-2fa-popup-code-group {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: clamp(6px, 2vw, 10px);
     margin-top: 10px;
     margin-bottom: 10px;
     max-width: 100%;
@@ -495,12 +495,12 @@
 }
 
 .check-2fa-code-popup-input {
-    width: clamp(32px, 8vw, 50px);
-    height: clamp(32px, 8vw, 50px);
+    width: clamp(38px, 12vw, 50px);
+    height: clamp(38px, 12vw, 50px);
     min-width: 0;
     border-radius: 10px;
     border: 2px solid var(--clr-popup-a50);
-    font-size: clamp(14px, 4vw, 22px);
+    font-size: clamp(16px, 4vw, 22px);
     text-align: center;
     box-sizing: border-box;
 }

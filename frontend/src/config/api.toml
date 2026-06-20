@@ -1,6 +1,6 @@
 [api]
-apiUrl = "'http://' + (location.hostname || 'localhost') + ':8224'"
-terminalUrl = "'ws://' + (location.hostname || 'localhost') + ':8224'"
+apiUrl = "['8223','8323','8523'].includes(location.port) ? 'http://' + location.hostname + ':8224' : ''"
+terminalUrl = "['8223','8323','8523'].includes(location.port) ? 'ws://' + location.hostname + ':8224' : ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host)"
 
 [accounts]
 accountStore = "sessionStorage"
