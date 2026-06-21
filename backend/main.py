@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from api.helpers.db import init_db
+from api.helpers.db import init_db_when_ready
 from api.router import router
 from api.helpers.config import load_configs, get_config
 from api.helpers.plugins import load_plugins, get_plugin_router
@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
     load_configs()
 
     # This sets up the database, but needs to be after the configs are loaded, because the database also logs, and else you are going to get a lot of duplicate logs (I think)
-    init_db()
+    await init_db_when_ready()
     # This loads the plugins
     if _is_safe_mode():
         log("Safe mode is active, plugins are disabled", "warning", "main")

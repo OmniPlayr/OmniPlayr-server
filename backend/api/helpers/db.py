@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import psycopg2
@@ -85,6 +86,16 @@ SCHEMA = {
 }
 
 _pool: psycopg2.pool.ThreadedConnectionPool | None = None
+
+
+def _close_pool() -> None:
+    global _pool
+    pool, _pool = _pool, None
+    if pool is not None:
+        try:
+            pool.closeall()
+        except Exception:
+            pass
 
 def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
     global _pool
@@ -326,8 +337,36 @@ def init_db():
             conn.commit()
             cur.close()
         log("Database initialization completed successfully", "debug", "db")
+    except psycopg2.OperationalError:
+        _close_pool()
+        raise
     except Exception as e:
         log(f"Database initialization failed: {e}", "critical", "db")
         user_warn("Database initialization failed. Please restore an old backup or reinstall the server. Check the logs for more details.")
         log(f"Database initialization failed: {e}", "error")
         raise
+
+
+async def init_db_when_ready(retry_interval: float | None = None) -> None:
+    if retry_interval is None:
+        try:
+            retry_interval = max(float(os.getenv("DATABASE_RETRY_INTERVAL", "3")), 0.1)
+        except ValueError:
+            retry_interval = 3.0
+
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            init_db()
+            if attempt > 1:
+                log("Database is ready; continuing server startup", "info", "db")
+            return
+        except psycopg2.OperationalError as exc:
+            log(
+                f"Database is not ready (attempt {attempt}): {exc}. "
+                f"Trying again in {retry_interval:g} seconds",
+                "warning",
+                "db",
+            )
+            await asyncio.sleep(retry_interval)
