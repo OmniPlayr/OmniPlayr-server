@@ -262,7 +262,7 @@ function AppShell() {
 
     
     const pluginActionRequiredCount = getPluginsMenuItems().filter(
-        item => item.needsInteraction
+        item => item.needsInteraction && (!item.adminOnly || account?.role === 'admin')
     ).length;
 
     const settingsBadgeCount = pluginActionRequiredCount + (updateAvailable ? 1 : 0);

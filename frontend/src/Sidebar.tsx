@@ -315,6 +315,9 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                                 onChange={(e) => setPassword(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && loginWithPassword()}
                                 autoFocus
+                                autoComplete='current-password'
+                                id="user-password"
+                                name="user-password"
                             />
                             <button className="password-overlay-button" onClick={loginWithPassword}>
                                 <ArrowRightToLine className="password-overlay-button-icon" />

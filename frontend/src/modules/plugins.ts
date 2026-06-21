@@ -29,6 +29,7 @@ export interface PluginMenuItem {
     label?: string;
     function?: () => void;
     needsInteraction?: boolean;
+    adminOnly?: boolean;
 }
 
 type Listener = (payload: any) => void;
@@ -199,7 +200,7 @@ export function registerTab(
 
 export function registerPluginsMenuItem(
     id: string,
-    menuItem: { icon: ComponentType; view?: ComponentType | null; label?: string; function?: () => void, needsInteraction?: boolean }
+    menuItem: { icon: ComponentType; view?: ComponentType | null; label?: string; function?: () => void; needsInteraction?: boolean; adminOnly?: boolean }
 ) {
     if (!validatedPlugins.has(id)) {
         console.error(`[plugins] blocked: "${id}" has no valid package.json`);

@@ -220,7 +220,7 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                         <div className='password-overlay-title'>{t('login.password.popup.title')}</div>
                         <div className='password-overlay-text'>{t('login.password.popup.text')}</div>
                         <div className="password-overlay-input-container">
-                            <input type="password" className="password-overlay-input" placeholder={t('login.password.popup.placeholder')} value={password} onChange={handlePasswordChange} onKeyDown={handlePasswordKeyDown} autoFocus />
+                            <input type="password" className="password-overlay-input" autoComplete="current-password" id="user-password" name="user-password" placeholder={t('login.password.popup.placeholder')} value={password} onChange={handlePasswordChange} onKeyDown={handlePasswordKeyDown} autoFocus />
                             <button className="password-overlay-button" onClick={loginWithPassword}><ArrowRightToLine className="password-overlay-button-icon" /></button>
                         </div>
                     </div>

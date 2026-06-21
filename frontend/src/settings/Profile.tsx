@@ -219,6 +219,9 @@ function Profile() {
                                     placeholder={t('settings.profile.password.popup.placeholder.current')}
                                     onChange={handleCurrentPasswordChange}
                                     value={current_password}
+                                    autoComplete='current-password'
+                                    id="user-password"
+                                    name="user-password"
                                 />
                             </div>
                             <div className='change-password-popup-separator' />
@@ -231,6 +234,9 @@ function Profile() {
                                 placeholder={t('settings.profile.password.popup.placeholder.new')}
                                 onChange={handleNewPasswordChange}
                                 value={new_password}
+                                autoComplete='new-password'
+                                id="user-new-password"
+                                name="user-new-password"
                             />
                         </div>
                         <div className='change-password-popup-group'>
@@ -240,6 +246,9 @@ function Profile() {
                                 placeholder={t('settings.profile.password.popup.placeholder.confirm')}
                                 onChange={handleConfirmPasswordChange}
                                 value={confirm_password}
+                                autoComplete='new-password'
+                                id="user-confirm-password"
+                                name="user-confirm-password"
                             />
                         </div>
                     </div>

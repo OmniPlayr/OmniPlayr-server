@@ -41,7 +41,7 @@ function Login() {
 		<div className='login__screen'>
 			<h1 className='login__title'>{t('login.title')}</h1>
 			<p className='login__subtitle'>{t('login.subtitle')}</p>
-			<input className='login__input' type="password" placeholder="Password" />
+			<input className='login__input' type="password" autoComplete='current-password' id="server-password" name="server-password" placeholder="Password" />
 			<button className='login__button' data-type="primary" onClick={handleSubmit}>{t('login.button')}</button>
 		</div>
 		</>

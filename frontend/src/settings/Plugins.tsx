@@ -198,7 +198,7 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
             <div className='plugins-grid'>
                 {plugins.map(plugin => {
                     const pluginMenuItems = getPluginsMenuItems().filter(
-                        item => item.id === plugin.folder
+                        item => item.id === plugin.folder && (!item.adminOnly || isAdmin)
                     );
 
                     return (

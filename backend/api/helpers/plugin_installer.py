@@ -22,6 +22,19 @@ _PLUGIN_OVERWRITE_ALWAYS: set[str] = {
 }
 
 
+def _empty_env_example(source: Path, target: Path) -> None:
+    output: list[str] = []
+    for line in source.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            output.append(line)
+            continue
+        key = line.split("=", 1)[0].rstrip()
+        output.append(f"{key}=")
+    target.write_text("\n".join(output) + "\n", encoding="utf-8")
+    log(f"Created empty plugin environment file: {target}", "info", "plugin_installer")
+
+
 def fetch_plugin_info(package_id: str) -> dict | None:
     registry_api = get_config("plugins.registry_api")
     url = f"{registry_api}?id={urllib.parse.quote(package_id)}"
@@ -300,6 +313,11 @@ def _install_files(source_dir: Path, install_dir: Path, root: Path | None = None
             _install_files(item, target, root)
         else:
             _merge_or_copy(item, target, root)
+
+    env_example = install_dir / ".env.example"
+    env_file = install_dir / ".env"
+    if env_example.exists() and not env_file.exists():
+        _empty_env_example(env_example, env_file)
 
 
 def install_plugin(package_id: str, version: str | None, target: str | None) -> dict:
