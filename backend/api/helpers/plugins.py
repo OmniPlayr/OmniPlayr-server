@@ -11,10 +11,10 @@ from fastapi import APIRouter
 from api.helpers.log import log
 from api.helpers.plugin_functions import (
     PluginFunctions,
-    call as call_plugin_function,
-    expose as expose_plugin_function,
-    is_function_available as is_plugin_function_available,
-    is_plugin_available,
+    call,
+    expose,
+    is_installed,
+    has_function,
     mark_plugin_loaded,
     remove_plugin,
 )
@@ -210,12 +210,12 @@ def load_plugins():
         mod.request_db_access = lambda **kwargs: _request_access(plugin_key, **kwargs)
         mod.plugins = PluginFunctions(plugin_key)
 
-        mod.expose_function = lambda name, function: expose_plugin_function(
+        mod.expose_function = lambda name, function: expose(
             plugin_key, name, function
         )
-        mod.is_plugin_available = is_plugin_available
-        mod.is_plugin_function_available = is_plugin_function_available
-        mod.call_plugin_function = call_plugin_function
+        mod.is_plugin_available = is_installed
+        mod.is_plugin_function_available = has_function
+        mod.call_plugin_function = call
 
         try:
             spec.loader.exec_module(mod)

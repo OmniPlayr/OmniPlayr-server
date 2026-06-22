@@ -40,6 +40,7 @@ out/
 
 # Music
 music/
+user_storage/playlist-cache/
 
 # Database
 db/

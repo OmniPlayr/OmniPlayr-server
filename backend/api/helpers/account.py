@@ -20,6 +20,25 @@ def list_accounts():
             return rows
 
 
+def list_account_summaries():
+    """Return account identity fields without loading large profile images."""
+    log("Listing account summaries", "debug", "account")
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM accounts ORDER BY id")
+            rows = cur.fetchall()
+            log(f"Found {len(rows)} account summary row(s)", "debug", "account")
+            return rows
+
+
+def get_account_summary(account_id: int):
+    """Return identity fields without loading profile images or account tokens."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM accounts WHERE id = %s", (account_id,))
+            return cur.fetchone()
+
+
 def get_account(account_id: int):
     log(f"Fetching account id={account_id}", "debug", "account")
     with get_conn() as conn:

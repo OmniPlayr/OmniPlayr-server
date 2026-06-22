@@ -61,7 +61,7 @@ class PluginFunctions:
             f"[{self._plugin_key}] Checking plugin installation: plugin={plugin_key!r}",
             "debug",
         )
-        return is_plugin_available(plugin_key)
+        return is_installed(plugin_key)
 
     def has_function(self, plugin_key: str, function_name: str) -> bool:
         log(
@@ -69,7 +69,7 @@ class PluginFunctions:
             f"plugin={plugin_key!r} function={function_name!r}",
             "debug",
         )
-        return is_function_available(plugin_key, function_name)
+        return has_function(plugin_key, function_name)
 
 
 def expose(plugin_key: str, function_name: str, function: Callable[..., Any]) -> None:
@@ -127,7 +127,7 @@ def remove_plugin(plugin_key: str) -> None:
     )
 
 
-def is_plugin_available(plugin_key: str) -> bool:
+def is_installed(plugin_key: str) -> bool:
     with _lock:
         available = plugin_key in _loaded_plugins
     log(
@@ -137,7 +137,7 @@ def is_plugin_available(plugin_key: str) -> bool:
     return available
 
 
-def is_function_available(plugin_key: str, function_name: str) -> bool:
+def has_function(plugin_key: str, function_name: str) -> bool:
     with _lock:
         available = (
             plugin_key in _loaded_plugins
