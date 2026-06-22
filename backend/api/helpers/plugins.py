@@ -9,6 +9,15 @@ from typing import Callable, Any
 import importlib.metadata
 from fastapi import APIRouter
 from api.helpers.log import log
+from api.helpers.plugin_functions import (
+    PluginFunctions,
+    call as call_plugin_function,
+    expose as expose_plugin_function,
+    is_function_available as is_plugin_function_available,
+    is_plugin_available,
+    mark_plugin_loaded,
+    remove_plugin,
+)
 
 _registry: dict[str, "PluginBase"] = {}
 _plugin_router = APIRouter()
@@ -199,12 +208,22 @@ def load_plugins():
 
         from api.helpers.plugin_db import request_db_access as _request_access
         mod.request_db_access = lambda **kwargs: _request_access(plugin_key, **kwargs)
+        mod.plugins = PluginFunctions(plugin_key)
+
+        mod.expose_function = lambda name, function: expose_plugin_function(
+            plugin_key, name, function
+        )
+        mod.is_plugin_available = is_plugin_available
+        mod.is_plugin_function_available = is_plugin_function_available
+        mod.call_plugin_function = call_plugin_function
 
         try:
             spec.loader.exec_module(mod)
+            mark_plugin_loaded(plugin_key)
             log(f"Plugin module {plugin_key!r} executed successfully", "debug", "plugins")
         except Exception as e:
             log(f"Failed to load plugin {plugin_key!r}: {e}", "error", "plugins")
+            remove_plugin(plugin_key)
             sys.modules.pop(module_name, None)
             continue
 
