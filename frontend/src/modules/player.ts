@@ -424,7 +424,9 @@ class AudioPlayer {
 
         if (!(getConfig<boolean>('buffering.prefetch_enabled') ?? true)) return;
 
-        const next = this.priorityQueue[0] ?? this.nextQueueItems[0];
+        const next = this.priorityQueue[0]
+            ?? this.nextQueueItems[0]
+            ?? (this.repeat === 'all' ? this.nextQueueOriginal[0] : undefined);
 
         if (!next) return;
 
@@ -575,7 +577,15 @@ class AudioPlayer {
 
     setNextQueue(name: string | null, items: QueueItem[]) {
         this.nextQueueName = name;
-        this.nextQueueOriginal = [...items];
+        const current = this.currentSongFromNextQueue && this.currentSongId && this.currentSourceType
+            ? [{
+                songId: this.currentSongId,
+                sourceType: this.currentSourceType,
+                extra: this.currentExtra ?? undefined,
+            }]
+            : [];
+
+        this.nextQueueOriginal = [...current, ...items];
         this.nextQueueItems = this.shuffle ? this.smartShuffle([...items]) : [...items];
 
         if (!this.currentSongId && !this.isTransitioning) {
@@ -642,6 +652,7 @@ class AudioPlayer {
         else this.repeat = 'off';
 
         this.savePlaybackState();
+        this.schedulePrefetch();
         this.notify();
     }
 
@@ -1042,7 +1053,9 @@ class AudioPlayer {
     }
 
     get hasNext() {
-        return this.priorityQueue.length > 0 || this.nextQueueItems.length > 0;
+        return this.priorityQueue.length > 0
+            || this.nextQueueItems.length > 0
+            || (this.repeat === 'all' && this.nextQueueOriginal.length > 0);
     }
 }
 
