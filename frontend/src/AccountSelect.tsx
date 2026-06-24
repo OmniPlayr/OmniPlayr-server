@@ -23,7 +23,8 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
     const [openTwoFaPopup, setTwoFaPopup] = useState<boolean>(false);
-    const response_2fa_ref = useRef<{ code: string }>({ code: '' });
+    const [usingBackupCode, setUsingBackupCode] = useState(false);
+    const response_2fa_ref = useRef<{ code: string; backup_code: string }>({ code: '', backup_code: '' });
 
     function handlePasswordChange(e: any) {
         setPassword(e.target.value);
@@ -44,6 +45,13 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
     function closeTwoFaPopup() {
         setTwoFaPopup(false);
         setSelected(null);
+        setUsingBackupCode(false);
+        response_2fa_ref.current.code = '';
+        response_2fa_ref.current.backup_code = '';
+    }
+
+    function useBackupCode() {
+        setUsingBackupCode(true);
         response_2fa_ref.current.code = '';
     }
 
@@ -88,6 +96,16 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
         inputs[Math.min(startIndex + digits.length, inputs.length - 1)].focus();
     }
 
+    function handleBackupCodeChange(e: React.ChangeEvent<HTMLInputElement>) {
+        response_2fa_ref.current.backup_code = e.target.value;
+    }
+
+    function handleBackupCodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        if (e.key === 'Enter') {
+            loginWithCode();
+        }
+    }
+
     async function loginWithPassword() {
         if (twoFactorEnabled) {
             try {
@@ -117,6 +135,9 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                 return;
             }
             setPasswordPopup(false);
+            setUsingBackupCode(false);
+            response_2fa_ref.current.code = '';
+            response_2fa_ref.current.backup_code = '';
             setTwoFaPopup(true);
             return;
         }
@@ -129,7 +150,13 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
     }
 
     async function loginWithCode() {
-        const data = await api("/accounts/login", { user_id: selected, password: password, twofa_code: response_2fa_ref.current.code }) as any;
+        const data = await api("/accounts/login", {
+            user_id: selected,
+            password: password,
+            ...(usingBackupCode
+                ? { backup_code: response_2fa_ref.current.backup_code }
+                : { twofa_code: response_2fa_ref.current.code })
+        }) as any;
         if (!data?.token) {
             makeToast({ message: t('login.error.wrong-code'), style: 'default-error', icon_left: 'circle-x', icon_left_type: 'lucide_icon', duration: 5000 });
             return;
@@ -231,26 +258,43 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                 <div className='check-2fa-overlay'>
                     <div className='check-2fa-overlay-content'>
                         <div className='check-2fa-overlay-title'>{t('login.2fa.popup.title')}</div>
-                        <div className='check-2fa-overlay-text'>{t('login.2fa.popup.text')}</div>
-                        <div className="check-2fa-popup-code-group">
-                            {[0, 1, 2, 3, 4, 5].map((index) => (
-                                <Fragment key={index}>
-                                    {index === 3 && <div className='check-2fa-code-popup-spacer'></div>}
-                                    <input
-                                        type='text'
-                                        inputMode='numeric'
-                                        maxLength={1}
-                                        placeholder={`${index + 1}`}
-                                        className='check-2fa-code-popup-input'
-                                        onChange={(e) => handleCodeChange(e, index)}
-                                        onKeyDown={(e) => handleKeyDown(e, index)}
-                                        onPaste={(e) => handleCodePaste(e, index)}
-                                    />
-                                </Fragment>
-                            ))}
-                            <div className='check-2fa-code-popup-spacer'></div>
-                            <button className="check-2fa-popup-button" onClick={loginWithCode}><ArrowRightToLine className="check-2fa-popup-button-icon" /></button>
-                        </div>
+                        <div className='check-2fa-overlay-text'>{usingBackupCode ? t('login.2fa.popup.backup-text') : t('login.2fa.popup.text')}</div>
+                        {usingBackupCode ? (
+                            <div className="check-2fa-popup-backup-group">
+                                <input
+                                    type='text'
+                                    className='check-2fa-backup-popup-input'
+                                    placeholder={t('login.2fa.popup.backup-placeholder')}
+                                    onChange={handleBackupCodeChange}
+                                    onKeyDown={handleBackupCodeKeyDown}
+                                    autoFocus
+                                />
+                                <button className="check-2fa-popup-button" onClick={loginWithCode}><ArrowRightToLine className="check-2fa-popup-button-icon" /></button>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="check-2fa-popup-code-group">
+                                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                                        <Fragment key={index}>
+                                            {index === 3 && <div className='check-2fa-code-popup-spacer'></div>}
+                                            <input
+                                                type='text'
+                                                inputMode='numeric'
+                                                maxLength={1}
+                                                placeholder={`${index + 1}`}
+                                                className='check-2fa-code-popup-input'
+                                                onChange={(e) => handleCodeChange(e, index)}
+                                                onKeyDown={(e) => handleKeyDown(e, index)}
+                                                onPaste={(e) => handleCodePaste(e, index)}
+                                            />
+                                        </Fragment>
+                                    ))}
+                                    <div className='check-2fa-code-popup-spacer'></div>
+                                    <button className="check-2fa-popup-button" onClick={loginWithCode}><ArrowRightToLine className="check-2fa-popup-button-icon" /></button>
+                                </div>
+                                <p className='check-2fa-overlay-use-backup' onClick={useBackupCode}>{t('login.2fa.popup.use-backup')}</p>
+                            </>
+                        )}
                     </div>
                     <X className='check-2fa-overlay-close' onClick={closeTwoFaPopup} />
                 </div>

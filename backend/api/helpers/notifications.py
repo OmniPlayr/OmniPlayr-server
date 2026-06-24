@@ -206,6 +206,45 @@ async def notify(
     log(f"Notification sent to account_id={account_id}: {title!r}", "debug", "notifications")
     return row
 
+
+async def notify_once(
+    account_id: int,
+    notification_key: str,
+    icon: str,
+    title: str,
+    text: str,
+    action_type: str | None = None,
+    action_url: str | None = None,
+) -> dict | None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM notifications WHERE account_id = %s AND notification_key = %s",
+                (account_id, notification_key),
+            )
+            if cur.fetchone() is not None:
+                return None
+
+            cur.execute(
+                """
+                INSERT INTO notifications
+                    (account_id, notification_key, icon, title, text, action_type, action_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, account_id, icon, title, text, action_type, action_url, read, created_at
+                """,
+                (account_id, notification_key, icon, title, text, action_type, action_url),
+            )
+            row = _serialize(dict(cur.fetchone()))
+        conn.commit()
+
+    count = get_unread_count(account_id)
+    await manager.send_to_user(
+        account_id,
+        {"type": "notification", "data": row, **_unread_payload(count)},
+    )
+    log(f"Notification sent once to account_id={account_id}: {title!r}", "debug", "notifications")
+    return row
+
 _main_loop: asyncio.AbstractEventLoop | None = None
 
 def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
@@ -221,6 +260,26 @@ def notify_sync(
     action_url: str | None = None,
 ) -> None:
     coro = notify(account_id, icon, title, text, action_type, action_url)
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coro)
+    except RuntimeError:
+        if _main_loop is not None:
+            asyncio.run_coroutine_threadsafe(coro, _main_loop)
+        else:
+            asyncio.run(coro)
+
+
+def notify_once_sync(
+    account_id: int,
+    notification_key: str,
+    icon: str,
+    title: str,
+    text: str,
+    action_type: str | None = None,
+    action_url: str | None = None,
+) -> None:
+    coro = notify_once(account_id, notification_key, icon, title, text, action_type, action_url)
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(coro)

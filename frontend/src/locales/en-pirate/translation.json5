@@ -84,6 +84,8 @@
 
     "settings.tab.people.profile": "Wanted Poster",
     "settings.tab.people.profile.desc": "Edit yer wanted poster",
+    "settings.tab.people.backup_codes": "Backup Codes",
+    "settings.tab.people.backup_codes.desc": "Create and save yer 2FA backup codes",
 
     "settings.tab.people.other": "Other Scallywags",
     "settings.tab.people.other.desc": "Manage the rest of the crew",
@@ -130,6 +132,10 @@
 
     "login.2fa.popup.title": "Enter Yer Code",
     "login.2fa.popup.text": "Enter th' code from yer authenticator app t' continue, matey",
+    "login.2fa.popup.backup-text": "Enter one o' yer backup codes t' continue, matey",
+    "login.2fa.popup.backup-placeholder": "Backup code",
+
+    "login.2fa.popup.use-backup": "Use Yer Backup Code",
 
     "login.error.wrong-code": "Th' code ye entered be incorrect, matey.",
     "login.error.wrong-password": "Th' password ye entered be incorrect, matey.",
@@ -237,6 +243,24 @@
     "settings.profile.2fa.disable.enter-code": "Enter th' code from yer authenticator app t' confirm.",
     
     // --- End Profile translations
+
+    // --- Start Backup Codes translations
+    "settings.backup_codes.title": "Backup Codes",
+    "settings.backup_codes.text": "These one-time codes let ye sign in if ye lose access t' yer authenticator app.",
+    "settings.backup_codes.loading": "Creating yer backup codes...",
+    "settings.backup_codes.save_warning": "Save these codes now. Download them, print them, or write them down and keep them somewhere private. Ye will not be able t' view this exact set again.",
+    "settings.backup_codes.download": "Download",
+    "settings.backup_codes.print": "Print",
+    "settings.backup_codes.print_warning": "Keep these backup codes somewhere private. Each code can only be used once.",
+    "settings.backup_codes.file.title": "OmniPlayr backup codes",
+    "settings.backup_codes.file.warning": "Keep these backup codes somewhere private. Each code can only be used once.",
+    "settings.backup_codes.exists.title": "Backup codes already exist",
+    "settings.backup_codes.exists.text": "Ye already have backup codes. New codes can only be generated after all existing backup codes have been used.",
+    "settings.backup_codes.unavailable.title": "Backup codes be not available",
+    "settings.backup_codes.unavailable.text": "Backup codes can only be created when 2FA be enabled for yer account.",
+    "settings.backup_codes.error.title": "Could not create backup codes",
+    "settings.backup_codes.error.text": "Something went wrong while creating yer backup codes. Try again.",
+    // --- End Backup Codes translations
 
     // --- Start Power Options translations
     "settings.power.safe_mode": "Safe Harbor",

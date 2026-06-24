@@ -84,6 +84,8 @@
 
     "settings.tab.people.profile": "Profiel",
     "settings.tab.people.profile.desc": "Je profiel bewerken",
+    "settings.tab.people.backup_codes": "Backupcodes",
+    "settings.tab.people.backup_codes.desc": "Maak je 2FA-backupcodes aan en bewaar ze",
 
     "settings.tab.people.other": "Andere mensen",
     "settings.tab.people.other.desc": "Andere accounts beheren",
@@ -130,6 +132,10 @@
 
     "login.2fa.popup.title": "Voer code in",
     "login.2fa.popup.text": "Voer de code uit je authenticator-app in om verder te gaan",
+    "login.2fa.popup.backup-text": "Voer een van je backupcodes in om verder te gaan",
+    "login.2fa.popup.backup-placeholder": "Backupcode",
+
+    "login.2fa.popup.use-backup": "Gebruik een backupcode",
 
     "login.error.wrong-code": "De code die je hebt ingevoerd is onjuist.",
     "login.error.wrong-password": "Het wachtwoord dat je hebt ingevoerd is onjuist.",
@@ -236,6 +242,24 @@
     "settings.profile.2fa.disable.text": "Weet je zeker dat je 2FA wilt uitschakelen? Dit verwijdert 2FA van je account, maar je kunt het op elk moment opnieuw inschakelen.",
     "settings.profile.2fa.disable.enter-code": "Voer de code uit je authenticatie-app in om te bevestigen.",
     // --- End Profile translations
+
+    // --- Start Backup Codes translations
+    "settings.backup_codes.title": "Backupcodes",
+    "settings.backup_codes.text": "Met deze eenmalige codes kun je inloggen als je geen toegang meer hebt tot je authenticatie-app.",
+    "settings.backup_codes.loading": "Je backupcodes worden aangemaakt...",
+    "settings.backup_codes.save_warning": "Bewaar deze codes nu. Download ze, print ze of schrijf ze op en bewaar ze op een priveplek. Je kunt deze exacte set later niet opnieuw bekijken.",
+    "settings.backup_codes.download": "Downloaden",
+    "settings.backup_codes.print": "Printen",
+    "settings.backup_codes.print_warning": "Bewaar deze backupcodes op een priveplek. Elke code kan maar een keer worden gebruikt.",
+    "settings.backup_codes.file.title": "OmniPlayr backupcodes",
+    "settings.backup_codes.file.warning": "Bewaar deze backupcodes op een priveplek. Elke code kan maar een keer worden gebruikt.",
+    "settings.backup_codes.exists.title": "Backupcodes bestaan al",
+    "settings.backup_codes.exists.text": "Je hebt al backupcodes. Nieuwe codes kunnen pas worden aangemaakt nadat alle bestaande backupcodes zijn gebruikt.",
+    "settings.backup_codes.unavailable.title": "Backupcodes zijn niet beschikbaar",
+    "settings.backup_codes.unavailable.text": "Backupcodes kunnen alleen worden aangemaakt wanneer 2FA is ingeschakeld voor je account.",
+    "settings.backup_codes.error.title": "Backupcodes konden niet worden aangemaakt",
+    "settings.backup_codes.error.text": "Er ging iets mis bij het aanmaken van je backupcodes. Probeer het opnieuw.",
+    // --- End Backup Codes translations
 
     // --- Start Power Options translations
     "settings.power.safe_mode": "Veilige modus",

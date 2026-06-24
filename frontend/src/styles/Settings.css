@@ -118,6 +118,11 @@
     color: var(--clr-text-light-a0);
 }
 
+#backup-codes .settings-option-icon {
+    background-color: var(--clr-success-a10);
+    color: var(--clr-text-light-a0);
+}
+
 #other-people .settings-option-icon {
     background-color: var(--clr-primary-a10);
     color: var(--clr-text-light-a0);

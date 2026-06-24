@@ -11,7 +11,8 @@ import {
     FileText,
     Users,
     Terminal as TerminalIcon,
-    Languages
+    Languages,
+    KeyRound
 } from "lucide-react";
 
 import './styles/Settings.css';
@@ -28,6 +29,7 @@ import Profile from "./settings/Profile";
 import Config from "./settings/Config";
 import OtherPeople from "./settings/OtherPeople";
 import Language from "./settings/Language";
+import BackupCodes from "./settings/BackupCodes";
 import { useTranslation } from 'react-i18next';
 
 function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteractionRequired }: any) {
@@ -152,6 +154,13 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
                 title: t("settings.tab.people.profile"),
                 description: t("settings.tab.people.profile.desc"),
                 component: () => <Profile />
+            },
+            {
+                id: "backup-codes",
+                icon: KeyRound,
+                title: t("settings.tab.people.backup_codes"),
+                description: t("settings.tab.people.backup_codes.desc"),
+                component: () => <BackupCodes />
             },
             {
                 id: "other-people",

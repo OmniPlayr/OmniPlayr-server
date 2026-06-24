@@ -21,7 +21,10 @@ from api.helpers.account import (
     create_2fa_setup,
     verify_2fa_code,
     delete_2fa,
+    has_backup_codes,
+    create_backup_codes,
 )
+from api.helpers.notifications import notify_once_sync
 
 router = APIRouter()
 
@@ -45,6 +48,7 @@ class AccountLogin(BaseModel):
     user_id: int
     password: str | None = None
     twofa_code: str | None = None
+    backup_code: str | None = None
 
 class AccountRevokeAll(BaseModel):
     user_id: int
@@ -88,7 +92,7 @@ def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
         log(f"POST /accounts/login: no password for user_id={body.user_id}", "debug", "module.account")
         password_protected = False
         
-    result_2fa = verify_2fa_code(body.user_id, body.twofa_code)
+    result_2fa = verify_2fa_code(body.user_id, body.twofa_code, False, body.backup_code)
     
     if result_2fa == "failed":
         log(f"POST /accounts/login: 2fa failed for user_id={body.user_id}", "debug", "module.account")
@@ -113,9 +117,59 @@ def login(body: AccountLogin, request: Request, auth=Depends(verify_auth)):
         ip_address
     )
 
+    uses_backup_codes = get_config("2fa.backup_codes", True)
+    if uses_backup_codes:
+        account = get_account(body.user_id)
+        if account and account.get("two_factor_enabled") and not has_backup_codes(body.user_id):
+            result["no_backup_codes"] = True
+            notify_once_sync(
+                body.user_id,
+                "backup_codes_missing",
+                "ShieldAlert",
+                "Save your backup codes",
+                "You do not have any 2FA backup codes yet. Create and save them so you can still sign in if you lose access to your authenticator app.",
+                "internal",
+                "/settings/accounts/backup-codes",
+            )
+
     log(f"POST /accounts/login: token created for user_id={body.user_id}", "debug", "module.account")
 
     return result
+
+
+@router.post("/{account_id}/backup_codes", status_code=201)
+def generate_backup_codes(account_id: str, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+    log(f"POST /accounts/{account_id}/backup_codes requested", "debug", "module.account")
+    if not auth:
+        log(f"POST /accounts/{account_id}/backup_codes: auth check failed", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not x_account_token:
+        log(f"POST /accounts/{account_id}/backup_codes: missing account token header", "debug", "module.account")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if account_id == "me":
+        resolved_id = get_token_user(x_account_token)
+        if not resolved_id:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        try:
+            resolved_id = int(account_id)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid account ID")
+
+    existing = get_account(resolved_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if not match_account(resolved_id, x_account_token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not existing.get("two_factor_enabled"):
+        raise HTTPException(status_code=400, detail="2FA is not enabled")
+    if has_backup_codes(resolved_id):
+        raise HTTPException(status_code=409, detail="Backup codes already exist")
+
+    codes = create_backup_codes(resolved_id)
+    log(f"POST /accounts/{account_id}/backup_codes: created {len(codes)} backup code(s)", "debug", "module.account")
+    return {"backup_codes": codes}
 
 @router.post("/verify_password")
 def password_verify(body: AccountLogin, auth=Depends(verify_auth)):

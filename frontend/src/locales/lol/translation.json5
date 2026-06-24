@@ -84,6 +84,8 @@
 
     "settings.tab.people.profile": "Profiel",
     "settings.tab.people.profile.desc": "Edit ur profiel",
+    "settings.tab.people.backup_codes": "Bakup Codez",
+    "settings.tab.people.backup_codes.desc": "Make an save ur 2FA bakup codez",
 
     "settings.tab.people.other": "Othr Peepl",
     "settings.tab.people.other.desc": "Manaj othr accountz",
@@ -130,6 +132,10 @@
 
     "login.2fa.popup.title": "Enthr code",
     "login.2fa.popup.text": "Plz enthr teh code frum ur authenticator app to continoo",
+    "login.2fa.popup.backup-text": "Plz enthr wun ov ur bakup codez to continoo",
+    "login.2fa.popup.backup-placeholder": "Bakup code",
+
+    "login.2fa.popup.use-backup": "Oh noes! Uze a bakup code",
 
     "login.error.wrong-code": "Teh code u entered iz wrong.",
     "login.error.wrong-password": "Teh password u entered iz wrong.",
@@ -237,6 +243,24 @@
     "settings.profile.2fa.disable.enter-code": "Plz enter teh code frum ur authenticator app to confirm.",
     
     // --- End Profile translations
+
+    // --- Start Backup Codes translations
+    "settings.backup_codes.title": "Bakup Codez",
+    "settings.backup_codes.text": "Deze wun-time codez lets u login if ur authenticator app iz gone.",
+    "settings.backup_codes.loading": "Makin ur bakup codez...",
+    "settings.backup_codes.save_warning": "Save deze codez nao. Download dem, print dem, or write dem down an keep dem private. U cannot see dis exact set again.",
+    "settings.backup_codes.download": "Download",
+    "settings.backup_codes.print": "Print",
+    "settings.backup_codes.print_warning": "Keep deze bakup codez private. Each code can only be used once.",
+    "settings.backup_codes.file.title": "OmniPlayr bakup codez",
+    "settings.backup_codes.file.warning": "Keep deze bakup codez private. Each code can only be used once.",
+    "settings.backup_codes.exists.title": "Bakup codez already exist",
+    "settings.backup_codes.exists.text": "U already haz bakup codez. New codez can only be made after all existing bakup codez are used.",
+    "settings.backup_codes.unavailable.title": "Bakup codez not available",
+    "settings.backup_codes.unavailable.text": "Bakup codez can only be made when 2FA iz enabled for ur account.",
+    "settings.backup_codes.error.title": "Could not make bakup codez",
+    "settings.backup_codes.error.text": "Somethin went wrong while makin ur bakup codez. Plz try again.",
+    // --- End Backup Codes translations
 
     // --- Start Power Options translations
     "settings.power.safe_mode": "Saef Moede",

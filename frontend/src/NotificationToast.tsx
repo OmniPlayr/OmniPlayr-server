@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { ComponentType } from 'react';
-import type { Notification } from './modules/useNotifications';
+import { toAction, type Notification } from './modules/useNotifications';
 
 const TOAST_DURATION = 4000;
 const EXIT_DURATION = 320;
@@ -44,6 +44,15 @@ function ToastItem({ notification, onDismiss }: ToastItemProps) {
 
     const handleClick = () => {
         dismiss();
+        const action = toAction(notification.action_type, notification.action_url);
+        if (action?.type === 'internal') {
+            navigate(action.path);
+            return;
+        }
+        if (action?.type === 'external') {
+            window.open(action.url, '_blank', 'noreferrer');
+            return;
+        }
         navigate(`/notifications?highlight=${notification.id}`);
     };
 

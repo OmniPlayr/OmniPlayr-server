@@ -83,6 +83,12 @@ SCHEMA = {
         "account_id": "INT NOT NULL",
         "sent_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
     },
+    "backup_codes": {
+        "id": "SERIAL PRIMARY KEY",
+        "account_id": "INT NOT NULL",
+        "code": "VARCHAR(255) NOT NULL",
+        "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+    }
 }
 
 _pool: psycopg2.pool.ThreadedConnectionPool | None = None

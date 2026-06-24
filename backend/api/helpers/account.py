@@ -6,6 +6,8 @@ import pyotp
 import qrcode
 import io
 import base64
+from api.helpers.config import get_config
+import json
 
 def list_accounts():
     log("Listing all accounts", "debug", "account")
@@ -339,7 +341,8 @@ def create_2fa_setup(account_id: int):
                 return {
                     "secret": None,
                     "qr": None,
-                    "message": "2FA already enabled"
+                    "message": "2FA already enabled",
+                    "backup_codes": None
                 }
             
             cur.execute(
@@ -352,7 +355,8 @@ def create_2fa_setup(account_id: int):
                 return {
                     "secret": None,
                     "qr": None,
-                    "message": "You must have a password to enable 2FA"
+                    "message": "You must have a password to enable 2FA",
+                    "backup_codes": None
                 }
             log(f"Account id={account_id} has a password", "debug", "account")
             
@@ -375,14 +379,16 @@ def create_2fa_setup(account_id: int):
             )
             conn.commit()
             log(f"2FA setup created successfully for account id={account_id}", "debug", "account")
+            backup_codes = create_backup_codes(account_id)
             return {
                 "secret": secret,
                 "qr": f"data:image/png;base64,{qr_base64}",
-                "message": "Please verify code to enable 2FA"
+                "message": "Please verify code to enable 2FA",
+                "backup_codes": backup_codes
             }
 
 # This is to check if the 2FA code is valid, if it is and 2FA is not enabled, it will enable 2FA
-def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = False):
+def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = False, backup_code: str | None = None):
     log(f"Verifying 2FA code for account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -400,6 +406,14 @@ def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = Fal
                 log(f"Account id={account_id} does not have 2FA enabled", "warn", "account")
                 return "no_secret"
 
+            if backup_code is not None:
+                if not verify_backup_code(account_id, backup_code):
+                    log(f"Backup code verification failed for account id={account_id}", "warn", "account")
+                    return "failed"
+                else:
+                    log(f"Backup code verified for account id={account_id}", "debug", "account")
+                    return "success"
+
             totp = pyotp.TOTP(account["two_factor_secret"])
 
             if totp.verify(code, valid_window=1):
@@ -415,7 +429,7 @@ def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = Fal
             log(f"2FA code verification failed for account id={account_id}", "warn", "account")
             return "failed"
 
-# This deletes 2fa for an account if its enabled 
+# This deletes 2fa for an account if its enabled
 def delete_2fa(account_id: int, code: str):
     log(f"Deleting 2FA for account id={account_id}", "debug", "account")
     with get_conn() as conn:
@@ -428,7 +442,7 @@ def delete_2fa(account_id: int, code: str):
             if secret is None:
                 log(f"Account id={account_id} does not have a 2FA secret", "warn", "account")
                 return "no_secret"
-            
+
             totp = pyotp.TOTP(secret["two_factor_secret"])
             if totp.verify(code, valid_window=1):
                 log(f"2FA code verified for account id={account_id}", "debug", "account")
@@ -437,7 +451,68 @@ def delete_2fa(account_id: int, code: str):
                     (account_id,)
                 )
                 conn.commit()
+                if delete_backup_codes(account_id):
+                    log(f"Backup codes deleted for account id={account_id}", "debug", "account")
                 log(f"2FA deleted for account id={account_id}", "debug", "account")
                 return "success"
             log(f"2FA code verification failed for account id={account_id}", "warn", "account")
             return "failed"
+
+# This makes backup codes for the 2fa
+def create_backup_codes(account_id: int):
+    log(f"Creating backup codes for account id={account_id}", "debug", "account")
+    uses_backup_codes = get_config("2fa.backup_codes", True)
+    if not uses_backup_codes:
+        return []
+
+    count = get_config("2fa.backup_codes_count", 20)
+    codes = [pyotp.random_base32() for _ in range(count)]
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            for code in codes:
+                cur.execute(
+                    "INSERT INTO backup_codes (account_id, code) VALUES (%s, %s)",
+                    (account_id, code)
+                )
+            conn.commit()
+    return codes
+
+# This deletes the backup codes for the 2fa
+def delete_backup_codes(account_id: int):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM backup_codes WHERE account_id = %s",
+                (account_id,)
+            )
+            conn.commit()
+
+            return True
+
+# This verifies the backup codes for the 2fa
+def verify_backup_code(account_id: int, code: str):
+    log(f"Verifying backup code for account id={account_id}", "debug", "account")
+    uses_backup_codes = get_config("2fa.backup_codes", True)
+    if not uses_backup_codes:
+        return False
+    if code is None:
+        return False
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM backup_codes WHERE id = (SELECT id FROM backup_codes WHERE account_id = %s AND code = %s LIMIT 1) RETURNING id",
+                (account_id, code)
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result is not None
+
+# This checks if the user has backup codes
+def has_backup_codes(account_id: int):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM backup_codes WHERE account_id = %s",
+                (account_id,)
+            )
+            return cur.fetchone() is not None

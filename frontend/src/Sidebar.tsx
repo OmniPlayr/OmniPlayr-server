@@ -69,8 +69,10 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
     const [openPasswordPopup, setPasswordPopup] = useState(false);
     const [openTwoFaPopup, setTwoFaPopup] = useState(false);
+    const [usingBackupCode, setUsingBackupCode] = useState(false);
     const twoFaInputsRef = useRef<HTMLDivElement>(null);
     const twoFaCodeRef = useRef('');
+    const backupCodeRef = useRef('');
 
     const { t } = useTranslation();
 
@@ -114,6 +116,13 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
         setTwoFaPopup(false);
         setSelectedAccountId(null);
         setPassword('');
+        setUsingBackupCode(false);
+        twoFaCodeRef.current = '';
+        backupCodeRef.current = '';
+    }
+
+    function useBackupCode() {
+        setUsingBackupCode(true);
         twoFaCodeRef.current = '';
     }
 
@@ -158,6 +167,12 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
         inputs[Math.min(startIndex + digits.length, inputs.length - 1)].focus();
     }
 
+    function handleBackupCodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        if (e.key === 'Enter') {
+            loginWithCode();
+        }
+    }
+
     function finishLogin(token: string) {
         storeAccount(token);
         window.history.pushState({}, '', '/');
@@ -181,6 +196,9 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
             }
 
             setPasswordPopup(false);
+            setUsingBackupCode(false);
+            twoFaCodeRef.current = '';
+            backupCodeRef.current = '';
             setTwoFaPopup(true);
             return;
         }
@@ -207,7 +225,9 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
             const data = await api('/accounts/login', {
                 user_id: selectedAccountId,
                 password,
-                twofa_code: twoFaCodeRef.current
+                ...(usingBackupCode
+                    ? { backup_code: backupCodeRef.current }
+                    : { twofa_code: twoFaCodeRef.current })
             }) as any;
             if (!data?.token) {
                 showLoginError(t('login.error.wrong-code'));
@@ -331,29 +351,48 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                 <div className="check-2fa-overlay">
                     <div className="check-2fa-overlay-content">
                         <div className="check-2fa-overlay-title">{t('login.2fa.popup.title')}</div>
-                        <div className="check-2fa-overlay-text">{t('login.2fa.popup.text')}</div>
-                        <div className="check-2fa-popup-code-group" ref={twoFaInputsRef}>
-                            {[0, 1, 2, 3, 4, 5].map((index) => (
-                                <Fragment key={index}>
-                                    {index === 3 && <div className="check-2fa-code-popup-spacer" />}
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={1}
-                                        placeholder={`${index + 1}`}
-                                        className="check-2fa-code-popup-input"
-                                        onChange={(e) => handleCodeChange(e, index)}
-                                        onKeyDown={(e) => handleCodeKeyDown(e, index)}
-                                        onPaste={(e) => handleCodePaste(e, index)}
-                                        autoFocus={index === 0}
-                                    />
-                                </Fragment>
-                            ))}
-                            <div className="check-2fa-code-popup-spacer" />
-                            <button className="check-2fa-popup-button" onClick={loginWithCode}>
-                                <ArrowRightToLine className="check-2fa-popup-button-icon" />
-                            </button>
-                        </div>
+                        <div className="check-2fa-overlay-text">{usingBackupCode ? t('login.2fa.popup.backup-text') : t('login.2fa.popup.text')}</div>
+                        {usingBackupCode ? (
+                            <div className="check-2fa-popup-backup-group">
+                                <input
+                                    type="text"
+                                    className="check-2fa-backup-popup-input"
+                                    placeholder={t('login.2fa.popup.backup-placeholder')}
+                                    onChange={(e) => { backupCodeRef.current = e.target.value; }}
+                                    onKeyDown={handleBackupCodeKeyDown}
+                                    autoFocus
+                                />
+                                <button className="check-2fa-popup-button" onClick={loginWithCode}>
+                                    <ArrowRightToLine className="check-2fa-popup-button-icon" />
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="check-2fa-popup-code-group" ref={twoFaInputsRef}>
+                                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                                        <Fragment key={index}>
+                                            {index === 3 && <div className="check-2fa-code-popup-spacer" />}
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                maxLength={1}
+                                                placeholder={`${index + 1}`}
+                                                className="check-2fa-code-popup-input"
+                                                onChange={(e) => handleCodeChange(e, index)}
+                                                onKeyDown={(e) => handleCodeKeyDown(e, index)}
+                                                onPaste={(e) => handleCodePaste(e, index)}
+                                                autoFocus={index === 0}
+                                            />
+                                        </Fragment>
+                                    ))}
+                                    <div className="check-2fa-code-popup-spacer" />
+                                    <button className="check-2fa-popup-button" onClick={loginWithCode}>
+                                        <ArrowRightToLine className="check-2fa-popup-button-icon" />
+                                    </button>
+                                </div>
+                                <p className="check-2fa-overlay-use-backup" onClick={useBackupCode}>{t('login.2fa.popup.use-backup')}</p>
+                            </>
+                        )}
                     </div>
                     <X className="check-2fa-overlay-close" onClick={closeTwoFaPopup} />
                 </div>
