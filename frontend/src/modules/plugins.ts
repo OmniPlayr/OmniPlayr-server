@@ -329,3 +329,7 @@ export function onPluginsLoaded(fn: () => void): () => void {
 export function notifyPluginsLoaded(): void {
     _pluginLoadListeners.forEach(fn => fn());
 }
+
+export function hasFrontendPlugin(id: string): boolean {
+  return validatedPlugins.has(id);
+}
