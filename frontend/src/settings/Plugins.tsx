@@ -2,11 +2,17 @@ import '../styles/settings/Plugins.css';
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import api from '../modules/api';
-import { EllipsisVertical, Package, Plus, Search, X } from 'lucide-react';
+import { EllipsisVertical, Package, Plus, Search } from 'lucide-react';
+import { Tooltip } from 'react-tooltip';
 import { getPluginsMenuItems } from '../modules/plugins';
+import { getConfig } from '../modules/config';
 
 async function loadPlugins() {
     return await api('/info/plugins') as { backend: any[]; frontend: any[] };
+}
+
+async function loadServerInfo() {
+    return await api('/info/server') as any;
 }
 
 const EMPTY_DESCRIPTION_MESSAGES = [
@@ -59,6 +65,110 @@ function groupPlugins(data: { backend: any[]; frontend: any[] }) {
     });
 }
 
+function readConstraint(pkg: any, type: 'backend' | 'frontend', name: string): string | null {
+    const normalizedName = name.replaceAll('-', '_');
+    const candidates = [
+        pkg?.[type]?.[name],
+        pkg?.[type]?.[normalizedName],
+        pkg?.[type]?.[`${name}s`],
+        pkg?.[type]?.[`${normalizedName}s`],
+        pkg?.[`${type}_${normalizedName}`],
+        pkg?.[`${type}-${name}`],
+        pkg?.[`${type}_${normalizedName}s`],
+        pkg?.[`${type}-${name}s`],
+        pkg?.[name],
+        pkg?.[normalizedName],
+        pkg?.[`${name}s`],
+        pkg?.[`${normalizedName}s`],
+        pkg?.latest?.[type]?.[normalizedName],
+        pkg?.latest?.[type]?.[name],
+    ];
+
+    const value = candidates.find(v => typeof v === 'string' && v.trim());
+    return value ? value.trim() : null;
+}
+
+function versionParts(version?: string | null): number[] {
+    const base = String(version ?? '0.0.0').split('-', 1)[0];
+    const parts: number[] = [];
+
+    for (const raw of base.split('.')) {
+        const digits = raw.replace(/\D/g, '');
+        if (!digits) break;
+        parts.push(Number(digits));
+    }
+
+    return parts.length ? parts : [0];
+}
+
+function compareVersions(left?: string | null, right?: string | null): number {
+    const leftParts = versionParts(left);
+    const rightParts = versionParts(right);
+    const length = Math.max(leftParts.length, rightParts.length);
+
+    while (leftParts.length < length) leftParts.push(0);
+    while (rightParts.length < length) rightParts.push(0);
+
+    for (let i = 0; i < length; i += 1) {
+        if (leftParts[i] < rightParts[i]) return -1;
+        if (leftParts[i] > rightParts[i]) return 1;
+    }
+
+    return 0;
+}
+
+function checkTypeCompatibility(
+    pkg: any,
+    type: 'backend' | 'frontend',
+    current: { safeVersion: string; branch: string } | null,
+    t: ReturnType<typeof useTranslation>['t'],
+): string | null {
+    if (!current) return null;
+
+    const currentVersion = current.safeVersion;
+    const isDev = current.branch === 'dev' || currentVersion.includes('dev');
+    const minVersion = readConstraint(pkg, type, 'min-version');
+    const maxVersion = readConstraint(pkg, type, 'max-version');
+    const minDevVersion = readConstraint(pkg, type, 'min-dev-version');
+    const maxDevVersion = readConstraint(pkg, type, 'max-dev-version');
+
+    if (minVersion && compareVersions(currentVersion, minVersion) < 0) {
+        return t('settings.plugins.compat.min_version', { type, version: minVersion, current: currentVersion });
+    }
+    if (maxVersion && compareVersions(currentVersion, maxVersion) > 0) {
+        return t('settings.plugins.compat.max_version', { type, version: maxVersion, current: currentVersion });
+    }
+    if (isDev && minDevVersion && compareVersions(currentVersion, minDevVersion) < 0) {
+        return t('settings.plugins.compat.min_dev_version', { type, version: minDevVersion, current: currentVersion });
+    }
+    if (isDev && maxDevVersion && compareVersions(currentVersion, maxDevVersion) > 0) {
+        return t('settings.plugins.compat.max_dev_version', { type, version: maxDevVersion, current: currentVersion });
+    }
+
+    return null;
+}
+
+function getCompatibilityError(
+    pkg: any,
+    currentVersions: { backend: { safeVersion: string; branch: string } | null; frontend: { safeVersion: string; branch: string } },
+    t: ReturnType<typeof useTranslation>['t'],
+): string | null {
+    const hasBackend = !pkg.types || pkg.types.includes?.('backend') || !!pkg.backend_version || !!pkg.latest?.backend;
+    const hasFrontend = !pkg.types || pkg.types.includes?.('frontend') || !!pkg.frontend_version || !!pkg.latest?.frontend;
+
+    if (hasBackend) {
+        const backendError = checkTypeCompatibility(pkg, 'backend', currentVersions.backend, t);
+        if (backendError) return backendError;
+    }
+
+    if (hasFrontend) {
+        const frontendError = checkTypeCompatibility(pkg, 'frontend', currentVersions.frontend, t);
+        if (frontendError) return frontendError;
+    }
+
+    return null;
+}
+
 async function loadPluginIcon(folder: string, file: string): Promise<string> {
     const res = await api(`/info/plugin-file?plugin=${encodeURIComponent(folder)}&file=${encodeURIComponent(file)}&frontend=false`) as { data: string; mime_type: string };
     return `data:${res.mime_type};base64,${res.data}`;
@@ -76,6 +186,12 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
     const [installingPkgs, setInstallingPkgs] = useState<Record<string, boolean>>({});
     const [needsRestart, setNeedsRestart] = useState(false);
+    const [backendVersion, setBackendVersion] = useState<{ safeVersion: string; branch: string } | null>(null);
+
+    const frontendVersion = useMemo(() => ({
+        safeVersion: String(getConfig('version.frontend.safeVersion', '0.0.0')),
+        branch: String(getConfig('version.frontend.branch', 'main')),
+    }), []);
 
     const randomDescription = useMemo(() => {
         return EMPTY_DESCRIPTION_MESSAGES[Math.floor(Math.random() * EMPTY_DESCRIPTION_MESSAGES.length)]
@@ -99,6 +215,17 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
 
     useEffect(() => {
         fetchPlugins();
+    }, []);
+
+    useEffect(() => {
+        loadServerInfo().then(data => {
+            if (!data?.error) {
+                setBackendVersion({
+                    safeVersion: String(data.safeVersion ?? data.version ?? '0.0.0'),
+                    branch: String(data.branch ?? 'main'),
+                });
+            }
+        }).catch(() => setBackendVersion(null));
     }, []);
 
     useEffect(() => {
@@ -184,9 +311,11 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
     }, [query])
 
     const isLoading = loading || searching
+    const currentVersions = { backend: backendVersion, frontend: frontendVersion };
 
     return (
         <div className='plugins-section'>
+            <Tooltip id="plugin-compat-tooltip" />
             {needsRestart && (
                 <div className="restart-banner">
                     <span className="restart-banner-text">
@@ -345,18 +474,25 @@ function Plugins({ isAdmin }: { isAdmin: boolean }) {
                                                 const versionMatch =
                                                     (!pkg.backend_version || installed?.backendVersion === pkg.backend_version) &&
                                                     (!pkg.frontend_version || installed?.frontendVersion === pkg.frontend_version);
+                                                const compatibilityError = getCompatibilityError(pkg, currentVersions, t);
                                                 if (installed && versionMatch) {
                                                     return <span className="pkg-installed-badge">{t('settings.plugins.badge.installed')}</span>;
                                                 }
                                                 return (
-                                                    <button
-                                                        className="pkg-install-btn"
-                                                        onClick={() => handleInstallPackage(pkg.package_id)}
-                                                        disabled={!!installingPkgs[pkg.package_id]}
+                                                    <span
+                                                        className="pkg-install-btn-tooltip-wrap"
+                                                        data-tooltip-id={compatibilityError ? 'plugin-compat-tooltip' : undefined}
+                                                        data-tooltip-content={compatibilityError ?? undefined}
                                                     >
-                                                        <Plus className="pkg-install-btn-icon" />
-                                                        {t(installingPkgs[pkg.package_id] ? 'settings.plugins.badge.installing' : installed ? 'settings.plugins.badge.update' : 'settings.plugins.badge.install')}
-                                                    </button>
+                                                        <button
+                                                            className="pkg-install-btn"
+                                                            onClick={() => handleInstallPackage(pkg.package_id)}
+                                                            disabled={!!installingPkgs[pkg.package_id] || !!compatibilityError}
+                                                        >
+                                                            <Plus className="pkg-install-btn-icon" />
+                                                            {t(installingPkgs[pkg.package_id] ? 'settings.plugins.badge.installing' : installed ? 'settings.plugins.badge.update' : 'settings.plugins.badge.install')}
+                                                        </button>
+                                                    </span>
                                                 );
                                             })()}
                                         </div>

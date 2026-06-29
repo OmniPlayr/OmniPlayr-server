@@ -21,6 +21,155 @@ _PLUGIN_OVERWRITE_ALWAYS: set[str] = {
     "package.json",
 }
 
+_BACKEND_VERSION_FILES = (
+    Path("/app/config.json"),
+    Path("/compose/backend/config.local.json"),
+    Path("config.local.json"),
+    Path("config.json"),
+)
+
+
+def _normalize_constraint_key(key: str) -> str:
+    return key.replace("-", "_").lower()
+
+
+def _get_nested_value(data: dict, path: tuple[str, ...]):
+    value = data
+    for part in path:
+        if not isinstance(value, dict):
+            return None
+        value = value.get(part)
+    return value
+
+
+def _get_constraint_value(info: dict, plugin_type: str, name: str) -> str | None:
+    normalized_name = _normalize_constraint_key(name)
+    candidates = [
+        (plugin_type, normalized_name),
+        (plugin_type, name),
+        (plugin_type, f"{name}s"),
+        (plugin_type, f"{normalized_name}s"),
+        (f"{plugin_type}_{normalized_name}",),
+        (f"{plugin_type}-{name}",),
+        (f"{plugin_type}_{normalized_name}s",),
+        (f"{plugin_type}-{name}s",),
+        (name,),
+        (normalized_name,),
+        (f"{name}s",),
+        (f"{normalized_name}s",),
+        ("latest", plugin_type, normalized_name),
+        ("latest", plugin_type, name),
+    ]
+
+    for path in candidates:
+        value = _get_nested_value(info, path)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    for key, value in info.items():
+        if (
+            _normalize_constraint_key(key) in {f"{plugin_type}_{normalized_name}", normalized_name}
+            and isinstance(value, str)
+            and value.strip()
+        ):
+            return value.strip()
+
+    return None
+
+
+def _version_tuple(version: str | None) -> tuple[int, ...]:
+    if not version:
+        return (0,)
+    base = version.split("-", 1)[0]
+    parts: list[int] = []
+    for raw in base.split("."):
+        digits = "".join(ch for ch in raw if ch.isdigit())
+        if digits == "":
+            break
+        parts.append(int(digits))
+    return tuple(parts or [0])
+
+
+def _compare_versions(left: str | None, right: str | None) -> int:
+    left_parts = list(_version_tuple(left))
+    right_parts = list(_version_tuple(right))
+    length = max(len(left_parts), len(right_parts))
+    left_parts.extend([0] * (length - len(left_parts)))
+    right_parts.extend([0] * (length - len(right_parts)))
+
+    if left_parts < right_parts:
+        return -1
+    if left_parts > right_parts:
+        return 1
+    return 0
+
+
+def _read_json_file(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text("utf-8"))
+    except Exception:
+        return None
+
+
+def _get_backend_version_info() -> dict:
+    for path in _BACKEND_VERSION_FILES:
+        data = _read_json_file(path)
+        if data:
+            return {
+                "safeVersion": data.get("safeVersion") or data.get("version") or "0.0.0",
+                "version": data.get("version") or data.get("safeVersion") or "0.0.0",
+                "branch": data.get("branch", "main"),
+            }
+    return {"safeVersion": "0.0.0", "version": "0.0.0", "branch": "main"}
+
+
+def _get_frontend_version_info() -> dict:
+    path = Path("/frontend/src/config/version.toml")
+    if not path.exists():
+        path = Path("frontend/src/config/version.toml")
+
+    try:
+        data = tomllib.loads(path.read_text("utf-8"))
+        frontend = data.get("version", {}).get("frontend", {})
+        safe_version = frontend.get("safeVersion") or "0.0.0"
+        return {
+            "safeVersion": safe_version,
+            "version": safe_version,
+            "branch": frontend.get("branch", "main"),
+        }
+    except Exception:
+        return {"safeVersion": "0.0.0", "version": "0.0.0", "branch": "main"}
+
+
+def _current_version_info(plugin_type: str) -> dict:
+    if plugin_type == "frontend":
+        return _get_frontend_version_info()
+    return _get_backend_version_info()
+
+
+def _check_version_constraints(info: dict, plugin_type: str) -> str | None:
+    current = _current_version_info(plugin_type)
+    current_version = str(current.get("safeVersion") or current.get("version") or "0.0.0")
+    is_dev = current.get("branch") == "dev" or "dev" in current_version
+
+    min_version = _get_constraint_value(info, plugin_type, "min-version")
+    max_version = _get_constraint_value(info, plugin_type, "max-version")
+    min_dev_version = _get_constraint_value(info, plugin_type, "min-dev-version")
+    max_dev_version = _get_constraint_value(info, plugin_type, "max-dev-version")
+
+    if min_version and _compare_versions(current_version, min_version) < 0:
+        return f"{plugin_type} requires OmniPlayr {min_version} or newer. Current version is {current_version}."
+    if max_version and _compare_versions(current_version, max_version) > 0:
+        return f"{plugin_type} supports OmniPlayr up to {max_version}. Current version is {current_version}."
+    if is_dev and min_dev_version and _compare_versions(current_version, min_dev_version) < 0:
+        return f"{plugin_type} requires OmniPlayr dev version {min_dev_version} or newer. Current version is {current_version}."
+    if is_dev and max_dev_version and _compare_versions(current_version, max_dev_version) > 0:
+        return f"{plugin_type} supports OmniPlayr dev versions up to {max_dev_version}. Current version is {current_version}."
+
+    return None
+
 
 def _empty_env_example(source: Path, target: Path) -> None:
     output: list[str] = []
@@ -342,6 +491,10 @@ def install_plugin(package_id: str, version: str | None, target: str | None) -> 
     results = []
 
     for plugin_type in target_types:
+        compatibility_error = _check_version_constraints(info, plugin_type)
+        if compatibility_error:
+            raise ValueError(compatibility_error)
+
         resolved_version = (
             version
             if version and version != "latest"

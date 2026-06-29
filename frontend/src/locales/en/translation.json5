@@ -372,6 +372,10 @@
     "settings.plugins.menu.view_registry": "View on Registry",
     "settings.plugins.badge.backend_version": "Backend v{{version}}",
     "settings.plugins.badge.frontend_version": "Frontend v{{version}}",
+    "settings.plugins.compat.min_version": "Update your OmniPlayr {{type}} to {{version}} or newer to install this plugin. Current: {{current}}.",
+    "settings.plugins.compat.max_version": "This plugin only supports OmniPlayr {{type}} up to {{version}}. Current: {{current}}.",
+    "settings.plugins.compat.min_dev_version": "Update your OmniPlayr {{type}} dev build to {{version}} or newer to install this plugin. Current: {{current}}.",
+    "settings.plugins.compat.max_dev_version": "This plugin only supports OmniPlayr {{type}} dev builds up to {{version}}. Current: {{current}}.",
     // --- End Plugins translations
 
     // --- Start Logs translations

@@ -372,6 +372,10 @@
     "settings.plugins.menu.view_registry": "Bekijken in register",
     "settings.plugins.badge.backend_version": "Backend v{{version}}",
     "settings.plugins.badge.frontend_version": "Frontend v{{version}}",
+    "settings.plugins.compat.min_version": "Werk je OmniPlayr {{type}} bij naar {{version}} of nieuwer om deze plug-in te installeren. Huidig: {{current}}.",
+    "settings.plugins.compat.max_version": "Deze plug-in ondersteunt OmniPlayr {{type}} tot en met {{version}}. Huidig: {{current}}.",
+    "settings.plugins.compat.min_dev_version": "Werk je OmniPlayr {{type}} dev-build bij naar {{version}} of nieuwer om deze plug-in te installeren. Huidig: {{current}}.",
+    "settings.plugins.compat.max_dev_version": "Deze plug-in ondersteunt OmniPlayr {{type}} dev-builds tot en met {{version}}. Huidig: {{current}}.",
     // --- End Plugins translations
 
     // --- Start Logs translations

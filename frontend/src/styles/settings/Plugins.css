@@ -349,8 +349,12 @@
     white-space: nowrap;
 }
 
-.pkg-install-btn {
+.pkg-install-btn-tooltip-wrap {
+    display: flex;
     margin-left: auto;
+}
+
+.pkg-install-btn {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -404,6 +408,7 @@
     }
 
     .pkg-installed-badge,
+    .pkg-install-btn-tooltip-wrap,
     .pkg-install-btn {
         margin-left: 0px;
     }
