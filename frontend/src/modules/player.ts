@@ -25,6 +25,7 @@ export interface SourcePlugin {
     getDuration(): number;
     isPlaying(): boolean;
     destroy(): void;
+    activate?(): void;
     setVolume?(fraction: number): void;
 }
 
@@ -771,6 +772,7 @@ class AudioPlayer {
             }
 
             this.activePlugin = plugin;
+            if (plugin.activate) plugin.activate();
 
             if (this.currentSongId && !this.skipHistoryPush) {
                 const includePriority = getConfig<boolean>('navigation.prev_include_priority_queue') ?? false;
@@ -960,6 +962,7 @@ class AudioPlayer {
 
     togglePlay() {
         if (this.activePlugin) {
+            if (this.activePlugin.activate) this.activePlugin.activate();
             this.activePlugin.isPlaying() ? this.activePlugin.pause() : this.activePlugin.resume();
             this.notify();
             return;
