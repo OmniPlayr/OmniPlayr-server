@@ -31,7 +31,7 @@ Each audio source is implemented as a plugin. The **MP3 plugin is fully function
 | Spotify | ✅ Functional | [spotify@built-in](https://omniplayr.wokki20.nl/packages/package/spotify@built-in) |
 | YouTube Music | 🔜 Planned | No plugin yet |
 | Amazon Music | 🔜 Planned | No plugin yet |
-| SoundCloud | 🔜 Planned | No plugin yet |
+| SoundCloud | 🟧 Not Fully Tested | [soundcloud@built-in](https://omniplayr.wokki20.nl/packages/package/soundcloud@built-in) |
 
 ---
 
