@@ -10,8 +10,16 @@ import toml
 _plugin_configs: dict[str, dict] = {}
 
 
+def _plugins_root() -> Path:
+    local = Path("plugins")
+    workspace = Path("backend/plugins")
+    if local.exists() or not workspace.exists():
+        return local
+    return workspace
+
+
 def _plugin_dirs(plugin_key: str):
-    base = Path("plugins") / plugin_key
+    base = _plugins_root() / plugin_key
     return (
         base / "config",
         base / "config_types",

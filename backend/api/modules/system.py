@@ -17,14 +17,17 @@ from api.helpers.server import verify_token, get_token_user
 from api.helpers.config import (
     flatten_configs,
     flatten_frontend_configs,
+    _flatten_configs_from,
     CONFIG_DIR,
     CONFIG_TYPES_DIR,
     CONFIG_DEFAULTS_DIR,
     FRONTEND_CONFIG_DIR,
     FRONTEND_CONFIG_TYPES_DIR,
     FRONTEND_CONFIG_DEFAULTS_DIR,
+    _deep_merge,
     _parse_type_string,
 )
+from api.helpers.plugin_config import reload_plugin_config
 from pathlib import Path
 import toml
 
@@ -33,6 +36,10 @@ router = APIRouter()
 _SAFE_MODE_FILE = ".safe_mode"
 
 sessions = {}
+
+PLUGIN_BACKEND_SOURCE = "plugin-backend"
+PLUGIN_FRONTEND_SOURCE = "plugin-frontend"
+_MISSING = object()
 
 def set_winsize(fd, rows, cols):
     winsize = struct.pack("HHHH", rows, cols, 0, 0)
@@ -212,6 +219,130 @@ def disable_safe_mode(admin=Depends(verify_admin)):
 
     return {"status": "safe_mode_disabled", "note": "Restart required"}
 
+
+def _first_existing_path(paths: list[Path]) -> Path:
+    for path in paths:
+        if path.exists():
+            return path
+    return paths[0]
+
+
+def _backend_config_paths() -> tuple[Path, Path, Path]:
+    return (
+        _first_existing_path([CONFIG_DIR, Path("backend") / CONFIG_DIR]),
+        _first_existing_path([CONFIG_TYPES_DIR, Path("backend") / CONFIG_TYPES_DIR]),
+        _first_existing_path([CONFIG_DEFAULTS_DIR, Path("backend") / CONFIG_DEFAULTS_DIR]),
+    )
+
+
+def _frontend_config_paths() -> tuple[Path, Path, Path]:
+    return (
+        _first_existing_path([FRONTEND_CONFIG_DIR, Path("../frontend/src/config"), Path("frontend/src/config")]),
+        _first_existing_path([FRONTEND_CONFIG_TYPES_DIR, Path("../frontend/src/config_types"), Path("frontend/src/config_types")]),
+        _first_existing_path([FRONTEND_CONFIG_DEFAULTS_DIR, Path("../frontend/src/config_defaults"), Path("frontend/src/config_defaults")]),
+    )
+
+
+def _plugins_root(frontend: bool) -> Path:
+    if frontend:
+        return _first_existing_path([Path("/frontend/src/plugins"), Path("../frontend/src/plugins"), Path("frontend/src/plugins")])
+    return _first_existing_path([Path("plugins"), Path("backend/plugins")])
+
+
+def _validate_plugin_key(plugin: str | None) -> str:
+    if not plugin:
+        raise HTTPException(status_code=400, detail="Missing required parameter 'plugin'")
+    if plugin in (".", "..") or "/" in plugin or "\\" in plugin:
+        raise HTTPException(status_code=400, detail="Invalid plugin")
+    return plugin
+
+
+def _plugin_config_paths(plugin: str, frontend: bool) -> tuple[Path, Path, Path]:
+    plugin = _validate_plugin_key(plugin)
+    base = _plugins_root(frontend) / plugin
+    return (
+        base / "config",
+        base / "config_types",
+        base / "config_defaults",
+    )
+
+
+def _config_paths_for_source(source: str | None, plugin: str | None = None) -> tuple[Path, Path, Path, str, str | None]:
+    resolved_source = source or "backend"
+
+    if resolved_source == "frontend":
+        return (*_frontend_config_paths(), "frontend", None)
+    if resolved_source == PLUGIN_BACKEND_SOURCE:
+        plugin_key = _validate_plugin_key(plugin)
+        return (*_plugin_config_paths(plugin_key, frontend=False), PLUGIN_BACKEND_SOURCE, plugin_key)
+    if resolved_source == PLUGIN_FRONTEND_SOURCE:
+        plugin_key = _validate_plugin_key(plugin)
+        return (*_plugin_config_paths(plugin_key, frontend=True), PLUGIN_FRONTEND_SOURCE, plugin_key)
+
+    return (*_backend_config_paths(), "backend", None)
+
+
+def _list_config_files(config_dir: Path, defaults_dir: Path | None = None) -> list[str]:
+    files = set()
+    if config_dir.exists():
+        files.update(f.stem for f in config_dir.glob("*.toml"))
+    if defaults_dir and defaults_dir.exists():
+        files.update(f.stem for f in defaults_dir.glob("*.toml"))
+    return sorted(files)
+
+
+def _list_plugin_config_groups(frontend: bool) -> list[dict]:
+    root = _plugins_root(frontend)
+    if not root.exists():
+        return []
+
+    groups = []
+    for plugin_dir in sorted((p for p in root.iterdir() if p.is_dir()), key=lambda p: p.name.lower()):
+        config_dir, _, defaults_dir = _plugin_config_paths(plugin_dir.name, frontend)
+        files = _list_config_files(config_dir, defaults_dir)
+        if files:
+            groups.append({"plugin": plugin_dir.name, "files": files})
+    return groups
+
+
+def _load_configs_from_dirs(config_dir: Path, defaults_dir: Path) -> dict:
+    loaded = {}
+    default_files = {f.name: f for f in defaults_dir.glob("*.toml")} if defaults_dir.exists() else {}
+    config_files_map = {f.name: f for f in config_dir.glob("*.toml")} if config_dir.exists() else {}
+
+    for name in sorted(set(default_files.keys()) | set(config_files_map.keys())):
+        cfg_file = config_files_map.get(name)
+        default_file = default_files.get(name)
+
+        try:
+            default_data = toml.load(default_file) if default_file else {}
+            config_data = toml.load(cfg_file) if cfg_file else {}
+        except Exception:
+            continue
+
+        loaded[Path(name).stem] = _deep_merge(default_data, config_data) if default_file else config_data
+
+    return loaded
+
+
+def _flatten_config_dir(config_dir: Path, types_dir: Path, defaults_dir: Path) -> list[dict]:
+    loaded = _load_configs_from_dirs(config_dir, defaults_dir)
+    return _flatten_configs_from(types_dir, defaults_dir, loaded)
+
+
+def _flatten_plugin_config_groups(frontend: bool, plugin: str | None = None) -> list[dict]:
+    plugin_keys = [plugin] if plugin else [group["plugin"] for group in _list_plugin_config_groups(frontend)]
+    items = []
+
+    for plugin_key in plugin_keys:
+        config_dir, types_dir, defaults_dir = _plugin_config_paths(plugin_key, frontend)
+        for item in _flatten_config_dir(config_dir, types_dir, defaults_dir):
+            item = dict(item)
+            item["plugin"] = plugin_key
+            items.append(item)
+
+    return items
+
 # This is for parsing config files, pretty self explanatory
 def _parse_field_meta(raw_meta: any) -> dict:
     if isinstance(raw_meta, dict):
@@ -247,24 +378,39 @@ def _values_equal(a, b) -> bool:
 _FIELD_META_KEYS = ("type", "default", "comment", "min", "max", "step", "in_values", "liveupdate")
 
 
-def _enrich_value(val: any, meta: any) -> dict:
+def _enrich_value(val: any, meta: any, default_val: any = _MISSING) -> dict:
     enriched = {"value": val}
     meta_dict = _parse_field_meta(meta)
     for k in _FIELD_META_KEYS:
         if k in meta_dict:
             enriched[k] = meta_dict[k]
-    if "default" in meta_dict:
-        enriched["is_default"] = _values_equal(val, meta_dict["default"])
+
+    if default_val is not _MISSING and "default" not in enriched:
+        enriched["default"] = default_val
+
+    if "default" in enriched:
+        enriched["is_default"] = _values_equal(val, enriched["default"])
     return enriched
 
 # This is for getting the contents of a config file, also pretty self explanatory
-def _get_file_contents(stem: str, config_dir: Path, types_dir: Path, source: str = "backend") -> dict:
+def _get_file_contents(
+    stem: str,
+    config_dir: Path,
+    types_dir: Path,
+    source: str = "backend",
+    defaults_dir: Path | None = None,
+    plugin: str | None = None,
+) -> dict:
     config_file = config_dir / f"{stem}.toml"
-    if not config_file.exists():
+    default_file = defaults_dir / f"{stem}.toml" if defaults_dir else None
+
+    if not config_file.exists() and not (default_file and default_file.exists()):
         raise HTTPException(status_code=404, detail=f"Config file '{stem}' not found")
 
     try:
-        data = toml.load(config_file)
+        default_data = toml.load(default_file) if default_file and default_file.exists() else {}
+        config_data = toml.load(config_file) if config_file.exists() else {}
+        data = _deep_merge(default_data, config_data) if default_data else config_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -276,23 +422,33 @@ def _get_file_contents(stem: str, config_dir: Path, types_dir: Path, source: str
         except Exception:
             pass
 
-    def enrich_node(data_node: dict, type_node: dict) -> dict:
+    def enrich_node(data_node: dict, type_node: dict, default_node: dict) -> dict:
         result = {}
         for key, val in data_node.items():
             meta = type_node.get(key, {}) if isinstance(type_node, dict) else {}
+            default_val = default_node.get(key, _MISSING) if isinstance(default_node, dict) else _MISSING
 
             if isinstance(val, dict) and (not meta or isinstance(meta, dict)):
-                result[key] = enrich_node(val, meta if isinstance(meta, dict) else {})
+                result[key] = enrich_node(
+                    val,
+                    meta if isinstance(meta, dict) else {},
+                    default_val if isinstance(default_val, dict) else {},
+                )
             else:
-                result[key] = _enrich_value(val, meta)
+                result[key] = _enrich_value(val, meta, default_val)
 
         return result
 
-    return {
+    response = {
         "file": stem,
         "source": source,
-        "data": enrich_node(data, type_data),
+        "data": enrich_node(data, type_data, default_data),
     }
+
+    if plugin:
+        response["plugin"] = plugin
+
+    return response
 
 
 def _extract_plain_values(enriched_data: dict) -> dict:
@@ -310,40 +466,49 @@ def _extract_plain_values(enriched_data: dict) -> dict:
 # Also pretty self explanatory
 # This also sends things about the types and if its a default and stuff
 @router.get("/configs")
-def get_configs(file: str = None, source: str = None, admin=Depends(verify_admin)):
+def get_configs(file: str = None, source: str = None, plugin: str = None, admin=Depends(verify_admin)):
     if file is not None:
-        if source == "frontend":
+        config_dir, types_dir, defaults_dir, resolved_source, plugin_key = _config_paths_for_source(source, plugin)
+
+        if resolved_source == "frontend":
             if file == "version":
                 raise HTTPException(status_code=403, detail="Access denied")
 
             return _get_file_contents(
                 file,
-                FRONTEND_CONFIG_DIR,
-                FRONTEND_CONFIG_TYPES_DIR,
-                "frontend"
+                config_dir,
+                types_dir,
+                "frontend",
+                defaults_dir,
             )
 
-        return _get_file_contents(file, CONFIG_DIR, CONFIG_TYPES_DIR, "backend")
-
-    backend_files = sorted(f.stem for f in CONFIG_DIR.glob("*.toml")) if CONFIG_DIR.exists() else []
-
-    frontend_files = []
-    if FRONTEND_CONFIG_DIR.exists():
-        frontend_files = sorted(
-            f.stem
-            for f in FRONTEND_CONFIG_DIR.glob("*.toml")
-            if f.stem != "version"
+        return _get_file_contents(
+            file,
+            config_dir,
+            types_dir,
+            resolved_source,
+            defaults_dir,
+            plugin_key,
         )
+
+    backend_config_dir, _, _ = _backend_config_paths()
+    frontend_config_dir, _, _ = _frontend_config_paths()
+
+    backend_files = _list_config_files(backend_config_dir)
+    frontend_files = [f for f in _list_config_files(frontend_config_dir) if f != "version"]
 
     return {
         "backend": backend_files,
         "frontend": frontend_files,
+        "plugin_backend": _list_plugin_config_groups(frontend=False),
+        "plugin_frontend": _list_plugin_config_groups(frontend=True),
     }
 
 
 class ConfigSaveRequest(BaseModel):
     file: str
     source: str = "backend"
+    plugin: str | None = None
     data: dict
 
 # This is so you can easily update the configs, so you don't need to modify the files, because they can be pretty complicated some times
@@ -352,21 +517,27 @@ def save_config(body: ConfigSaveRequest, admin=Depends(verify_admin)):
     if body.source == "frontend" and body.file == "version":
         raise HTTPException(status_code=403, detail="Updating version config is not allowed")
 
-    config_dir = FRONTEND_CONFIG_DIR if body.source == "frontend" else CONFIG_DIR
+    config_dir, _, defaults_dir, resolved_source, plugin_key = _config_paths_for_source(body.source, body.plugin)
     config_file = config_dir / f"{body.file}.toml"
+    default_file = defaults_dir / f"{body.file}.toml"
 
-    if not config_file.exists():
+    if not config_file.exists() and not default_file.exists():
         raise HTTPException(status_code=404, detail=f"Config file '{body.file}' not found")
 
     plain_data = _extract_plain_values(body.data)
 
     try:
+        config_dir.mkdir(parents=True, exist_ok=True)
         with open(config_file, "w") as f:
             toml.dump(plain_data, f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    log(f"Config '{body.file}' saved by admin", "info", "system")
+    if resolved_source == PLUGIN_BACKEND_SOURCE and plugin_key:
+        reload_plugin_config(plugin_key)
+
+    target = f"{plugin_key}/{body.file}" if plugin_key else body.file
+    log(f"Config '{target}' saved by admin source={resolved_source!r}", "info", "system")
 
     return {"status": "saved"}
 
@@ -380,6 +551,7 @@ def config_search(
     query: str,
     file: str = None,
     source: str = None,
+    plugin: str = None,
     admin=Depends(verify_admin),
 ):
     field = None
@@ -391,7 +563,14 @@ def config_search(
             search_val = search_val[len(prefix) + 1:]
             break
 
-    items = flatten_frontend_configs() if source == "frontend" else flatten_configs()
+    if source == "frontend":
+        items = flatten_frontend_configs()
+    elif source == PLUGIN_BACKEND_SOURCE:
+        items = _flatten_plugin_config_groups(frontend=False, plugin=plugin)
+    elif source == PLUGIN_FRONTEND_SOURCE:
+        items = _flatten_plugin_config_groups(frontend=True, plugin=plugin)
+    else:
+        items = flatten_configs()
 
     if file:
         items = [i for i in items if i["file"] == file]
@@ -411,9 +590,13 @@ def config_search(
             match = search_val in item["key"].lower()
 
         if match:
-            f = item["file"]
+            f = f"{item.get('plugin', '')}/{item['file']}" if item.get("plugin") else item["file"]
             if f not in results_by_file:
-                results_by_file[f] = {"file": f, "matches": []}
+                results_by_file[f] = {
+                    "file": item["file"],
+                    "plugin": item.get("plugin"),
+                    "matches": [],
+                }
             results_by_file[f]["matches"].append(item)
 
     return list(results_by_file.values())

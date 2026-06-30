@@ -1,14 +1,36 @@
 import api from "../modules/api";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, TriangleAlert, Search, Link, Save, RotateCcw, Zap } from "lucide-react";
+import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, TriangleAlert, Search, Link, Save, RotateCcw, Zap, Puzzle, ChevronDown } from "lucide-react";
 import "../styles/settings/Config.css";
 import { Tooltip } from "react-tooltip";
 import { makeToast } from "@wokki20/jspt";
 
 const SEARCH_FIELD_PREFIXES = ["type:", "value:", "default:", "comment:", "min:", "max:", "step:", "in_values:", "liveupdate:"];
 
-let cachedConfigList: { backend: string[]; frontend: string[] } | null = null;
+type ConfigSource = "backend" | "frontend" | "plugin-backend" | "plugin-frontend";
+
+interface PluginConfigGroup {
+    plugin: string;
+    files: string[];
+}
+
+interface ConfigList {
+    backend: string[];
+    frontend: string[];
+    plugin_backend?: PluginConfigGroup[];
+    plugin_frontend?: PluginConfigGroup[];
+}
+
+interface ConfigEntry {
+    file: string;
+    source: ConfigSource;
+    plugin?: string;
+}
+
+const CONFIG_SEARCH_SOURCES: ConfigSource[] = ["backend", "frontend", "plugin-backend", "plugin-frontend"];
+
+let cachedConfigList: ConfigList | null = null;
 let listFetchPromise: Promise<any> | null = null;
 
 async function loadConfigList() {
@@ -21,7 +43,13 @@ async function loadConfigList() {
     return cachedConfigList;
 }
 
-function getConfigIcon(file: string) {
+function getSourceLabelKey(source: ConfigSource) {
+    return source.replace("-", "_");
+}
+
+function getConfigIcon(file: string, source?: ConfigSource) {
+    if (source?.startsWith("plugin")) return <Puzzle className="config-icon" />;
+
     switch (file) {
         case "logging": return <ScrollText className="config-icon" />;
         case "paths": return <Folder className="config-icon" />;
@@ -227,6 +255,42 @@ function renderFieldInput(fieldData: any, onChange: (v: any) => void, t: (key: s
     );
 }
 
+function formatConfigLabel(key: string) {
+    return key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " ");
+}
+
+function isConfigField(value: any) {
+    return value !== null && typeof value === "object" && !Array.isArray(value) && "value" in value;
+}
+
+function getConfigFieldAtPath(data: any, path: string[]) {
+    let node = data;
+    for (const part of path) {
+        node = node?.[part];
+    }
+    return node;
+}
+
+function setConfigFieldValueAtPath(data: any, path: string[], value: any): any {
+    if (path.length === 0) return data;
+    const [head, ...rest] = path;
+
+    if (rest.length === 0) {
+        return {
+            ...data,
+            [head]: {
+                ...data[head],
+                value,
+            },
+        };
+    }
+
+    return {
+        ...data,
+        [head]: setConfigFieldValueAtPath(data[head] ?? {}, rest, value),
+    };
+}
+
 function ConfigEditor({ data }: { data: any }) {
     const { t } = useTranslation();
     const [localData, setLocalData] = useState<any>(data.data);
@@ -238,40 +302,19 @@ function ConfigEditor({ data }: { data: any }) {
         [localData, originalData]
     );
 
-    function handleChange(section: string, key: string | null, value: any) {
-        setLocalData((prev: any) => {
-            if (key === null) {
-                return { ...prev, [section]: { ...prev[section], value } };
-            }
-            return {
-                ...prev,
-                [section]: {
-                    ...prev[section],
-                    [key]: { ...prev[section][key], value },
-                },
-            };
-        });
+    function handleChange(path: string[], value: any) {
+        setLocalData((prev: any) => setConfigFieldValueAtPath(prev, path, value));
     }
 
-    function handleRestore(section: string, key: string | null, fieldData: any) {
+    function handleRestore(path: string[], fieldData: any) {
+        const originalField = getConfigFieldAtPath(originalData, path);
         const restoreVal = "default" in fieldData
             ? fieldData.default
-            : key === null
-                ? originalData[section]?.value
-                : originalData[section]?.[key]?.value;
+            : originalField?.value;
 
         setLocalData((prev: any) => {
             if (restoreVal === undefined) return prev;
-            if (key === null) {
-                return { ...prev, [section]: { ...prev[section], value: restoreVal } };
-            }
-            return {
-                ...prev,
-                [section]: {
-                    ...prev[section],
-                    [key]: { ...prev[section][key], value: restoreVal },
-                },
-            };
+            return setConfigFieldValueAtPath(prev, path, restoreVal);
         });
     }
 
@@ -287,6 +330,7 @@ function ConfigEditor({ data }: { data: any }) {
                 {
                     file: data.file,
                     source: data.source,
+                    plugin: data.plugin,
                     data: localData
                 },
                 undefined,
@@ -314,27 +358,27 @@ function ConfigEditor({ data }: { data: any }) {
         return fieldData.is_default === false;
     }
 
-    function renderField(fieldKey: string, fieldData: any, section: string, key: string | null) {
+    function renderField(fieldKey: string, fieldData: any, path: string[]) {
         const isModified = isFieldModified(fieldData);
         const isLive: boolean = !!fieldData.liveupdate;
         const displayType: string = fieldData.type ?? (Array.isArray(fieldData.value) ? "array" : typeof fieldData.value);
+        const fieldPath = path.join(".");
 
         return (
-            <div key={fieldKey} className="config-field">
+            <div key={fieldPath} className="config-field">
                 <div className="config-field-header">
-                    <div className="config-field-key">{fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1).replaceAll("_", " ")}</div>
+                    <div className="config-field-key">{formatConfigLabel(fieldKey)}</div>
                     <div className="config-field-type">{displayType}</div>
-                    <Tooltip id={`tooltip-${fieldKey}`} />
+                    <Tooltip id={`tooltip-${fieldPath}`} />
                     {isLive && (
-                        <span className="config-field-live-badge" data-tooltip-content={t('settings.config.field.live_tooltip')} data-tooltip-id={`tooltip-${fieldKey}`}>
-                            <Zap size={10} />
+                        <span className="config-field-live-badge" data-tooltip-content={t('settings.config.field.live_tooltip')} data-tooltip-id={`tooltip-${fieldPath}`}>
                             {t('settings.config.field.live')}
                         </span>
                     )}
                     {!isModified ? (
                         <span className="config-field-default-badge">{t('settings.config.field.default')}</span>
                     ) : (
-                        <button className="config-field-restore" onClick={() => handleRestore(section, key, fieldData)}>
+                        <button className="config-field-restore" onClick={() => handleRestore(path, fieldData)}>
                             <RotateCcw size={12} />
                             {t('settings.config.field.restore')}
                         </button>
@@ -343,9 +387,47 @@ function ConfigEditor({ data }: { data: any }) {
                 {fieldData.comment && (
                     <div className="config-field-comment">{fieldData.comment}</div>
                 )}
-                {renderFieldInput(fieldData, v => handleChange(section, key, v), t)}
+                {renderFieldInput(fieldData, v => handleChange(path, v), t)}
             </div>
         );
+    }
+
+    function renderGroups(node: any, path: string[] = []): React.ReactNode[] {
+        if (node === null || typeof node !== "object" || Array.isArray(node)) return [];
+
+        const directFields: Array<[string, any]> = [];
+        const nestedNodes: Array<[string, any]> = [];
+
+        for (const [key, value] of Object.entries(node)) {
+            if (isConfigField(value)) {
+                directFields.push([key, value]);
+            } else if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+                nestedNodes.push([key, value]);
+            }
+        }
+
+        const groups: React.ReactNode[] = [];
+        if (directFields.length > 0) {
+            const groupKey = path.join(".") || "__root";
+            groups.push(
+                <div key={groupKey} className="config-group">
+                    {path.length > 0 && (
+                        <div className="config-group-title">{formatConfigLabel(path[path.length - 1])}</div>
+                    )}
+                    <div className="config-group-fields">
+                        {directFields.map(([fieldKey, fieldData]) =>
+                            renderField(fieldKey, fieldData, [...path, fieldKey])
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        for (const [key, value] of nestedNodes) {
+            groups.push(...renderGroups(value, [...path, key]));
+        }
+
+        return groups;
     }
 
     return (
@@ -353,38 +435,13 @@ function ConfigEditor({ data }: { data: any }) {
             <div className="config-editor-header">
                 <div className="config-editor-header-left">
                     <div className="config-editor-title">{data.file}</div>
-                    <div className="config-editor-subtitle">{data.file}.toml</div>
+                    <div className="config-editor-subtitle">
+                        {data.plugin ? `${data.plugin} / ${data.file}.toml` : `${data.file}.toml`}
+                    </div>
                 </div>
             </div>
             <div className="config-editor-body">
-                {Object.entries(localData).map(([sectionKey, sectionVal]: [string, any]) => {
-                    const isTopLevelField = sectionVal !== null && typeof sectionVal === "object" && "value" in sectionVal;
-
-                    if (isTopLevelField) {
-                        return (
-                            <div key={sectionKey} className="config-group">
-                                <div className="config-group-fields">
-                                    {renderField(sectionKey, sectionVal, sectionKey, null)}
-                                </div>
-                            </div>
-                        );
-                    }
-
-                    if (typeof sectionVal === "object" && !Array.isArray(sectionVal) && sectionVal !== null) {
-                        return (
-                            <div key={sectionKey} className="config-group">
-                                <div className="config-group-title">{sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1).replaceAll("_", " ")}</div>
-                                <div className="config-group-fields">
-                                    {Object.entries(sectionVal).map(([fieldKey, fieldData]: [string, any]) =>
-                                        renderField(fieldKey, fieldData, sectionKey, fieldKey)
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    }
-
-                    return null;
-                })}
+                {renderGroups(localData)}
             </div>
 
             <div className={`config-unsaved-banner${isDirty ? " visible" : ""}`}>
@@ -415,14 +472,16 @@ interface SearchMatch {
     step: number | null;
     in_values: string[] | null;
     file: string;
+    plugin?: string;
 }
 
 interface SearchGroup {
     file: string;
+    plugin?: string;
     matches: SearchMatch[];
 }
 
-function SearchResults({ groups, source }: { groups: SearchGroup[]; source: string }) {
+function SearchResults({ groups, source }: { groups: SearchGroup[]; source: ConfigSource }) {
     const { t } = useTranslation();
 
     if (groups.length === 0) {
@@ -437,11 +496,11 @@ function SearchResults({ groups, source }: { groups: SearchGroup[]; source: stri
     return (
         <div className="config-search-results">
             {groups.map(group => (
-                <div key={group.file} className="config-group">
+                <div key={`${group.plugin ?? "core"}-${group.file}`} className="config-group">
                     <div className="config-group-title">
-                        {getConfigIcon(group.file)}
-                        {group.file}.toml
-                        <span className="config-search-source-badge">{source}</span>
+                        {getConfigIcon(group.file, source)}
+                        {group.plugin ? `${group.plugin} / ${group.file}.toml` : `${group.file}.toml`}
+                        <span className="config-search-source-badge">{t(`settings.config.source.${getSourceLabelKey(source)}`)}</span>
                     </div>
                     <div className="config-group-fields">
                         {group.matches.map(match => {
@@ -451,12 +510,7 @@ function SearchResults({ groups, source }: { groups: SearchGroup[]; source: stri
                                     <div className="config-field-header">
                                         <div className="config-field-key">{match.key.charAt(0).toUpperCase() + match.key.slice(1).replaceAll("_", " ")}</div>
                                         <div className="config-field-type">{displayType}</div>
-                                        {match.liveupdate && (
-                                            <span className="config-field-live-badge" title={t('settings.config.field.live_tooltip')}>
-                                                <Zap size={10} />
-                                                {t('settings.config.field.live')}
-                                            </span>
-                                        )}
+                                        {match.liveupdate && (<span className="config-field-live-badge" title={t('settings.config.field.live_tooltip')}>{t('settings.config.field.live')}</span>)}
                                     </div>
                                     {match.comment && (
                                         <div className="config-field-comment">{match.comment}</div>
@@ -483,17 +537,30 @@ function SearchResults({ groups, source }: { groups: SearchGroup[]; source: stri
 
 function Config() {
     const { t } = useTranslation();
-    const [configList, setConfigList] = useState<{ backend: string[]; frontend: string[] } | null>(cachedConfigList);
-    const [selected, setSelected] = useState<{ file: string; source: string } | null>(null);
+    const [configList, setConfigList] = useState<ConfigList | null>(cachedConfigList);
+    const [selected, setSelected] = useState<ConfigEntry | null>(null);
     const [configData, setConfigData] = useState<any>(null);
     const [search, setSearch] = useState("");
     const [showAC, setShowAC] = useState(false);
     const [acItems, setAcItems] = useState<string[]>([]);
     const [searchResults, setSearchResults] = useState<SearchGroup[] | null>(null);
-    const [searchSource, setSearchSource] = useState<string>("backend");
+    const [searchSource, setSearchSource] = useState<ConfigSource>("backend");
     const [searchLoading, setSearchLoading] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const [openSidebarGroups, setOpenSidebarGroups] = useState<Record<string, boolean>>({});
+
+    function toggleSidebarGroup(key: string) {
+        setOpenSidebarGroups(prev => ({
+            ...prev,
+            [key]: !(prev[key] ?? true),
+        }));
+    }
+
+    function isSidebarGroupOpen(key: string) {
+        return openSidebarGroups[key] ?? true;
+    }
 
     useEffect(() => {
         if (configList) return;
@@ -503,8 +570,8 @@ function Config() {
     useEffect(() => {
         if (!selected) return;
         setConfigData(null);
-        const params = new URLSearchParams({ file: selected.file });
-        if (selected.source === "frontend") params.set("source", "frontend");
+        const params = new URLSearchParams({ file: selected.file, source: selected.source });
+        if (selected.plugin) params.set("plugin", selected.plugin);
         api(`/system/configs?${params}`).then(setConfigData);
     }, [selected]);
 
@@ -521,7 +588,7 @@ function Config() {
             setSearchLoading(true);
             try {
                 const params = new URLSearchParams({ query: search });
-                if (searchSource === "frontend") params.set("source", "frontend");
+                params.set("source", searchSource);
                 const results: SearchGroup[] = await api(`/system/config_search?${params}`) as SearchGroup[];
                 setSearchResults(results);
             } catch {
@@ -536,13 +603,28 @@ function Config() {
         };
     }, [search, searchSource]);
 
-    const allBackend = (configList?.backend ?? []).map(f => ({ file: f, source: "backend" }));
-    const allFrontend = (configList?.frontend ?? []).map(f => ({ file: f, source: "frontend" }));
+    const allBackend: ConfigEntry[] = (configList?.backend ?? []).map(f => ({ file: f, source: "backend" }));
+    const allFrontend: ConfigEntry[] = (configList?.frontend ?? []).map(f => ({ file: f, source: "frontend" }));
+    const allPluginBackend: ConfigEntry[] = (configList?.plugin_backend ?? []).flatMap(group =>
+        group.files.map(file => ({ file, source: "plugin-backend", plugin: group.plugin }))
+    );
+    const allPluginFrontend: ConfigEntry[] = (configList?.plugin_frontend ?? []).flatMap(group =>
+        group.files.map(file => ({ file, source: "plugin-frontend", plugin: group.plugin }))
+    );
 
-    function filterList(list: { file: string; source: string }[]) {
+    function filterList(list: ConfigEntry[]) {
         if (!search || search.includes(":")) return list;
         const lower = search.toLowerCase();
-        return list.filter(c => c.file.toLowerCase().includes(lower));
+        return list.filter(c =>
+            c.file.toLowerCase().includes(lower) ||
+            (c.plugin?.toLowerCase().includes(lower) ?? false)
+        );
+    }
+
+    function selectConfig(entry: ConfigEntry) {
+        setSelected(entry);
+        setSearch("");
+        setSearchResults(null);
     }
 
     function handleSearchChange(val: string) {
@@ -566,6 +648,8 @@ function Config() {
     const isFieldSearch = search.includes(":");
     const backendFiltered = filterList(allBackend);
     const frontendFiltered = filterList(allFrontend);
+    const pluginBackendFiltered = filterList(allPluginBackend);
+    const pluginFrontendFiltered = filterList(allPluginFrontend);
 
     let mainContent: React.ReactNode;
     if (isFieldSearch) {
@@ -599,15 +683,85 @@ function Config() {
             </div>
         );
     } else {
-        mainContent = <ConfigEditor key={`${selected.file}-${selected.source}`} data={configData} />;
+        mainContent = <ConfigEditor key={`${selected.plugin ?? "core"}-${selected.file}-${selected.source}`} data={configData} />;
+    }
+
+    function renderSidebarItems(items: ConfigEntry[], label: string) {
+        if (items.length === 0) return null;
+        const groupKey = `group-${label}`;
+        const groupOpen = isSidebarGroupOpen(groupKey);
+        const coreItems = items.filter(c => !c.plugin);
+        const pluginItems = items.filter(c => c.plugin);
+        const plugins = [...new Set(pluginItems.map(c => c.plugin))];
+        return (
+            <>
+                <div
+                    className={`config-sidebar-group-folder${groupOpen ? " open" : ""}`}
+                    style={{ '--file-item-depth': '0' } as CSSProperties}
+                    onClick={() => toggleSidebarGroup(groupKey)}
+                >
+                    <ChevronDown className="config-sidebar-group-folder-icon" />{label}
+                </div>
+                {groupOpen && (
+                    <>
+                        {coreItems.map(c => {
+                            const active = selected?.file === c.file && selected?.source === c.source && selected?.plugin === c.plugin;
+                            return (
+                                <div
+                                    key={`${c.source}-${c.plugin ?? "core"}-${c.file}`}
+                                    className={`config-section-sidebar-file${active ? " active" : ""}`}
+                                    style={{
+                                        '--file-item-depth': '1',
+                                    } as CSSProperties}
+                                    onClick={() => selectConfig(c)}
+                                >
+                                    {getConfigIcon(c.file, c.source)}
+                                    <div className="config-section-sidebar-file-name">{c.file}.toml</div>
+                                </div>
+                            );
+                        })}
+                        {plugins.map(plugin => {
+                            const pluginKey = `plugin-${label}-${plugin}`;
+                            const pluginOpen = isSidebarGroupOpen(pluginKey);
+                            const files = pluginItems.filter(c => c.plugin === plugin);
+                            return (
+                                <div key={plugin}>
+                                    <div
+                                        className={`config-sidebar-group-folder${groupOpen ? " open" : ""}`}
+                                        style={{
+                                            '--file-item-depth': '1',
+                                        } as CSSProperties}
+                                        onClick={() => toggleSidebarGroup(pluginKey)}
+                                    >
+                                        <ChevronDown className="config-sidebar-group-folder-icon" />{plugin}
+                                    </div>
+                                    {pluginOpen && files.map(c => {
+                                        const active = selected?.file === c.file && selected?.source === c.source && selected?.plugin === c.plugin;
+                                        return (
+                                            <div
+                                                key={`${c.source}-${c.plugin ?? "core"}-${c.file}`}
+                                                className={`config-section-sidebar-file${active ? " active" : ""}`}
+                                                style={{
+                                                    '--file-item-depth': '2',
+                                                } as CSSProperties}
+                                                onClick={() => selectConfig(c)}
+                                            >
+                                                {getConfigIcon(c.file, c.source)}
+                                                <div className="config-section-sidebar-file-name">{c.file}.toml</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
+                    </>
+                )}
+            </>
+        );
     }
 
     return (
         <div className="config-section">
-            <div className="config-warning">
-                <TriangleAlert className="config-warning-icon" />
-                <p className="config-warning-text">{t('settings.config.warning')}</p>
-            </div>
             <div className="config-section-content">
                 <div className="config-section-sidebar">
                     <div className="config-search-wrapper">
@@ -639,55 +793,22 @@ function Config() {
 
                     {isFieldSearch && (
                         <div className="config-search-source-toggle">
-                            {["backend", "frontend"].map(src => (
+                            {CONFIG_SEARCH_SOURCES.map(src => (
                                 <button
                                     key={src}
                                     className={`config-search-source-btn${searchSource === src ? " active" : ""}`}
                                     onClick={() => setSearchSource(src)}
                                 >
-                                    {t(`settings.config.source.${src}`)}
+                                    {t(`settings.config.source.${getSourceLabelKey(src)}`)}
                                 </button>
                             ))}
                         </div>
                     )}
 
-                    {allBackend.length > 0 && (
-                        <>
-                            <div className="config-sidebar-group-label">{t('settings.config.source.backend')}</div>
-                            {backendFiltered.map(c => (
-                                <div
-                                    key={c.file}
-                                    className={`config-section-sidebar-item${selected?.file === c.file && selected?.source === c.source ? " active" : ""}`}
-                                    onClick={() => { setSelected(c); setSearch(""); setSearchResults(null); }}
-                                >
-                                    {getConfigIcon(c.file)}
-                                    <div className="config-section-sidebar-item-info">
-                                        <div className="config-section-sidebar-item-info-filename">{c.file}</div>
-                                        <div className="config-section-sidebar-item-info-file">{c.file}.toml</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </>
-                    )}
-
-                    {allFrontend.length > 0 && (
-                        <>
-                            <div className="config-sidebar-group-label">{t('settings.config.source.frontend')}</div>
-                            {frontendFiltered.map(c => (
-                                <div
-                                    key={c.file}
-                                    className={`config-section-sidebar-item${selected?.file === c.file && selected?.source === c.source ? " active" : ""}`}
-                                    onClick={() => { setSelected(c); setSearch(""); setSearchResults(null); }}
-                                >
-                                    {getConfigIcon(c.file)}
-                                    <div className="config-section-sidebar-item-info">
-                                        <div className="config-section-sidebar-item-info-filename">{c.file}</div>
-                                        <div className="config-section-sidebar-item-info-file">{c.file}.toml</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </>
-                    )}
+                    {renderSidebarItems(backendFiltered, t('settings.config.source.backend'))}
+                    {renderSidebarItems(frontendFiltered, t('settings.config.source.frontend'))}
+                    {renderSidebarItems(pluginBackendFiltered, t('settings.config.source.plugin_backend'))}
+                    {renderSidebarItems(pluginFrontendFiltered, t('settings.config.source.plugin_frontend'))}
                 </div>
 
                 <div className="config-main">

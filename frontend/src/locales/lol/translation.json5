@@ -302,6 +302,8 @@
     "settings.config.search_placeholder": "Serch… (e.g. type:string)",
     "settings.config.source.backend": "bakend",
     "settings.config.source.frontend": "fruntend",
+    "settings.config.source.plugin_backend": "bakend pluginz",
+    "settings.config.source.plugin_frontend": "fruntend pluginz",
     "settings.config.searching": "Serchin…",
     "settings.config.empty.type_value": "Typ a value aftur teh colon 2 serch",
     "settings.config.empty.select_file": "Selekt a config fiel 2 edit",

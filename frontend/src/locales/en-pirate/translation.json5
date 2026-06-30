@@ -302,6 +302,8 @@
     "settings.config.search_placeholder": "Search the charts… (e.g. type:string)",
     "settings.config.source.backend": "below deck",
     "settings.config.source.frontend": "above deck",
+    "settings.config.source.plugin_backend": "below deck plunder",
+    "settings.config.source.plugin_frontend": "above deck plunder",
     "settings.config.searching": "Searchin' the charts…",
     "settings.config.empty.type_value": "Type a value after the colon to search the charts",
     "settings.config.empty.select_file": "Select a chart to edit",

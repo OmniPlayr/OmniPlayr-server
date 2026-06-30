@@ -301,6 +301,8 @@
     "settings.config.search_placeholder": "Search… (e.g. type:string)",
     "settings.config.source.backend": "backend",
     "settings.config.source.frontend": "frontend",
+    "settings.config.source.plugin_backend": "backend plugins",
+    "settings.config.source.plugin_frontend": "frontend plugins",
     "settings.config.searching": "Searching…",
     "settings.config.empty.type_value": "Type a value after the colon to search",
     "settings.config.empty.select_file": "Select a config file to edit",

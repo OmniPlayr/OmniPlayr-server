@@ -1,9 +1,10 @@
 .config-section {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    height: calc(100% - 40px);
+    gap: 10px;
     margin-top: 10px;
+    height: calc(100dvh - 260px);
+    min-height: 300px;
 }
 
 .config-section-content {
@@ -12,76 +13,75 @@
     gap: 15px;
     flex: 1;
     min-height: 0;
+    max-height: calc(100% - 40px);
 }
 
 .config-section-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 6px;
     width: 230px;
     min-width: 230px;
     padding: 10px;
     background-color: var(--clr-popup-a10);
     border: 1px solid var(--clr-popup-a30);
     border-radius: 12px;
-    overflow-y: auto;
+    overflow-y: scroll;
 }
 
-.config-sidebar-group-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--clr-text-a30);
-    padding: 6px 5px 2px;
-}
-
-.config-section-sidebar-item {
+.config-sidebar-group-folder {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: 5px;
     align-items: center;
     cursor: pointer;
-    padding: 5px;
-    border-radius: 10px;
-    transition: background-color 0.2s ease-in-out, border 0.2s ease-in-out;
-    color: var(--clr-text-a0);
-    background-color: var(--clr-popup-a10);
-    border: 1px solid var(--clr-popup-a30);
+    color: var(--clr-text-a30);
+    padding: 5px 0;
+    padding-left: calc(10px * var(--file-item-depth));
+    font-size: 14px;
 }
 
-.config-section-sidebar-item:hover {
-    background-color: var(--clr-popup-a30);
-    border-color: var(--clr-popup-a30);
+.config-sidebar-group-folder-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--clr-text-a30);
+    transform: rotate(-90deg);
+    transition: transform 0.2s ease-in-out;
 }
 
-.config-section-sidebar-item.active {
-    background-color: var(--clr-popup-a30);
-    border-color: var(--clr-popup-a50);
+.config-sidebar-group-folder.open .config-sidebar-group-folder-icon {
+    transform: rotate(0deg);
 }
 
-.config-section-sidebar-item-info {
+.config-section-sidebar-file {
     display: flex;
-    flex-direction: column;
-    min-width: 0;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    cursor: pointer;
+    padding: 5px 0;
+    padding-left: calc(10px * var(--file-item-depth));
 }
 
-.config-section-sidebar-item-info-filename {
-    font-size: 15px;
-    font-weight: 600;
+.config-section-sidebar-file:hover {
+    background-color: var(--clr-popup-a30);
+}
+
+.config-section-sidebar-file.active {
+    background-color: var(--clr-popup-a50);
+}
+
+.config-section-sidebar-file-name {
+    font-size: 14px;
+    color: var(--clr-text-a0);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.config-section-sidebar-item-info-file {
-    font-size: 12px;
-    color: var(--clr-text-a30);
-}
-
 .config-icon {
-    width: 26px;
-    height: 26px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
     color: var(--clr-text-a30);
 }
@@ -153,6 +153,40 @@
 
 .config-autocomplete-colon {
     color: var(--clr-text-a30);
+}
+
+.config-search-source-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.config-search-source-btn {
+    min-width: 0;
+    padding: 6px 7px;
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 7px;
+    background-color: var(--clr-popup-a10);
+    color: var(--clr-text-a30);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.config-search-source-btn:hover {
+    background-color: var(--clr-popup-a30);
+    color: var(--clr-text-a0);
+}
+
+.config-search-source-btn.active {
+    background-color: var(--clr-primary-a10);
+    border-color: var(--clr-primary-a30);
+    color: var(--clr-text-a0);
 }
 
 .config-main {
