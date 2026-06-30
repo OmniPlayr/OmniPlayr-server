@@ -1,0 +1,6 @@
+[api]
+apiUrl = "['8223','8323','8523'].includes(location.port) ? ((location.protocol === 'https:' ? 'https://' : 'http://') + location.hostname + ':8224') : ''"
+terminalUrl = "['8223','8323','8523'].includes(location.port) ? ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.hostname + ':8224') : ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host)"
+
+[accounts]
+accountStore = "sessionStorage"

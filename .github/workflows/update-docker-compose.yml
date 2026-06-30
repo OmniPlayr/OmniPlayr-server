@@ -1,0 +1,41 @@
+name: Update Root Docker Compose
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'composers/**'
+
+jobs:
+  update-compose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select composer based on branch
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [ "$BRANCH" = "main" ]; then
+            cp composers/main/docker-compose.yml docker-compose.yml
+          else
+            cp composers/dev/docker-compose.yml docker-compose.yml
+          fi
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          if git diff --quiet docker-compose.yml; then
+            echo "No changes to docker-compose.yml"
+          else
+            git add docker-compose.yml
+            git commit -m "chore: update root docker-compose.yml from ${{ github.ref_name }} composer"
+            git push
+          fi

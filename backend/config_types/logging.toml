@@ -1,0 +1,4 @@
+[logging]
+retention_days = "int <minmax [1, 30] step [1]> # comment: How many days to keep logs for"
+log_dir = "dir # comment: Directory to store logs in"
+max_file_size_mb = "int # comment: Maximum size of a log file in MB"

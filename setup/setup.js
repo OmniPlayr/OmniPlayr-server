@@ -21,6 +21,10 @@ let access_token = null;
 
 const BACKEND = `http://${location.hostname}:8224/api`;
 
+const openButton = document.getElementById('open-button');
+openButton.addEventListener('click', () => {
+    window.open(`http://${location.hostname}:8223`, '_blank');
+});
 function setTopProgress(stepIndex) {
     topProgressBar.style.width = ((stepIndex + 1) * stepWidth) + '%';
 }
@@ -31,6 +35,9 @@ function setInstallProgress(pct) {
 }
 
 function goToStep(index) {
+    if (index === 1 && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
     steps[currentStep].classList.remove('active');
     currentStep = index;
     steps[currentStep].classList.add('active');
@@ -46,13 +53,17 @@ function goToStep(index) {
         const favicon = document.querySelector('link[rel="icon"]');
         favicon.href = '/assets/favicons/downloading.svg';
     }
+
+    if (index === 5 && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'complete' }));
+    }
 }
 
 function saveSetupState(step) {
     fetch(`${BACKEND}/setup/state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_step: step, completed: true }),
+        body: JSON.stringify({ current_step: step, completed: step === 5 }),
     }).catch(() => {});
 }
 
@@ -110,6 +121,14 @@ function escHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function notifyInstallDone() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    new Notification('OmniPlayr', {
+        body: 'Installation complete! Continue setup to finish.',
+        icon: '/assets/favicons/setup.svg',
+    });
+}
+
 let ws;
 
 function showQuestion(id, text, options) {
@@ -159,6 +178,7 @@ function connect() {
         if (msg.type === 'question') showQuestion(msg.id, msg.text, msg.options);
         if (msg.type === 'next') {
             appendLog('Installation complete, continuing setup…', 'success');
+            notifyInstallDone();
             if (!gotSetupStateFromHttp) goToStep(msg.step + 1);
         }
         if (msg.type === 'redirect') {
@@ -230,12 +250,12 @@ function createAccountItem(existing = null) {
         const bid = accountItem.dataset.backendId;
         if (bid) {
             try {
-                await fetch(`${BACKEND}/accounts/${bid}`, { 
+                await fetch(`${BACKEND}/setup/accounts/${bid}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${access_token}`
                     }
-                 });
+                });
                 persistedAccounts.delete(Number(bid));
             } catch (e) {
                 console.warn('Delete failed', e);
@@ -282,9 +302,9 @@ function createAccountItem(existing = null) {
 
 async function patchAccount(id, fields) {
     try {
-        await fetch(`${BACKEND}/accounts/${id}`, {
+        await fetch(`${BACKEND}/setup/accounts/${id}`, {
             method: 'PATCH',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${access_token}`
             },
@@ -403,12 +423,12 @@ async function saveAccounts() {
 
         if (bid) {
             upsertPromises.push(
-                fetch(`${BACKEND}/accounts/${bid}`, {
+                fetch(`${BACKEND}/setup/accounts/${bid}`, {
                     method: 'PATCH',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${access_token}`
-                     },
+                    },
                     body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 }),
                 }).then(async r => {
                     if (r.ok) {
@@ -420,12 +440,12 @@ async function saveAccounts() {
             );
         } else {
             upsertPromises.push(
-                fetch(`${BACKEND}/accounts/`, {
+                fetch(`${BACKEND}/setup/accounts/create`, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${access_token}`
-                     },
+                    },
                     body: JSON.stringify({ name: nameInput.value.trim(), role: typeInput.value, avatar_b64 })
                 }).then(async r => {
                     if (r.ok) {

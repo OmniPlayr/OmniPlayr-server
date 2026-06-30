@@ -3,9 +3,11 @@ import { makeToast } from '@wokki20/jspt';
 import '@wokki20/jspt/dist/jspt.css';
 import { useNavigate } from 'react-router-dom'
 import api from './modules/api';
+import { useTranslation } from 'react-i18next';
 
 function Login() {
 	const navigate = useNavigate()
+	const { t } = useTranslation();
 
 	async function handleSubmit() {
 		const password = (document.querySelector('.login__input') as HTMLInputElement).value;
@@ -16,7 +18,7 @@ function Login() {
 			localStorage.setItem('access_token_expires', data.access_token_expires);
 			localStorage.setItem('refresh_token_expires', data.refresh_token_expires);
 			makeToast({
-				message: 'Logged in successfully!',
+				message: t('login.success'),
 				style: 'default',
 				icon_left: 'check',
 				icon_left_type: 'lucide_icon',
@@ -37,10 +39,10 @@ function Login() {
 	return (
 		<>
 		<div className='login__screen'>
-			<h1 className='login__title'>Login</h1>
-			<p className='login__subtitle'>Please enter the server password to continue</p>
-			<input className='login__input' type="password" placeholder="Password" />
-			<button className='login__button' data-type="primary" onClick={handleSubmit}>Login</button>
+			<h1 className='login__title'>{t('login.title')}</h1>
+			<p className='login__subtitle'>{t('login.subtitle')}</p>
+			<input className='login__input' type="password" autoComplete='current-password' id="server-password" name="server-password" placeholder="Password" />
+			<button className='login__button' data-type="primary" onClick={handleSubmit}>{t('login.button')}</button>
 		</div>
 		</>
 	)

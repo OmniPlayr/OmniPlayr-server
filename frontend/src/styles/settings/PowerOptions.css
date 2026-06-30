@@ -1,0 +1,92 @@
+.power-options-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.power-option-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 12px;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.power-option-info {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.power-option-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.power-option-icon--success { color: var(--clr-success-a10); }
+.power-option-icon--warning { color: var(--clr-warning-a10); }
+.power-option-icon--danger { color: var(--clr-danger-a10); }
+.power-option-icon--info { color: var(--clr-info-a10); }
+
+.power-option-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.power-option-desc {
+    font-size: 13px;
+    color: var(--clr-text-a30);
+}
+
+.power-option-note {
+    font-size: 12px;
+    color: var(--clr-warning-a10);
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.power-option-confirm {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.power-option-confirm span {
+    font-size: 13px;
+    color: var(--clr-text-a30);
+    white-space: nowrap;
+}
+
+.power-option-confirm button {
+    font-size: 13px;
+    padding: 8px 14px;
+}
+
+.power-option-done {
+    color: var(--clr-text-a40);
+    font-size: 13px;
+    flex-shrink: 0;
+    font-style: italic;
+}
+
+.power-options-loading {
+    color: var(--clr-text-a40);
+    padding: 24px;
+    text-align: center;
+    font-size: 14px;
+}

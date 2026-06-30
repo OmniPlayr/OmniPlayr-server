@@ -1,0 +1,444 @@
+{
+    "system_name": "OmniPlayr",
+
+    // --- Start common names
+
+    "common.back": "Turn Back",
+
+    "common.today": "This Very Day",
+    "common.yesterday": "Yesterday",
+    "common.daysAgo": "{{days}} days adrift",
+    "common.weeksAgo": "{{weeks}} weeks adrift",
+    "common.monthsAgo": "{{months}} moons ago",
+    "common.yesterday.time": "Yesterday at {{time}}",
+
+    "common.timeAgo.justNow": "Just now, arr",
+    "common.timeAgo.minutes": "{{count}}m ago",
+    "common.timeAgo.hours": "{{count}}h ago",
+    "common.timeAgo.days": "{{count}}d ago",
+    "common.timeAgo.weeks": "{{count}}w ago",
+    "common.timeAgo.months": "{{count}}mo ago",
+    "common.timeAgo.years": "{{count}}y ago",
+
+    "common.beta": "Beta",
+
+    "common.loading": "Haulin' anchor...",
+
+    "common.yes": "Aye",
+    "common.no": "Nay",
+    "common.cancel": "Abandon ship",
+    "common.save": "Stow it",
+    "common.close": "Batten down",
+    "common.ok": "Aye aye",
+    "common.next": "Ahead",
+    "common.confirm": "Aye Aye!",
+
+    "common.deleted": "Sent to Davy Jones",
+    "common.delete": "Send to Davy Jones",
+    "common.revoke": "Walk the plank",
+
+    // --- End common names
+
+    // --- Start settings translations
+
+    "settings.title": "Ship Rules",
+
+    "settings.tab.plugins": "Plunder",
+    "settings.tab.plugins.desc": "Modify yer OmniPlayr voyage with plunder",
+
+    "settings.tab.people": "Crew",
+    "settings.tab.people.desc": "Manage yer crew members",
+
+    "settings.tab.appearance": "Looks",
+    "settings.tab.appearance.desc": "Modify the looks and feel of yer ship",
+
+    "settings.tab.system": "Ship's Log",
+    "settings.tab.system.desc": "Check logs, reboot yer vessel and modify the charts",
+
+    "settings.tab.about": "Legend",
+    "settings.tab.about.desc": "Version info, credits, and tales of the sea",
+
+    "settings.tab.appearance.theme": "Flag",
+    "settings.tab.appearance.theme.desc": "Change how yer ship looks",
+
+    "settings.tab.appearance.colors": "Colors",
+    "settings.tab.appearance.colors.desc": "Customize yer accent colors, ye scallywag",
+
+    "settings.tab.appearance.fonts": "Scroll Script",
+    "settings.tab.appearance.fonts.desc": "Adjust yer typography",
+
+    "settings.tab.appearance.language": "Tongue",
+    "settings.tab.appearance.language.desc": "Select yer preferred tongue",
+
+    "settings.tab.system.logs": "Ship's Log",
+    "settings.tab.system.logs.desc": "Read the ship's log",
+
+    "settings.tab.system.power": "Power Options",
+    "settings.tab.system.power.desc": "Reboot, abandon ship, safe harbor and more",
+
+    "settings.tab.system.terminal": "Crow's Nest",
+    "settings.tab.system.terminal.desc": "Bark orders at the server",
+
+    "settings.tab.system.config": "Charts",
+    "settings.tab.system.config.desc": "Edit yer navigation charts",
+
+    "settings.tab.people.profile": "Wanted Poster",
+    "settings.tab.people.profile.desc": "Edit yer wanted poster",
+    "settings.tab.people.backup_codes": "Backup Codes",
+    "settings.tab.people.backup_codes.desc": "Create and save yer 2FA backup codes",
+
+    "settings.tab.people.other": "Other Scallywags",
+    "settings.tab.people.other.desc": "Manage the rest of the crew",
+
+    // --- End settings translations
+
+    // --- Start sidebar translations
+
+    "sidebar.tab.home": "Port",
+    "sidebar.tab.settings": "Ship Rules",
+    "sidebar.devmode": "Shipwright Mode",
+
+    // --- End sidebar translations
+
+    // --- Start shutdown & updating translations
+
+    "shutdown.title": "Ship has gone under",
+    "shutdown.comment": "The vessel be currently at the bottom of the sea. Please raise yer server to continue sailin' with OmniPlayr.",
+
+    "updating.title": "Ship be gettin' patched",
+    "updating.comment": "The vessel be currently in dry dock. Ye will be brought back aboard when the patchin' be done.",
+
+    // --- End shutdown & updating translations
+
+    // --- Start notifications translations
+
+    "notifications.title": "Crow's Nest",
+    "notifications.empty": "Nothin' but open sea out here...",
+    "notifications.delete": "Toss overboard",
+
+    // --- End notifications translations
+
+    // --- Start login translations
+
+    "login.success": "Welcome aboard, ye scallywag!",
+    "login.title": "Board the Ship",
+    "login.subtitle": "State the secret password to come aboard, landlubber",
+    "login.button": "Board",
+
+    "login.password.popup.title": "State Yer Password",
+    "login.password.popup.text": "Speak yer account password to come aboard.",
+    "login.password.popup.placeholder": "Password",
+    "login.password.popup.button": "Set Sail",
+
+    "login.2fa.popup.title": "Enter Yer Code",
+    "login.2fa.popup.text": "Enter th' code from yer authenticator app t' continue, matey",
+    "login.2fa.popup.backup-text": "Enter one o' yer backup codes t' continue, matey",
+    "login.2fa.popup.backup-placeholder": "Backup code",
+
+    "login.2fa.popup.use-backup": "Use Yer Backup Code",
+
+    "login.error.wrong-code": "Th' code ye entered be incorrect, matey.",
+    "login.error.wrong-password": "Th' password ye entered be incorrect, matey.",
+
+    // --- End login translations
+
+    // --- Start header translations
+
+    "header.update": "New Treasure Ready",
+    "header.safemode": "Safe Harbor",
+
+    // --- End header translations
+
+    // --- Start Fail page translations
+    "fail.title": "The engine room has flooded",
+    "fail.subtitle": "A kraken attacked while bootin' up the ship.",
+    "fail.subtitle2": "The vessel could not complete its voyage. Try again when the seas calm.",
+    "fail.subtitle3": "If the kraken keeps attackin', send a message in a bottle to support.",
+    // --- End Fail page translations
+
+    // --- Start Account Select translations
+    "accountSelect.title": "Who be listenin'?",
+    // --- End Account Select translations
+
+    // --- Start Theme translations
+    "settings.theme.dark": "Dark Waters",
+    "settings.theme.light": "Clear Skies",
+    "settings.theme.transparent_shell": "Use a transparent hull <beta>Beta</beta>",
+    "settings.theme.transparent_shell.desc": "Use a transparent hull if ye have a browser that has a <theme_link>transparent shell/ui</theme_link>.",
+    "settings.theme.system": "Follow the winds",
+    "settings.theme.system.desc": "Use the theme applied to yer device.",
+    // --- End Theme translations
+
+    // --- Start Profile translations
+    "settings.profile.device_unknown": "Unknown Vessel",
+    "settings.profile.browser_unknown": "Unknown Spyglass",
+
+    "settings.profile.about": "Me Legend",
+    "settings.profile.nobio": "No legend yet, arr.",
+
+    "settings.profile.created.tooltip": "This be when ye joined the crew",
+    "settings.profile.role.tooltip": "This be yer rank on OmniPlayr",
+
+    "settings.profile.about.placeholder": "Spin a yarn about yerself...",
+    "settings.profile.nickname.placeholder": "Pirate Name",
+
+    "settings.profile.logins": "Boardings",
+
+    "settings.profile.logins.this_device": "This vessel",
+
+    "settings.profile.security": "Safekeepin' Yer Booty",
+    "settings.profile.password": "Secret Pirate Code",
+    "settings.profile.password.text": "Settin' a secret code can help ye keep scurvy landlubbers from plunderin' yer account, arrr!",
+
+    "settings.profile.password.change": "Change Yer Secret Code",
+    "settings.profile.password.set": "Set Yer Secret Code",
+
+    "settings.profile.password.popup.title.change": "Change Th' Password",
+    "settings.profile.password.popup.title.set": "Set Th' Password",
+
+    "settings.profile.password.popup.submit.set": "Set Th' Password",
+    "settings.profile.password.popup.submit.change": "Update Th' Password",
+
+    "settings.profile.password.popup.text": "Set a password to guard yer booty, er, account.",
+
+    "settings.profile.password.popup.text.new": "Enter a new password, matey.",
+    "settings.profile.password.popup.text.current": "Enter yer current password, if ye please.",
+    "settings.profile.password.popup.text.confirm": "Re-enter yer password to confirm, savvy?",
+
+    "settings.profile.password.popup.placeholder.current": "Current Password",
+    "settings.profile.password.popup.placeholder.new": "New Password",
+    "settings.profile.password.popup.placeholder.confirm": "Confirm Password",
+
+    "settings.profile.password.popup.error.confirm": "Th' confirmed password don't match th' new one, arrr.",
+    "settings.profile.password.popup.error.current": "Old password be incorrect, ye scurvy dog.",
+    "settings.profile.password.popup.error.wrong": "Somethin' went wrong on th' high seas.",
+
+    "settings.profile.password.toast.changed": "Password be changed, arrr!",
+    "settings.profile.password.toast.set": "Password be set, ye scallywag!",
+
+    "settings.profile.2fa": "2FA",
+    "settings.profile.2fa.text": "Enable 2FA t' add an extra layer o' security t' yer account.",
+
+    "settings.profile.2fa.set": "Enable 2FA",
+    "settings.profile.2fa.disable": "Disable 2FA",
+
+    "settings.profile.2fa.popup.title": "Enable 2FA",
+    "settings.profile.2fa.popup.text": "Enable 2FA t' add an extra layer o' security t' yer account.",
+
+    "settings.profile.2fa.popup.error.password": "Ye must have a password t' enable 2FA",
+
+    "settings.profile.2fa.popup.scanqr": "Scan th' QR code with yer authenticator app, matey.",
+    "settings.profile.2fa.popup.noqr": "If ye cannot scan th' QR code, use th' code below.",
+    "settings.profile.2fa.popup.added": "Once ye have added th' code t' yer authenticator app, press th' button below t' continue.",
+
+    "settings.profile.2fa.popup.code.title": "Enter th' code",
+    "settings.profile.2fa.popup.code-text": "Enter th' code from yer authenticator app t' continue.",
+
+    "settings.profile.2fa.popup.error.code": "Th' code ye entered be incorrect.",
+    "settings.profile.2fa.toast.enabled": "2FA enabled successfully, matey.",
+
+    "settings.profile.2fa.toast.disabled": "2FA removed successfully, matey.",
+    "settings.profile.2fa.disable.title": "Disable 2FA",
+    "settings.profile.2fa.disable.text": "Arrr, be ye sure ye want t' disable 2FA? This will remove 2FA from yer account, but ye can enable it again at any time.",
+    "settings.profile.2fa.disable.enter-code": "Enter th' code from yer authenticator app t' confirm.",
+    
+    // --- End Profile translations
+
+    // --- Start Backup Codes translations
+    "settings.backup_codes.title": "Backup Codes",
+    "settings.backup_codes.text": "These one-time codes let ye sign in if ye lose access t' yer authenticator app.",
+    "settings.backup_codes.loading": "Creating yer backup codes...",
+    "settings.backup_codes.save_warning": "Save these codes now. Download them, print them, or write them down and keep them somewhere private. Ye will not be able t' view this exact set again.",
+    "settings.backup_codes.download": "Download",
+    "settings.backup_codes.print": "Print",
+    "settings.backup_codes.print_warning": "Keep these backup codes somewhere private. Each code can only be used once.",
+    "settings.backup_codes.file.title": "OmniPlayr backup codes",
+    "settings.backup_codes.file.warning": "Keep these backup codes somewhere private. Each code can only be used once.",
+    "settings.backup_codes.exists.title": "Backup codes already exist",
+    "settings.backup_codes.exists.text": "Ye already have backup codes. New codes can only be generated after all existing backup codes have been used.",
+    "settings.backup_codes.unavailable.title": "Backup codes be not available",
+    "settings.backup_codes.unavailable.text": "Backup codes can only be created when 2FA be enabled for yer account.",
+    "settings.backup_codes.error.title": "Could not create backup codes",
+    "settings.backup_codes.error.text": "Something went wrong while creating yer backup codes. Try again.",
+    // --- End Backup Codes translations
+
+    // --- Start Power Options translations
+    "settings.power.safe_mode": "Safe Harbor",
+    "settings.power.safe_mode.desc.active": "Safe harbor be active. All plunder be locked away on startup.",
+    "settings.power.safe_mode.desc.inactive": "Safe harbor be off. Plunder loads normally on startup.",
+    "settings.power.safe_mode.restart.enabled": "A reboot be required to take effect after disabling.",
+    "settings.power.safe_mode.restart.disabled": "A reboot be required to take effect after enabling.",
+
+    "settings.power.safe_mode.disable": "Leave Safe Harbor",
+    "settings.power.safe_mode.enable": "Sail to Safe Harbor",
+
+    "settings.power.reboot": "Reboot",
+    "settings.power.reboot.desc": "Restart the vessel. The page will reload automatically after a few seconds.",
+    "settings.power.reboot.done": "Rebooting, page will reload shortly, arr...",
+
+    "settings.power.reboot.confirm": "Ye sure ye want to reboot, arr?",
+    "settings.power.reboot.confirm.yes": "Aye, reboot",
+    "settings.power.reboot.confirm.no": "Nay, don't reboot",
+
+    "settings.power.reboot.button": "Reboot",
+
+    "settings.power.shutdown": "Abandon Ship",
+    "settings.power.shutdown.desc": "Scuttle the vessel completely. A manual restart will be required.",
+    "settings.power.shutdown.done": "Abandonin' ship...",
+
+    "settings.power.shutdown.confirm": "Ye sure ye want to abandon ship?",
+    "settings.power.shutdown.confirm.yes": "Aye, abandon ship",
+    "settings.power.shutdown.confirm.no": "Nay, stay the course",
+
+    "settings.power.shutdown.button": "Abandon Ship",
+    // --- End Power Options translations
+
+    // --- Start Font translations
+    "settings.fonts.aa": "Aa",
+    // --- End Font translations
+
+    // --- Start Config translations
+    "settings.config.warning": "These be advanced waters, ye should not sail here unless ye know what yer doin'.",
+    "settings.config.search_placeholder": "Search the charts… (e.g. type:string)",
+    "settings.config.source.backend": "below deck",
+    "settings.config.source.frontend": "above deck",
+    "settings.config.source.plugin_backend": "below deck plunder",
+    "settings.config.source.plugin_frontend": "above deck plunder",
+    "settings.config.searching": "Searchin' the charts…",
+    "settings.config.empty.type_value": "Type a value after the colon to search the charts",
+    "settings.config.empty.select_file": "Select a chart to edit",
+    "settings.config.empty.loading": "Haulin' anchor…",
+    "settings.config.field.live": "live",
+    "settings.config.field.live_tooltip": "Changes apply without reboot",
+    "settings.config.field.default": "default",
+    "settings.config.field.restore": "Restore",
+    "settings.config.field.true": "Aye",
+    "settings.config.field.false": "Nay",
+    "settings.config.field.value": "value",
+    "settings.config.unsaved": "Careful, ye have unsaved plunder",
+    "settings.config.reset_all": "Reset all",
+    "settings.config.save_changes": "Stow changes",
+    "settings.config.saving": "Stowin'…",
+    "settings.config.toast.saved": "Stowed successfully, please reboot yer vessel for changes to take effect",
+    "settings.config.toast.save_failed": "Failed to stow",
+    "settings.config.no_results": "No matchin' chart keys found",
+    // --- End Config translations
+
+    // --- Start Other People translations
+    "settings.people.other.select": "Select a wanted poster to edit",
+    "settings.people.other.new_user": "New Recruit",
+    "settings.people.other.create_desc": "Recruit a new crew member",
+    "settings.people.other.tooltip.change_view": "Change view",
+    "settings.people.other.section.account_options": "Crew Options",
+    "settings.people.other.section.actions": "Orders",
+    "settings.people.other.action.edit_role": "Edit Rank",
+    "settings.people.other.action.remove_pfp": "Remove Wanted Poster",
+    "settings.people.other.action.delete_account": "Keelhaul Account",
+    "settings.people.other.action.revoke_tokens": "Revoke All Tokens",
+    "settings.people.other.role.title": "Edit Rank",
+    "settings.people.other.role.subtitle": "Select a rank for @{{name}}",
+    "settings.people.other.role.user": "Deckhand",
+    "settings.people.other.role.admin": "First Mate",
+    "settings.people.other.role.apply": "Apply",
+    "settings.people.other.delete.title": "Keelhaul '{{name}}'?",
+    "settings.people.other.delete.desc1": "Ye sure ye want to keelhaul this account? There be no comin' back from this.",
+    "settings.people.other.delete.desc2": "All plunder tied to this account will be lost to Davy Jones forever.",
+    "settings.people.other.delete.desc3": "This scallywag will also be thrown off all vessels.",
+    "settings.people.other.delete.confirm": "Aye, Keelhaul 'em",
+    "settings.people.other.revoke.title": "Revoke all tokens for '{{name}}'?",
+    "settings.people.other.revoke.desc1": "Ye sure ye want to revoke all tokens for this account? There be no comin' back from this.",
+    "settings.people.other.revoke.desc2": "This scallywag will be thrown off all vessels and all tokens will be revoked.",
+    "settings.people.other.revoke.confirm": "Revoke Tokens",
+    "settings.people.other.remove_pfp.title": "Remove wanted poster for '{{name}}'?",
+    "settings.people.other.remove_pfp.desc1": "Ye sure ye want to remove the wanted poster for this account? There be no comin' back from this.",
+    "settings.people.other.remove_pfp.desc2": "The scallywag will need to hang a new wanted poster.",
+    "settings.people.other.remove_pfp.confirm": "Remove Wanted Poster",
+    "settings.people.other.create.title": "Recruit Crew Member",
+    "settings.people.other.create.subtitle": "Fill in the details for the new recruit.",
+    "settings.people.other.create.username_placeholder": "Pirate name...",
+    "settings.people.other.create.confirm": "Recruit",
+    "settings.people.other.search_placeholder": "Search the crew...",
+    // --- End Other People translations
+
+    // --- Start Plugins translations
+    "settings.plugins.restart_banner": "Reboot the vessel to apply the changes.",
+    "settings.plugins.installed_title": "Stowed plunder",
+    "settings.plugins.install_title": "Loot More Plunder",
+    "settings.plugins.search_placeholder": "Search for plunder...",
+    "settings.plugins.search_results": "Treasure found",
+    "settings.plugins.top_packages": "Most prized loot",
+    "settings.plugins.no_packages": "No plunder found, arr.",
+    "settings.plugins.badge.installed": "Stowed",
+    "settings.plugins.badge.installing": "Lootin'…",
+    "settings.plugins.badge.update": "Update",
+    "settings.plugins.badge.install": "Loot",
+    "settings.plugins.menu.view_registry": "View on Registry",
+    "settings.plugins.badge.backend_version": "Below deck v{{version}}",
+    "settings.plugins.badge.frontend_version": "Above deck v{{version}}",
+    "settings.plugins.compat.min_version": "Update yer OmniPlayr {{type}} to {{version}} or newer to stow this plunder. Current: {{current}}.",
+    "settings.plugins.compat.max_version": "This plunder only sails with OmniPlayr {{type}} up to {{version}}. Current: {{current}}.",
+    "settings.plugins.compat.min_dev_version": "Update yer OmniPlayr {{type}} dev build to {{version}} or newer to stow this plunder. Current: {{current}}.",
+    "settings.plugins.compat.max_dev_version": "This plunder only sails with OmniPlayr {{type}} dev builds up to {{version}}. Current: {{current}}.",
+    // --- End Plugins translations
+
+    // --- Start Logs translations
+    "settings.logs.hours.1": "Last 1 hour",
+    "settings.logs.hours.6": "Last 6 hours",
+    "settings.logs.hours.24": "Last 24 hours",
+    "settings.logs.hours.48": "Last 48 hours",
+    "settings.logs.hours.168": "Last 7 days",
+    "settings.logs.hours.720": "Last 30 days",
+    "settings.logs.level.all": "All levels",
+    "settings.logs.level.inf": "Info",
+    "settings.logs.level.suc": "Success",
+    "settings.logs.level.wrn": "Warning",
+    "settings.logs.level.err": "Error",
+    "settings.logs.level.crt": "Critical",
+    "settings.logs.level.dbg": "Debug",
+    "settings.logs.level.diag_all": "Diag (all)",
+    "settings.logs.level.dig": "Diag",
+    "settings.logs.level.wdg": "Diag Warning",
+    "settings.logs.level.edg": "Diag Error",
+    "settings.logs.level.cdg": "Diag Critical",
+    "settings.logs.sort.time": "Sort: time",
+    "settings.logs.sort.file": "Sort: file",
+    "settings.logs.auto_refresh": "Auto-refresh",
+    "settings.logs.refresh": "Refresh",
+    "settings.logs.loading_older": "Haulin' up older logs…",
+    "settings.logs.beginning": "— start of the ship's log —",
+    "settings.logs.empty": "No logs found, the seas be calm",
+    "settings.logs.new_count": "{{count}} new",
+    "settings.logs.footer.entries_one": "{{count}} entry",
+    "settings.logs.footer.entries_other": "{{count}} entries",
+    "settings.logs.footer.filtered": "(filtered from {{total}})",
+    // --- End Logs translations
+
+    // --- Start About translations
+    "settings.about.update.title": "Ship's Patch",
+    "settings.about.update.status": "Status:",
+    "settings.about.update.available": "New Patch Available",
+    "settings.about.update.up_to_date": "Shipshape",
+    "settings.about.update.install": "Apply Now",
+    "settings.about.update.check": "Check for Patches",
+    "settings.about.version_credits": "Version & Credits",
+    "settings.about.github_stale": "Could not reach GitHub (rate limit or network issue). Showin' cached plunder from a previous voyage.",
+    "settings.about.dev_warning": "This here build be in active development and may be unstable or incomplete, sail at yer own risk. Report any krakens on <github>GitHub</github>",
+    "settings.about.contributors": "Crew Members",
+    "settings.about.license": "License",
+    "settings.about.license.loading": "Haulin' anchor...",
+    "settings.about.version.version": "Version",
+    "settings.about.version.latest": "(latest)",
+    "settings.about.version.year": "Year",
+    "settings.about.version.month": "Moon",
+    "settings.about.version.bugfix": "Bugfix",
+    // --- End About translations
+
+    // --- Start Colors translations
+    "settings.colors.reset": "Back to Davy Jones' colors",
+    // --- End Colors translations
+
+    // --- Start Language translations
+    "settings.language.system": "Use system tongue",
+    "settings.language.system.desc": "Use the tongue set on yer device.",
+    // --- End Language translations
+}

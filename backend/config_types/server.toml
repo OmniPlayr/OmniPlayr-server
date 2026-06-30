@@ -1,3 +1,15 @@
 [auth]
-access_token_lifetime = "str # liveupdate:true"
-refresh_token_lifetime = "str # liveupdate:true"
+access_token_lifetime = "str # liveupdate:true # comment: How long the access token is valid for, formatted like '1 day', '2 months' or '3 years'"
+refresh_token_lifetime = "str # liveupdate:true # comment: How long the refresh token is valid for, formatted like '1 day', '2 months' or '3 years'"
+
+[user_authentication]
+log_ip_adresses = "bool # comment: Log IP addresses of users when they log in, for security reasons"
+log_user_agents = "bool # comment: Log user agents of users when they log in, for security reasons"
+
+[plugins]
+registry_api = "str # comment: The URL of the plugin registry API to fetch information about plugins"
+download_base = "str # comment: The base URL to download plugins from"
+
+[diagnostics]
+enabled = 'bool # comment: If diagnostics logging should be enabled'
+interval_seconds = "int # comment: How often to run diagnostic checks, in seconds"

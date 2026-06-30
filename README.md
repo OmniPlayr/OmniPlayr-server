@@ -1,38 +1,37 @@
 # OmniPlayr 🎵
 
-> A self-hosted, extensible media platform - unify audio and video streaming from multiple sources.  
+> A self-hosted, extensible media platform - unify audio streaming from multiple sources.
 
-OmniPlayr is a **self-hosted, plugin-based media platform** that lets you stream and manage media from different sources through a single, consistent API. The backend and plugin system are fully functional, and the project is designed for developers to add new plugins and extend the platform.
+OmniPlayr is a **self-hosted, plugin-based audio platform** that lets you stream and manage audio from different sources through a single, consistent API. The backend, web UI, and plugin system are fully functional, and the project is designed for developers to add new plugins and extend the platform.
 
 ---
 
 ## ⚠️ Work in Progress
 
-This project is under active development. While the **streaming backend and plugin system are working**, the web UI is still being built. Contributions, ideas, and plugins are highly welcome.
+This project is under active development. The **streaming backend, web UI, and plugin system are working**. Contributions, ideas, and plugins are highly welcome.
 
 ---
 
 ## ✅ Features
 
-- 🔌 **Plugin architecture** - easily add new audio or video sources
-- 🎧 **Unified streaming API** - clients can access media without knowing the source plugin
+- 🔌 **Plugin architecture** - easily add new audio sources
+- 🎧 **Unified streaming API** - clients can access audio without knowing the source plugin
 - 📦 **Self-hosted** - deploy with Docker or Python
-- 🌐 **Web UI coming soon** - control your media from any device
+- 🌐 **Web UI** - control your audio from any device
 
 ---
 
 ## 🛠 Plugin Support
 
-Each media source is implemented as a plugin. The **MP3 plugin is fully functional**, and more sources can be added easily.
+Each audio source is implemented as a plugin. The **MP3 plugin is fully functional**, and more sources can be added easily.
 
-| Plugin | Status |
-|---|---|
-| Local MP3 / files | ✅ Functional |
-| Spotify | 🔜 Planned |
-| YouTube Music | 🔜 Planned |
-| Amazon Music | 🔜 Planned |
-| SoundCloud | 🔜 Planned |
-| Video sources | 🔜 Planned |
+| Plugin | Status | Plugin |
+|---|---|---|
+| Local MP3 / files | ✅ Functional | [mp3@built-in](https://omniplayr.wokki20.nl/packages/package/mp3@built-in) |
+| Spotify | ✅ Functional | [spotify@built-in](https://omniplayr.wokki20.nl/packages/package/spotify@built-in) |
+| YouTube Music | 🔜 Planned | No plugin yet |
+| Amazon Music | 🔜 Planned | No plugin yet |
+| SoundCloud | 🟧 Not Fully Tested | [soundcloud@built-in](https://omniplayr.wokki20.nl/packages/package/soundcloud@built-in) |
 
 ---
 
@@ -71,7 +70,7 @@ docker compose up -d
 
 ```
 OmniPlayr/
-├── frontend/          # Web UI (WIP)
+├── frontend/          # Web UI
 ├── backend/           # API server
 ├── setup/             # Setup wizard
 ├── db/                # PostgreSQL data (auto-created)
@@ -86,9 +85,9 @@ OmniPlayr/
 
 OmniPlayr is designed to be **developer-friendly**. You can:
 
-- Create new **plugins** for any audio or video source  
-- Add features to the **backend**  
-- Build or improve the **web UI**  
+- Create new **plugins** for any audio source
+- Add features to the **backend**
+- Build or improve the **web UI**
 
 Pull requests and issues are welcome. If you want to discuss a new plugin or feature, open an issue first.
 

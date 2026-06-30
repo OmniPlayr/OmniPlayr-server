@@ -1,0 +1,198 @@
+.settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+    height: 100%;
+}
+
+.settings-content {
+    height: 100%;
+}
+
+.settings-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.settings-tab {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    align-items: center;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background-color 0.2s ease-in-out, border 0.2s ease-in-out;
+    color: var(--clr-text-a0);
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    position: relative;
+}
+
+.settings-tab:hover {
+    background-color: var(--clr-popup-a20);
+}
+
+@media screen and (max-width: 768px) {
+    .settings-tabs {
+        gap: 5px;
+    }
+
+    .settings-tab {
+        border-radius: 4px;
+    }
+
+    .settings-tab:first-child {
+        border-radius: 16px 16px 4px 4px;
+    }
+
+    .settings-tab:last-child {
+        border-radius: 4px 4px 16px 16px;
+    }
+
+    .settings-tab:first-child:last-child {
+        border-radius: 16px;
+    }
+}
+
+.settings-option-icon {
+    width: 50px;
+    height: 50px;
+    padding: 10px;
+    border-radius: 50%;
+    background-color: var(--clr-popup-a40);
+    overflow: visible;
+    flex-shrink: 0;
+}
+
+#plugins .settings-option-icon {
+    background-color: var(--clr-primary-a0);
+    color: var(--clr-text-light-a0);
+}
+
+#accounts .settings-option-icon {
+    background-color: var(--clr-success-a0);
+    color: var(--clr-text-light-a0);
+}
+
+#system .settings-option-icon {
+    background-color: var(--clr-warning-a0);
+    color: var(--clr-text-light-a0);
+}
+
+#appearance .settings-option-icon {
+    background-color: var(--clr-danger-a0);
+    color: var(--clr-text-light-a0);
+}
+
+#theme .settings-option-icon {
+    background-color: var(--clr-info-a10);
+    color: var(--clr-text-light-a0);
+}
+
+#colors .settings-option-icon {
+    background-color: var(--clr-warning-a10);
+    color: var(--clr-text-light-a0);
+}
+
+#logs .settings-option-icon {
+    background-color: var(--clr-danger-a10);
+    color: var(--clr-text-light-a0);
+}
+
+#power-options .settings-option-icon {
+    background-color: var(--clr-success-a0);
+    color: var(--clr-text-light-a0);
+}
+
+#config .settings-option-icon {
+    background-color: var(--clr-warning-a0);
+    color: var(--clr-text-light-a0);
+}
+
+#profile .settings-option-icon {
+    background-color: var(--clr-info-a0);
+    color: var(--clr-text-light-a0);
+}
+
+#backup-codes .settings-option-icon {
+    background-color: var(--clr-success-a10);
+    color: var(--clr-text-light-a0);
+}
+
+#other-people .settings-option-icon {
+    background-color: var(--clr-primary-a10);
+    color: var(--clr-text-light-a0);
+}
+
+#language .settings-option-icon {
+    background-color: var(--clr-success-a0);
+    color: var(--clr-text-light-a0);
+}
+
+.settings-tab-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.settings-tab-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.settings-tab-description {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.settings-back {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    width: max-content;
+}
+
+.settings-toggle-item {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+}
+
+.settings-toggle-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-toggle-item-name {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.settings-toggle-item-description {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.update-badge-about {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 10px;
+    background-color: var(--clr-danger-a0);
+    color: var(--clr-text-light-a0) !important;
+    font-size: 12px;
+    font-weight: 800;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

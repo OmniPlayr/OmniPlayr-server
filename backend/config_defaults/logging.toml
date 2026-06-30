@@ -1,0 +1,4 @@
+[logging]
+retention_days = 7
+log_dir = "logs"
+max_file_size_mb = 10

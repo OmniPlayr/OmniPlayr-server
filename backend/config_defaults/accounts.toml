@@ -1,0 +1,3 @@
+[2fa]
+backup_codes = true
+backup_codes_count = 20

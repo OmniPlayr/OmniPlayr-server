@@ -1,11 +1,19 @@
 .header {
-    height: max-content;
+    height: 40px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     padding-bottom: 10px;
-    height: 40px;
+    flex-shrink: 0;
+}
+
+.header-left,
+.header-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
 }
 
 .header-page-controls {
@@ -29,4 +37,53 @@
 
 .page-control.allowed:hover {
     color: var(--clr-text-a0);
+}
+
+.header-menu-btn {
+    display: none;
+    cursor: pointer;
+    color: var(--clr-text-a30);
+    width: 26px;
+    height: 26px;
+    transition: color 0.2s ease-in-out;
+    flex-shrink: 0;
+}
+
+.header-menu-btn:hover {
+    color: var(--clr-text-a0);
+}
+
+@media (max-width: 768px) {
+    .header {
+        display: none;
+    }
+}
+
+.header-update-badge,
+.header-safe-mode-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: var(--clr-primary-a0);
+    color: var(--clr-text-white-a0);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.header-update-badge:hover {
+    background-color: var(--clr-primary-a20);
+}
+
+.header-safe-mode-badge {
+    cursor: default;
+    background-color: var(--clr-warning-a0);
+}
+
+.desktop-notification-badge {
+    color: var(--clr-text-a20);
+    cursor: pointer;
 }

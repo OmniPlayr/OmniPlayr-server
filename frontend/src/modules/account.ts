@@ -1,9 +1,9 @@
 import { getConfig } from "./config";
-function storeAccount(id: string) {
+function storeAccount(token: string) {
     if (getConfig('accounts.accountStore') === 'sessionStorage') {
-        sessionStorage.setItem('account_id', id);
+        sessionStorage.setItem('account_token', token);
     } else if (getConfig('accounts.accountStore') === 'localStorage') {
-        localStorage.setItem('account_id', id);
+        localStorage.setItem('account_token', token);
     } else {
         throw new Error('Invalid account store');
     }
@@ -11,9 +11,9 @@ function storeAccount(id: string) {
 
 function getAccount() {
     if (getConfig('accounts.accountStore') === 'sessionStorage') {
-        return sessionStorage.getItem('account_id');
+        return sessionStorage.getItem('account_token');
     } else if (getConfig('accounts.accountStore') === 'localStorage') {
-        return localStorage.getItem('account_id');
+        return localStorage.getItem('account_token');
     } else {
         throw new Error('Invalid account store');
     }

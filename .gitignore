@@ -40,6 +40,7 @@ out/
 
 # Music
 music/
+user_storage/playlist-cache/
 
 # Database
 db/
@@ -98,3 +99,15 @@ coverage.xml
 # Plugins
 backend/plugins/
 frontend/src/plugins/
+
+# Local config
+config.local.json
+
+# safe mode
+*.safe_mode
+
+# certs
+backend/certs/
+
+# user storage
+user_storage/

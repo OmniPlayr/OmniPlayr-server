@@ -6,6 +6,7 @@
     justify-content: center;
     align-items: center;
     padding: 20px 0;
+    width: 100%;
     position: absolute;
     flex-direction: column;
     top: 50%;
@@ -28,6 +29,12 @@
     overflow: hidden;
 }
 
+@media screen and (max-width: 768px) {
+    .account-select-options {
+        gap: 10px;
+    }
+}
+
 .account-select-options.active {
     overflow: visible;
 }
@@ -44,14 +51,6 @@
     transition: border 0.2s ease-in-out, background-color 0.2s ease-in-out;
     width: max-content;
     background-color: transparent;
-    transform: translateY(100%);
-    animation: slide-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    animation-delay: calc((var(--i, 0) * 0.2s) + 0.2s);
-}
-
-@keyframes slide-in {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
 }
 
 .account-select-option:hover {
@@ -64,8 +63,8 @@
 }
 
 .account-select-option img {
-    width: 150px;
-    height: 150px;
+    width: clamp(100px, 20vw, 150px);
+    height: clamp(100px, 20vw, 150px);
     border-radius: 20px;
     object-fit: cover;
 }
@@ -84,4 +83,120 @@
 @keyframes fade-in {
     from { opacity: 0; transform: scale(0.98); }
     to { opacity: 1; transform: scale(1); }
+}
+
+.password-overlay,
+.check-2fa-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    animation: fade-in-n 0.3s ease forwards;
+}
+
+@keyframes fade-in-n {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.password-overlay-content,
+.check-2fa-overlay-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px;
+    z-index: 10000;
+}
+
+@media screen and (max-width: 768px) {
+    .password-overlay-content {
+        width: 80%;
+    }
+    
+}
+
+.password-overlay-title,
+.check-2fa-overlay-title {
+    font-size: 30px;
+    margin-bottom: 10px;
+    text-align: center;
+    color: var(--clr-text-a0);
+}
+
+.password-overlay-text,
+.check-2fa-overlay-text {
+    font-size: 18px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: var(--clr-text-a30);
+}
+
+.password-overlay-input,
+.check-2fa-backup-popup-input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 16px;
+    height: 100%;
+}
+
+.password-overlay-input-container,
+.check-2fa-popup-backup-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+}
+
+.password-overlay-button,
+.check-2fa-popup-button{
+    background-color: var(--clr-surface-a10);
+    border: 1px solid var(--clr-surface-a50);
+    color: var(--clr-text-a0);
+    border-radius: 9px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.password-overlay-button:hover,
+.check-2fa-popup-button:hover {
+    background-color: var(--clr-surface-a30);
+    border-color: var(--clr-surface-a50);
+}
+
+.password-overlay-button-icon {
+    margin: 0px;
+    width: 24px;
+    height: 20px;
+}
+
+.password-overlay-close,
+.check-2fa-overlay-close {
+    position: absolute;
+    top: 50px;
+    right: 50px;
+    cursor: pointer;
+    color: var(--clr-text-a0);
+    transition: color 0.2s ease-in-out;
+    width: 50px;
+    height: 50px;
+}
+
+.check-2fa-overlay-use-backup {
+    font-size: 16px;
+    margin-top: 20px;
+    text-align: center;
+    color: var(--clr-text-a30);
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+    text-decoration: underline;
 }

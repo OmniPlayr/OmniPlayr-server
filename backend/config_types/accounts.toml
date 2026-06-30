@@ -1,0 +1,3 @@
+[2fa]
+backup_codes = "bool # comment: If backup codes should be enabled for 2FA"
+backup_codes_count = "int # comment: How many backup codes to generate for 2FA"
