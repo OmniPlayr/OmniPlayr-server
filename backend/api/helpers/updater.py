@@ -30,6 +30,7 @@ ROOT_PRESERVED = {
     ".gitignore",
     ".gitattributes",
     "README.md",
+    "docker-compose.yml",
     "db",
     "logs",
     "user_storage",
