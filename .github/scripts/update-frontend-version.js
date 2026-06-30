@@ -81,8 +81,14 @@ const now = new Date();
 const currentYear = now.getFullYear();
 const currentMonth = now.getMonth() + 1;
 
-const gitRef = process.env.GITHUB_REF || 'refs/heads/dev';
-const branch = gitRef.split('/').pop();
+let branch = process.env.VERSION_BRANCH || process.env.GITHUB_BASE_REF;
+
+if (!branch) {
+  const gitRef = process.env.GITHUB_REF || 'refs/heads/dev';
+  branch = gitRef.startsWith('refs/heads/')
+    ? gitRef.slice('refs/heads/'.length)
+    : gitRef.split('/').pop();
+}
 
 const versionData = config.version.frontend;
 let bugfix = versionData.bugfix || 0;
