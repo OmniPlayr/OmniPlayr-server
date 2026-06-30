@@ -1,7 +1,7 @@
 import api from "../modules/api";
 import { useEffect, useState, useRef, useMemo, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, TriangleAlert, Search, Link, Save, RotateCcw, Zap, Puzzle, ChevronDown } from "lucide-react";
+import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, Search, Link, Save, RotateCcw, Puzzle, ChevronDown } from "lucide-react";
 import "../styles/settings/Config.css";
 import { Tooltip } from "react-tooltip";
 import { makeToast } from "@wokki20/jspt";
@@ -291,10 +291,26 @@ function setConfigFieldValueAtPath(data: any, path: string[], value: any): any {
     };
 }
 
-function ConfigEditor({ data }: { data: any }) {
+function getConfigEntryKey(entry: ConfigEntry) {
+    return `${entry.source}:${entry.plugin ?? "core"}:${entry.file}`;
+}
+
+function ConfigEditor({
+    data,
+    draftData,
+    onDraftChange,
+    onModifiedChange,
+    onSaved,
+}: {
+    data: any;
+    draftData?: any;
+    onDraftChange: (data: any) => void;
+    onModifiedChange: (modified: boolean) => void;
+    onSaved: () => void;
+}) {
     const { t } = useTranslation();
-    const [localData, setLocalData] = useState<any>(data.data);
-    const [originalData] = useState<any>(() => JSON.parse(JSON.stringify(data.data)));
+    const [localData, setLocalData] = useState<any>(() => draftData ?? data.data);
+    const [originalData, setOriginalData] = useState<any>(() => JSON.parse(JSON.stringify(data.data)));
     const [saving, setSaving] = useState(false);
 
     const isDirty = useMemo(
@@ -302,8 +318,21 @@ function ConfigEditor({ data }: { data: any }) {
         [localData, originalData]
     );
 
+    useEffect(() => {
+        setOriginalData(JSON.parse(JSON.stringify(data.data)));
+        setLocalData(draftData ?? data.data);
+    }, [data, draftData]);
+
+    useEffect(() => {
+        onModifiedChange(isDirty);
+    }, [isDirty, onModifiedChange]);
+
     function handleChange(path: string[], value: any) {
-        setLocalData((prev: any) => setConfigFieldValueAtPath(prev, path, value));
+        setLocalData((prev: any) => {
+            const next = setConfigFieldValueAtPath(prev, path, value);
+            onDraftChange(next);
+            return next;
+        });
     }
 
     function handleRestore(path: string[], fieldData: any) {
@@ -314,12 +343,16 @@ function ConfigEditor({ data }: { data: any }) {
 
         setLocalData((prev: any) => {
             if (restoreVal === undefined) return prev;
-            return setConfigFieldValueAtPath(prev, path, restoreVal);
+            const next = setConfigFieldValueAtPath(prev, path, restoreVal);
+            onDraftChange(next);
+            return next;
         });
     }
 
     function handleResetAll() {
-        setLocalData(JSON.parse(JSON.stringify(originalData)));
+        const next = JSON.parse(JSON.stringify(originalData));
+        setLocalData(next);
+        onDraftChange(next);
     }
 
     async function handleSave() {
@@ -338,6 +371,9 @@ function ConfigEditor({ data }: { data: any }) {
                 false,
                 "PUT"
             );
+            setOriginalData(JSON.parse(JSON.stringify(localData)));
+            onDraftChange(localData);
+            onSaved();
             makeToast({ message: t('settings.config.toast.saved'), style: "default" });
         } catch (e: any) {
             makeToast({ message: e?.message ?? t('settings.config.toast.save_failed'), style: "default-error" });
@@ -546,6 +582,8 @@ function Config() {
     const [searchResults, setSearchResults] = useState<SearchGroup[] | null>(null);
     const [searchSource, setSearchSource] = useState<ConfigSource>("backend");
     const [searchLoading, setSearchLoading] = useState(false);
+    const [configDrafts, setConfigDrafts] = useState<Record<string, any>>({});
+    const [modifiedConfigs, setModifiedConfigs] = useState<Record<string, boolean>>({});
     const searchRef = useRef<HTMLInputElement>(null);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -627,6 +665,40 @@ function Config() {
         setSearchResults(null);
     }
 
+    function setConfigModified(key: string, modified: boolean) {
+        setModifiedConfigs(prev => {
+            if (!!prev[key] === modified) return prev;
+            const next = { ...prev };
+            if (modified) next[key] = true;
+            else delete next[key];
+            return next;
+        });
+    }
+
+    function setConfigDraft(key: string, data: any) {
+        setConfigDrafts(prev => ({
+            ...prev,
+            [key]: data,
+        }));
+    }
+
+    function clearConfigModified(key: string) {
+        setModifiedConfigs(prev => {
+            if (!(key in prev)) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    }
+
+    function isConfigModified(entry: ConfigEntry) {
+        return !!modifiedConfigs[getConfigEntryKey(entry)];
+    }
+
+    function hasModifiedConfig(entries: ConfigEntry[]) {
+        return entries.some(isConfigModified);
+    }
+
     function handleSearchChange(val: string) {
         setSearch(val);
         if (!val.includes(":")) {
@@ -683,7 +755,17 @@ function Config() {
             </div>
         );
     } else {
-        mainContent = <ConfigEditor key={`${selected.plugin ?? "core"}-${selected.file}-${selected.source}`} data={configData} />;
+        const selectedKey = getConfigEntryKey(selected);
+        mainContent = (
+            <ConfigEditor
+                key={selectedKey}
+                data={configData}
+                draftData={configDrafts[selectedKey]}
+                onDraftChange={data => setConfigDraft(selectedKey, data)}
+                onModifiedChange={modified => setConfigModified(selectedKey, modified)}
+                onSaved={() => clearConfigModified(selectedKey)}
+            />
+        );
     }
 
     function renderSidebarItems(items: ConfigEntry[], label: string) {
@@ -693,23 +775,26 @@ function Config() {
         const coreItems = items.filter(c => !c.plugin);
         const pluginItems = items.filter(c => c.plugin);
         const plugins = [...new Set(pluginItems.map(c => c.plugin))];
+        const groupModified = hasModifiedConfig(items);
         return (
             <>
                 <div
-                    className={`config-sidebar-group-folder${groupOpen ? " open" : ""}`}
+                    className={`config-sidebar-group-folder${groupOpen ? " open" : ""}${groupModified ? " modified" : ""}`}
                     style={{ '--file-item-depth': '0' } as CSSProperties}
                     onClick={() => toggleSidebarGroup(groupKey)}
                 >
                     <ChevronDown className="config-sidebar-group-folder-icon" />{label}
+                    {groupModified && <div className="config-sidebar-modified" />}
                 </div>
                 {groupOpen && (
                     <>
                         {coreItems.map(c => {
                             const active = selected?.file === c.file && selected?.source === c.source && selected?.plugin === c.plugin;
+                            const modified = isConfigModified(c);
                             return (
                                 <div
                                     key={`${c.source}-${c.plugin ?? "core"}-${c.file}`}
-                                    className={`config-section-sidebar-file${active ? " active" : ""}`}
+                                    className={`config-section-sidebar-file${active ? " active" : ""}${modified ? " modified" : ""}`}
                                     style={{
                                         '--file-item-depth': '1',
                                     } as CSSProperties}
@@ -717,6 +802,7 @@ function Config() {
                                 >
                                     {getConfigIcon(c.file, c.source)}
                                     <div className="config-section-sidebar-file-name">{c.file}.toml</div>
+                                    {modified && <div className="config-sidebar-modified" />}
                                 </div>
                             );
                         })}
@@ -724,23 +810,26 @@ function Config() {
                             const pluginKey = `plugin-${label}-${plugin}`;
                             const pluginOpen = isSidebarGroupOpen(pluginKey);
                             const files = pluginItems.filter(c => c.plugin === plugin);
+                            const pluginModified = hasModifiedConfig(files);
                             return (
                                 <div key={plugin}>
                                     <div
-                                        className={`config-sidebar-group-folder${groupOpen ? " open" : ""}`}
+                                        className={`config-sidebar-group-folder${pluginOpen ? " open" : ""}${pluginModified ? " modified" : ""}`}
                                         style={{
                                             '--file-item-depth': '1',
                                         } as CSSProperties}
                                         onClick={() => toggleSidebarGroup(pluginKey)}
                                     >
                                         <ChevronDown className="config-sidebar-group-folder-icon" />{plugin}
+                                        {pluginModified && <div className="config-sidebar-modified" />}
                                     </div>
                                     {pluginOpen && files.map(c => {
                                         const active = selected?.file === c.file && selected?.source === c.source && selected?.plugin === c.plugin;
+                                        const modified = isConfigModified(c);
                                         return (
                                             <div
                                                 key={`${c.source}-${c.plugin ?? "core"}-${c.file}`}
-                                                className={`config-section-sidebar-file${active ? " active" : ""}`}
+                                                className={`config-section-sidebar-file${active ? " active" : ""}${modified ? " modified" : ""}`}
                                                 style={{
                                                     '--file-item-depth': '2',
                                                 } as CSSProperties}
@@ -748,6 +837,7 @@ function Config() {
                                             >
                                                 {getConfigIcon(c.file, c.source)}
                                                 <div className="config-section-sidebar-file-name">{c.file}.toml</div>
+                                                {modified && <div className="config-sidebar-modified" />}
                                             </div>
                                         );
                                     })}

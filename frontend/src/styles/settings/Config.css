@@ -28,6 +28,16 @@
     overflow-y: scroll;
 }
 
+.config-sidebar-modified {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--clr-text-a20);
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-right: 5px;
+}
+
 .config-sidebar-group-folder {
     display: flex;
     flex-direction: row;
@@ -38,6 +48,14 @@
     padding: 5px 0;
     padding-left: calc(10px * var(--file-item-depth));
     font-size: 14px;
+}
+
+.config-sidebar-group-folder.modified {
+    color: var(--clr-warning-a0);
+}
+
+.config-sidebar-group-folder .config-sidebar-modified {
+    background-color: var(--clr-warning-a0);
 }
 
 .config-sidebar-group-folder-icon {
@@ -69,6 +87,10 @@
 
 .config-section-sidebar-file.active {
     background-color: var(--clr-popup-a50);
+}
+
+.config-section-sidebar-file.modified .config-section-sidebar-file-name {
+    color: var(--clr-warning-a0);
 }
 
 .config-section-sidebar-file-name {
