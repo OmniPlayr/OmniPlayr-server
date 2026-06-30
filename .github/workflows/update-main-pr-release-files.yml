@@ -49,15 +49,12 @@ jobs:
           VERSION_BRANCH: main
           GITHUB_BASE_REF: ${{ github.base_ref }}
 
-      - name: Update root Docker Compose for main
-        run: cp composers/main/docker-compose.yml docker-compose.yml
-
       - name: Commit and push generated release files
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          git add frontend/src/config/version.toml backend/config.json docker-compose.yml
+          git add frontend/src/config/version.toml backend/config.json
 
           if git diff --cached --quiet; then
             echo "No generated release file changes"

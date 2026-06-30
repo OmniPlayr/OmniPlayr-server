@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 import tarfile
@@ -27,6 +28,20 @@ _BACKEND_VERSION_FILES = (
     Path("config.local.json"),
     Path("config.json"),
 )
+
+
+def _ensure_plugin_root(plugin_type: str) -> bool:
+    root = PLUGIN_DIRS.get(plugin_type)
+    if root is None:
+        log(f"Unknown plugin type from registry: {plugin_type!r}", "warning", "plugin_installer")
+        return False
+
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        return root.exists() and root.is_dir()
+    except Exception as e:
+        log(f"Plugin root unavailable for {plugin_type}: {root} ({e})", "warning", "plugin_installer")
+        return False
 
 
 def _normalize_constraint_key(key: str) -> str:
@@ -291,6 +306,30 @@ def _install_frontend_dependencies(install_dir: Path) -> None:
         log(f"npm install failed: {e.stderr.decode()}", "warning", "plugin_installer")
 
 
+def _schedule_frontend_rebuild() -> bool:
+    if os.environ.get("DEV_MODE", "").lower() == "true":
+        log("Dev mode detected; frontend plugin will be picked up by Vite without rebuilding", "info", "plugin_installer")
+        return False
+
+    compose_dir = Path("/compose")
+    if not compose_dir.exists():
+        log("Compose directory not mounted; frontend rebuild skipped", "warning", "plugin_installer")
+        return False
+
+    try:
+        subprocess.Popen(
+            ["docker", "compose", "up", "-d", "--build", "frontend"],
+            cwd=compose_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        log("Scheduled frontend rebuild so installed frontend plugins are bundled", "info", "plugin_installer")
+        return True
+    except Exception as e:
+        log(f"Could not schedule frontend rebuild: {e}", "warning", "plugin_installer")
+        return False
+
+
 def _is_in_config_dir(path: Path) -> bool:
     return any(part == "config" for part in path.parts)
 
@@ -482,13 +521,16 @@ def install_plugin(package_id: str, version: str | None, target: str | None) -> 
             raise ValueError(f"Unknown target '{target}'. Use 'backend' or 'frontend'.")
         if target not in available_types:
             raise ValueError(f"Plugin '{package_id}' does not have a {target} type.")
+        if not _ensure_plugin_root(target):
+            raise ValueError(f"Plugin directory for {target} is not available.")
         target_types = [target]
     else:
-        target_types = [t for t in available_types if PLUGIN_DIRS[t].exists()]
+        target_types = [t for t in available_types if _ensure_plugin_root(t)]
         if not target_types:
             raise ValueError("No plugin directories found. Is this an OmniPlayr project?")
 
     results = []
+    frontend_needs_rebuild = False
 
     for plugin_type in target_types:
         compatibility_error = _check_version_constraints(info, plugin_type)
@@ -512,6 +554,8 @@ def install_plugin(package_id: str, version: str | None, target: str | None) -> 
         installed_version = _get_installed_version(install_dir)
         if installed_version == resolved_version:
             log(f"{plugin_type} {package_id} v{resolved_version} already installed, skipping", "info", "plugin_installer")
+            if plugin_type == "frontend":
+                frontend_needs_rebuild = True
             results.append({"type": plugin_type, "status": "already_installed", "version": resolved_version})
             continue
 
@@ -558,8 +602,15 @@ def install_plugin(package_id: str, version: str | None, target: str | None) -> 
 
         if plugin_type == "frontend":
             _install_frontend_dependencies(install_dir)
+            frontend_needs_rebuild = True
 
         log(f"Installed {plugin_type} {package_id} v{resolved_version} to {install_dir}", "info", "plugin_installer")
         results.append({"type": plugin_type, "status": "installed", "version": resolved_version})
 
-    return {"package_id": package_id, "results": results}
+    frontend_rebuild_scheduled = _schedule_frontend_rebuild() if frontend_needs_rebuild else False
+
+    return {
+        "package_id": package_id,
+        "results": results,
+        "frontend_rebuild_scheduled": frontend_rebuild_scheduled,
+    }

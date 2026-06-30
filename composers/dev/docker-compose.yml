@@ -26,7 +26,7 @@ services:
 
   frontend-init:
     image: alpine
-    command: sh -c "mkdir -p /files/plugins"
+    command: sh -c "mkdir -p /files/src/plugins"
     volumes:
       - ./frontend:/files
 
