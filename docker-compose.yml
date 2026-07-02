@@ -4,14 +4,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - ./frontend/index.html:/app/index.html
-      - ./frontend/vite.config.ts:/app/vite.config.ts
-      - ./frontend/scripts:/app/scripts
-      - ./frontend/src/config:/app/src/config
-      - ${OMNIPLAYR_LOCAL_PLUGINS:-./frontend/src/plugins}:/external-plugins
-      - ${OMNIPLAYR_LOCAL_FRONTEND_PLUGINS:-./frontend/src/plugins}:/external-frontend-plugins
       - ./backend/certs:/app/certs
       - ./frontend/vite.config.ts:/app/vite.config.ts
     container_name: omniplayr_frontend
@@ -28,7 +20,7 @@ services:
 
   frontend-init:
     image: alpine
-    command: sh -c "mkdir -p /files/src/plugins /files/src/local-plugins /files/src/local-frontend-plugins"
+    command: sh -c "mkdir -p /files/src/plugins"
     volumes:
       - ./frontend:/files
 
@@ -52,8 +44,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./frontend/src:/frontend/src
       - ./backend/plugins:/app/plugins
-      - ${OMNIPLAYR_LOCAL_PLUGINS:-./backend/plugins}:/external-plugins
-      - ${OMNIPLAYR_LOCAL_BACKEND_PLUGINS:-./backend/plugins}:/external-backend-plugins
       - ./:/compose
       - ./backend/config.local.json:/app/config.local.json
     environment:
