@@ -24,40 +24,66 @@ _registry: dict[str, "PluginBase"] = {}
 _plugin_router = APIRouter()
 
 class PluginBase:
+    """Base class for backend playback source plugins."""
+
     source_type: str = ""
 
     def get_stream(self, song_id: str, account_id: int):
+        """Return a stream or file-like object for a song and account."""
+
         raise NotImplementedError
 
     def get_content_type(self, song_id: str, account_id: int) -> str:
+        """Return the MIME type for a song stream."""
+
         return "audio/mpeg"
 
     def get_file_size(self, song_id: str, account_id: int) -> int | None:
+        """Return the byte size for a song stream, if known."""
+
         return None
 
     def get_metadata(self, song_id: str, account_id: int) -> dict:
+        """Return metadata for a song visible to the given account."""
+
         return {}
 
     def check_ownership(self, song_id: str, account_id: int) -> bool:
+        """Return whether the given account may access the song."""
+
         return True
     
 class _Api:
+    """Thin wrapper around the shared plugin API router."""
+
     def __init__(self, router: APIRouter):
+        """Create a route helper around a FastAPI router."""
+
         self._router = router
 
     def get(self, path: str, **kwargs) -> Callable:
+        """Register a GET route for a backend plugin."""
+
         return self._router.get(path, **kwargs)
 
     def post(self, path: str, **kwargs) -> Callable:
+        """Register a POST route for a backend plugin."""
+
         return self._router.post(path, **kwargs)
 
     def put(self, path: str, **kwargs) -> Callable:
+        """Register a PUT route for a backend plugin."""
+
         return self._router.put(path, **kwargs)
 
     def patch(self, path: str, **kwargs) -> Callable:
+        """Register a PATCH route for a backend plugin."""
+
         return self._router.patch(path, **kwargs)
 
     def delete(self, path: str, **kwargs) -> Callable:
+        """Register a DELETE route for a backend plugin."""
+
         return self._router.delete(path, **kwargs)
 
 
@@ -65,6 +91,8 @@ api = _Api(_plugin_router)
 
 
 def register(plugin: PluginBase):
+    """Register a backend playback source plugin instance."""
+
     log(f"Registering plugin source_type={plugin.source_type!r}", "debug", "plugins")
     if plugin.source_type in _registry:
         log(f"Plugin source_type={plugin.source_type!r} already registered, overwriting", "warning", "plugins")
@@ -73,6 +101,8 @@ def register(plugin: PluginBase):
 
 
 def get_plugin(source_type: str) -> PluginBase | None:
+    """Return the registered plugin for a source type, if any."""
+
     log(f"Looking up plugin for source_type={source_type!r}", "debug", "plugins")
     plugin = _registry.get(source_type)
     if plugin is None:
@@ -83,6 +113,8 @@ def get_plugin(source_type: str) -> PluginBase | None:
 
 
 def get_plugin_router() -> APIRouter:
+    """Return the shared FastAPI router used for plugin routes."""
+
     log("Returning plugin router", "debug", "plugins")
     return _plugin_router
 
@@ -200,6 +232,8 @@ def _candidate_plugin_dirs(plugin_key: str, plugin_spec: dict[str, Any]) -> list
 
 
 def get_backend_plugin_dir(plugin_key: str, plugin_spec: Any = None) -> Path:
+    """Return the filesystem directory for a backend plugin key."""
+
     spec = _as_plugin_spec(plugin_spec)
     for path in _candidate_plugin_dirs(plugin_key, spec):
         if (path / "__init__.py").exists() or (path / "package.json").exists():
@@ -208,6 +242,8 @@ def get_backend_plugin_dir(plugin_key: str, plugin_spec: Any = None) -> Path:
 
 
 def load_plugins():
+    """Load configured backend plugins into the current server process."""
+
     log("Loading plugins", "debug", "plugins")
     plugins_dir = Path("plugins")
     plugins_dir.mkdir(exist_ok=True)
@@ -254,6 +290,8 @@ def load_plugins():
         sys.modules[module_name] = mod
 
         from api.helpers.plugin_db import request_db_access as _request_access
+        from omniplayr.plugins import _register_plugin_module
+        _register_plugin_module(module_name, plugin_key)
         mod.request_db_access = lambda **kwargs: _request_access(plugin_key, **kwargs)
         mod.plugins = PluginFunctions(plugin_key)
 

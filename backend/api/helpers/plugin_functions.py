@@ -6,10 +6,14 @@ from api.helpers.log import log
 
 
 class PluginNotAvailableError(LookupError):
+    """Raised when a cross-plugin call targets a plugin that is not loaded."""
+
     pass
 
 
 class PluginFunctionNotFoundError(LookupError):
+    """Raised when a loaded plugin does not expose the requested function."""
+
     pass
 
 
@@ -19,7 +23,11 @@ _lock = RLock()
 
 
 class PluginFunctions:
+    """Plugin-scoped helper for exposing and calling cross-plugin functions."""
+
     def __init__(self, plugin_key: str):
+        """Create a helper bound to a single plugin key."""
+
         self._plugin_key = plugin_key
         log(f"[{plugin_key}] Plugin function API created", "debug")
 
@@ -28,6 +36,8 @@ class PluginFunctions:
         function_name: str,
         function: Callable[..., Any] | None = None,
     ):
+        """Expose a plugin-local callable for other backend plugins."""
+
         log(
             f"[{self._plugin_key}] Expose requested: function={function_name!r}",
             "debug",
@@ -49,6 +59,8 @@ class PluginFunctions:
         *args: Any,
         **kwargs: Any,
     ) -> Any:
+        """Call a function exposed by another backend plugin."""
+
         log(
             f"[{self._plugin_key}] Calling plugin function: "
             f"plugin={plugin_key!r} function={function_name!r}",
@@ -57,6 +69,8 @@ class PluginFunctions:
         return call(plugin_key, function_name, *args, **kwargs)
 
     def is_installed(self, plugin_key: str) -> bool:
+        """Return whether another backend plugin has been loaded."""
+
         log(
             f"[{self._plugin_key}] Checking plugin installation: plugin={plugin_key!r}",
             "debug",
@@ -64,6 +78,8 @@ class PluginFunctions:
         return is_installed(plugin_key)
 
     def has_function(self, plugin_key: str, function_name: str) -> bool:
+        """Return whether another plugin exposes a named function."""
+
         log(
             f"[{self._plugin_key}] Checking plugin function: "
             f"plugin={plugin_key!r} function={function_name!r}",
@@ -73,6 +89,8 @@ class PluginFunctions:
 
 
 def expose(plugin_key: str, function_name: str, function: Callable[..., Any]) -> None:
+    """Expose a callable under a plugin key for cross-plugin calls."""
+
     log(
         f"[{plugin_key}] Registering exposed function {function_name!r}",
         "debug",
@@ -109,12 +127,16 @@ def expose(plugin_key: str, function_name: str, function: Callable[..., Any]) ->
 
 
 def mark_plugin_loaded(plugin_key: str) -> None:
+    """Mark a plugin as loaded in the in-memory cross-plugin registry."""
+
     with _lock:
         _loaded_plugins.add(plugin_key)
     log(f"[{plugin_key}] Marked plugin as loaded", "debug")
 
 
 def remove_plugin(plugin_key: str) -> None:
+    """Remove a plugin and its exposed functions from the registry."""
+
     with _lock:
         function_count = len(_functions.get(plugin_key, {}))
         was_loaded = plugin_key in _loaded_plugins
@@ -128,6 +150,8 @@ def remove_plugin(plugin_key: str) -> None:
 
 
 def is_installed(plugin_key: str) -> bool:
+    """Return whether a plugin has been marked as loaded."""
+
     with _lock:
         available = plugin_key in _loaded_plugins
     log(
@@ -138,6 +162,8 @@ def is_installed(plugin_key: str) -> bool:
 
 
 def has_function(plugin_key: str, function_name: str) -> bool:
+    """Return whether a loaded plugin exposes a named function."""
+
     with _lock:
         available = (
             plugin_key in _loaded_plugins
@@ -152,6 +178,8 @@ def has_function(plugin_key: str, function_name: str) -> bool:
 
 
 def call(plugin_key: str, function_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Call a function exposed by another backend plugin."""
+
     log(
         f"Invoking plugin function: plugin={plugin_key!r} function={function_name!r}",
         "debug",

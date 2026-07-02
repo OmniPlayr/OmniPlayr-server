@@ -200,6 +200,7 @@ def _empty_env_example(source: Path, target: Path) -> None:
 
 
 def fetch_plugin_info(package_id: str) -> dict | None:
+    """Fetch plugin registry metadata for a package id."""
     registry_api = get_config("plugins.registry_api")
     url = f"{registry_api}?id={urllib.parse.quote(package_id)}"
     log(f"Fetching plugin info for {package_id}", "debug", "plugin_installer")
@@ -325,6 +326,7 @@ def _link_or_copy_local_frontend_plugin(plugin_id: str, source_dir: Path, mode: 
 
 
 def install_local_plugin(source_path: str, target: str, package_id: str | None = None, mode: str = "link") -> dict:
+    """Register or link a local plugin during development mode."""
     if os.environ.get("DEV_MODE", "").lower() != "true":
         raise ValueError("Local plugin installs are only available in dev mode.")
 
@@ -619,6 +621,7 @@ def _install_files(source_dir: Path, install_dir: Path, root: Path | None = None
 
 
 def install_plugin(package_id: str, version: str | None, target: str | None) -> dict:
+    """Download and install a plugin from the configured registry."""
     info = fetch_plugin_info(package_id)
     if not info or info.get("error") or not info.get("package_id"):
         raise ValueError(f"Package not found: {package_id}")

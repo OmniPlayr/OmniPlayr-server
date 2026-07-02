@@ -151,6 +151,7 @@ _DEV_MODE: bool = os.environ.get("DEV_MODE", "").lower() == "true"
 
 
 def log(message: str, level: str = "info", source: str | None = None) -> None:
+    """Write a structured OmniPlayr log message to console and log files."""
     if level == "debug" and not _DEV_MODE:
         return
 
@@ -196,6 +197,7 @@ def log(message: str, level: str = "info", source: str | None = None) -> None:
 
 
 def log_exception(exc: Exception, message: str = "", source: str | None = None) -> None:
+    """Log an exception with optional context and traceback information."""
     tb = traceback.format_exc()
     parts: list[str] = []
     if message:
@@ -207,6 +209,7 @@ def log_exception(exc: Exception, message: str = "", source: str | None = None) 
 
 
 def setup_exception_hook() -> None:
+    """Install a process-wide hook for uncaught exceptions."""
     _original = sys.excepthook
 
     def _hook(exc_type, exc_value, exc_tb):
@@ -220,6 +223,7 @@ def setup_exception_hook() -> None:
     sys.excepthook = _hook
     
 def setup_thread_exception_hook() -> None:
+    """Install a hook for uncaught exceptions in Python threads."""
     _original = threading.excepthook
 
     def _hook(args):
@@ -235,6 +239,7 @@ def setup_thread_exception_hook() -> None:
 
 
 def setup_asyncio_exception_handler(loop: asyncio.AbstractEventLoop) -> None:
+    """Install an asyncio exception handler on an event loop."""
     def _handler(loop, context):
         exc = context.get("exception")
         msg = context.get("message", "Unhandled asyncio error")
@@ -251,6 +256,7 @@ def get_logs(
     before: str | None = None,
     since: str | None = None,
 ) -> dict:
+    """Return recent parsed log entries with basic pagination support."""
     _init_from_config()
     if _log_dir is None:
         return {"entries": [], "has_more": False}

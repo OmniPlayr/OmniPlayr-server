@@ -316,6 +316,7 @@ def _cache_get(cache, key, index):
             return None
 
 def check_for_updates(force: bool = False) -> dict:
+    """Check GitHub for available backend or frontend updates."""
     log(f"check_for_updates called with force={force}", "debug", "updater")
 
     current = _get_current_info()
@@ -630,6 +631,7 @@ def _merge_or_copy(source: Path, target: Path, root: Path):
 
 
 def apply_update() -> dict:
+    """Download and apply the latest available OmniPlayr update."""
     log("apply_update called", "debug", "updater")
 
     log("Forcing fresh update check before applying", "debug", "updater")

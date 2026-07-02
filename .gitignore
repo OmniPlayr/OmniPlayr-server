@@ -99,6 +99,8 @@ coverage.xml
 # Plugins
 backend/plugins/
 frontend/src/plugins/
+frontend/src/local-plugins/
+frontend/src/local-frontend-plugins/
 
 # Local config
 config.local.json

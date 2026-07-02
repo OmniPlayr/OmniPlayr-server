@@ -11,4 +11,4 @@ COPY proxy.js /proxy.js
 
 EXPOSE 8223
 
-CMD ["sh", "-c", "node /proxy.js & npm run dev -- --host --port 8222 --force"]
+CMD ["sh", "-c", "node /proxy.js & node /app/scripts/sync-local-plugins.mjs --watch & npm run dev -- --host --port 8222 --force"]

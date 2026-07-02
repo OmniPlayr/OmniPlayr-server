@@ -14,6 +14,7 @@ _EXITED_OK_RE = re.compile(r"exited\s*\(0\)", re.IGNORECASE)
 
 
 class ServiceStatus(BaseModel):
+    """Health model describing one backend-related service or container."""
     name: str
     id: str
     status: str
@@ -22,6 +23,7 @@ class ServiceStatus(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    """Health response model returned by the backend health endpoint."""
     status: str
     uptime_seconds: float
     minor_health_error: int
@@ -110,6 +112,7 @@ def _overall_status(counts: dict, services: list[ServiceStatus]) -> str:
 
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
+    """Return overall backend health, uptime, diagnostics, and service status."""
     counts = get_error_counts()
     services = _get_docker_services()
     status = _overall_status(counts, services)

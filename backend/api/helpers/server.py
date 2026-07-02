@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 def parse_interval(interval_str: str) -> relativedelta:
+    """Parse a human interval string into a timedelta or relativedelta."""
     log(f"Parsing interval string: {interval_str!r}", "debug", "server")
     number, unit = interval_str.split()
     number = int(number)
@@ -29,6 +30,7 @@ def parse_interval(interval_str: str) -> relativedelta:
 security = HTTPBearer()
     
 def verify_token(access_token: str):
+    """Validate an access token and return the stored token value."""
     log(f"Verifying access token (len={len(access_token)})", "debug", "server")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -50,12 +52,14 @@ def verify_token(access_token: str):
             return row["access_token"]
 
 def verify_auth(creds: HTTPAuthorizationCredentials = Depends(security)):
+    """Validate FastAPI bearer credentials for an authenticated request."""
     log("Verifying bearer auth credentials", "debug", "server")
     result = verify_token(creds.credentials)
     log("Bearer auth verified", "debug", "server")
     return result
 
 def match_account(account_id: int, account_token: str, allow_admin_force: bool = False) -> bool:
+    """Return whether an account token belongs to an account or allowed admin."""
     log(f"Matching account id={account_id} allow_admin_force={allow_admin_force}", "debug", "server")
     from api.helpers.admin import get_admin_status
     with get_conn() as conn:
@@ -81,6 +85,7 @@ def match_account(account_id: int, account_token: str, allow_admin_force: bool =
             return False
 
 def get_token_user(token: str):
+    """Return the account id associated with an active account token."""
     log(f"Looking up user for account token (len={len(token) if token else 0})", "debug", "server")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -96,6 +101,7 @@ def get_token_user(token: str):
 
 
 async def create_access_token(password_protected: bool, cur: object, only_access_token: bool = False) -> dict:
+    """Create access and refresh tokens using configured token lifetimes."""
     log(f"Creating access token password_protected={password_protected} only_access_token={only_access_token}", "debug", "server")
     access_token = secrets.token_hex(32) # This returns 64 chars for some random reason, so because we want 64, we have to enter 32 :(
     refresh_token = secrets.token_hex(32)
