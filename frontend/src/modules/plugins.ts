@@ -44,9 +44,19 @@ const routeRegistry: PluginRoute[] = [];
 const validatedPlugins = new Set<string>();
 const registeredUrls = new Set<string>(['/settings']);
 
-const configs = import.meta.glob('../plugins/*/package.json', { eager: true }) as Record<string, { default: PluginConfig }>;
+const installedConfigs = import.meta.glob('../plugins/*/package.json', { eager: true }) as Record<string, { default: PluginConfig }>;
+const localConfigs = import.meta.env.DEV
+    ? import.meta.glob([
+        '../local-plugins/*/package.json',
+        '../local-plugins/package.json',
+    ], { eager: true }) as Record<string, { default: PluginConfig }>
+    : {};
+const configs = { ...installedConfigs, ...localConfigs };
 
 function getFolderFromPath(path: string): string {
+    if (path.endsWith('/local-plugins/package.json')) {
+        return '';
+    }
     return path.split('/').at(-2) ?? '';
 }
 
@@ -57,6 +67,9 @@ function validateConfig(config: unknown, folder: string): config is PluginConfig
     }
 
     const c = config as Record<string, unknown>;
+    if (!folder) {
+        folder = String(c['id'] ?? '');
+    }
     const required = ['id', 'name', 'author', 'version', 'description'];
 
     for (const key of required) {
@@ -86,7 +99,7 @@ function validateConfig(config: unknown, folder: string): config is PluginConfig
 }
 
 for (const [path, mod] of Object.entries(configs)) {
-    const folder = getFolderFromPath(path);
+    const folder = getFolderFromPath(path) || mod.default.id;
     const config = mod.default;
 
     if (validateConfig(config, folder)) {
@@ -194,7 +207,7 @@ export function registerTab(
         tab = { ...tab, url: normalised };
     }
 
-    const label = tab.label ?? configs[`../plugins/${id}/package.json`]?.default.name ?? id;
+    const label = tab.label ?? getPluginConfig(id)?.name ?? id;
     tabRegistry.push({ id, label, ...tab });
 }
 
@@ -212,7 +225,7 @@ export function registerPluginsMenuItem(
         return;
     }
 
-    const label = menuItem.label ?? configs[`../plugins/${id}/package.json`]?.default.name ?? id;
+    const label = menuItem.label ?? getPluginConfig(id)?.name ?? id;
 
     menuRegistry.push({
         id,
@@ -332,4 +345,11 @@ export function notifyPluginsLoaded(): void {
 
 export function hasFrontendPlugin(id: string): boolean {
   return validatedPlugins.has(id);
+}
+
+function getPluginConfig(id: string): PluginConfig | undefined {
+    for (const mod of Object.values(configs)) {
+        if (mod.default?.id === id) return mod.default;
+    }
+    return undefined;
 }

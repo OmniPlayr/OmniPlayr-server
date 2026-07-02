@@ -25,7 +25,7 @@ const loadTranslations = (): Resources => {
     query: '?raw',
     import: 'default'
   }) as Record<string, string>
-  const pluginModules = import.meta.glob([
+  const installedPluginModules = import.meta.glob([
     '../plugins/*/locales/*.{json,json5}',
     '../plugins/*/locales/*/translation.{json,json5}'
   ], {
@@ -33,6 +33,23 @@ const loadTranslations = (): Resources => {
     query: '?raw',
     import: 'default'
   }) as Record<string, string>
+  const localPluginModules = import.meta.env.DEV ? import.meta.glob([
+    '../local-plugins/*/locales/*.{json,json5}',
+    '../local-plugins/*/locales/*/translation.{json,json5}',
+    '../local-plugins/locales/*.{json,json5}',
+    '../local-plugins/locales/*/translation.{json,json5}'
+  ], {
+    eager: true,
+    query: '?raw',
+    import: 'default'
+  }) as Record<string, string> : {}
+  const pluginModules = { ...installedPluginModules, ...localPluginModules }
+  const installedPluginPackages = import.meta.glob('../plugins/*/package.json', { eager: true }) as Record<string, { default: { id?: string } }>
+  const localPluginPackages = import.meta.env.DEV ? import.meta.glob([
+    '../local-plugins/*/package.json',
+    '../local-plugins/package.json'
+  ], { eager: true }) as Record<string, { default: { id?: string } }> : {}
+  const pluginPackages = { ...installedPluginPackages, ...localPluginPackages }
 
   const resources: Resources = {}
 
@@ -43,8 +60,15 @@ const loadTranslations = (): Resources => {
 
   for (const path in pluginModules) {
     const parts = path.split('/')
-    const pluginId = parts[2]
-    const lng = parts[4].replace(/\.(json5?|JSON5?)$/, '')
+    const localIdx = parts.indexOf('local-plugins')
+    const pluginId = localIdx === -1
+      ? parts[2]
+      : (parts[localIdx + 1] === 'locales'
+        ? pluginPackages['../local-plugins/package.json']?.default?.id
+        : parts[localIdx + 1])
+    if (!pluginId) continue
+    const localesIdx = parts.indexOf('locales')
+    const lng = parts[localesIdx + 1].replace(/\.(json5?|JSON5?)$/, '')
     addResource(resources, lng, pluginId, parseTranslation(path, pluginModules[path]))
   }
 

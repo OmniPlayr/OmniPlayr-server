@@ -5,21 +5,14 @@ from api.helpers.config import (
     _validate_against_types,
     _flatten_configs_from,
 )
+from api.helpers.plugins import get_backend_plugin_dir
 import toml
 
 _plugin_configs: dict[str, dict] = {}
 
 
-def _plugins_root() -> Path:
-    local = Path("plugins")
-    workspace = Path("backend/plugins")
-    if local.exists() or not workspace.exists():
-        return local
-    return workspace
-
-
 def _plugin_dirs(plugin_key: str):
-    base = _plugins_root() / plugin_key
+    base = get_backend_plugin_dir(plugin_key)
     return (
         base / "config",
         base / "config_types",

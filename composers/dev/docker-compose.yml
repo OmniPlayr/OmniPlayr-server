@@ -9,6 +9,7 @@ services:
       - ./frontend/index.html:/app/index.html
       - ./frontend/vite.config.ts:/app/vite.config.ts
       - ./frontend/src/config:/app/src/config
+      - ${OMNIPLAYR_LOCAL_FRONTEND_PLUGINS:-./frontend/src/plugins}:/app/src/local-plugins
       - ./backend/certs:/app/certs
     container_name: omniplayr_frontend
     extra_hosts:
@@ -26,7 +27,7 @@ services:
 
   frontend-init:
     image: alpine
-    command: sh -c "mkdir -p /files/src/plugins"
+    command: sh -c "mkdir -p /files/src/plugins /files/src/local-plugins"
     volumes:
       - ./frontend:/files
 
@@ -51,7 +52,9 @@ services:
       - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock
       - ./frontend/src:/frontend/src
+      - ${OMNIPLAYR_LOCAL_FRONTEND_PLUGINS:-./frontend/src/plugins}:/frontend/src/local-plugins
       - ./backend/plugins:/app/plugins
+      - ${OMNIPLAYR_LOCAL_BACKEND_PLUGINS:-./backend/plugins}:/local-plugins/backend
       - ./:/compose
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
