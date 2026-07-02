@@ -2,7 +2,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
@@ -13,6 +13,7 @@ services:
       - ${OMNIPLAYR_LOCAL_PLUGINS:-./frontend/src/plugins}:/external-plugins
       - ${OMNIPLAYR_LOCAL_FRONTEND_PLUGINS:-./frontend/src/plugins}:/external-frontend-plugins
       - ./backend/certs:/app/certs
+      - ./frontend/vite.config.ts:/app/vite.config.ts
     container_name: omniplayr_frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -23,9 +24,7 @@ services:
     depends_on:
       - backend
       - frontend-init
-    restart: unless-stopped
-    environment:
-      - CHOKIDAR_USEPOLLING=true
+    restart: on-failure:2
 
   frontend-init:
     image: alpine
@@ -45,22 +44,20 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./backend:/app
       - ./db:/db
       - ./backend/config:/app/config
-      - ./backend/config.local.json:/app/config.local.json
-      - ./backend/certs:/app/certs
       - ./user_storage:/user_storage
       - ./logs:/app/logs
+      - ./backend/certs:/app/certs
       - /var/run/docker.sock:/var/run/docker.sock
       - ./frontend/src:/frontend/src
       - ./backend/plugins:/app/plugins
       - ${OMNIPLAYR_LOCAL_PLUGINS:-./backend/plugins}:/external-plugins
       - ${OMNIPLAYR_LOCAL_BACKEND_PLUGINS:-./backend/plugins}:/external-backend-plugins
       - ./:/compose
+      - ./backend/config.local.json:/app/config.local.json
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      - DEV_MODE=true
       - HOST_COMPOSE_DIR=${PWD}
     ports:
       - "8224:8224"
@@ -71,7 +68,7 @@ services:
         condition: service_started
       backend-init:
         condition: service_completed_successfully
-    restart: on-failure:5
+    restart: on-failure:2
 
   db:
     image: postgres:16
@@ -85,15 +82,3 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: omniplayr_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@local.dev
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
