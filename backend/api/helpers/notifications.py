@@ -53,15 +53,18 @@ def _unread_payload(count: int) -> dict:
 
 
 class NotificationManager:
+    """Manage active notification websocket connections by account."""
     def __init__(self):
         self._connections: dict[int, list[WebSocket]] = {}
 
     async def connect(self, account_id: int, ws: WebSocket):
+        """Accept and register a websocket connection for an account."""
         await ws.accept()
         self._connections.setdefault(account_id, []).append(ws)
         log(f"WS connected account_id={account_id} total={len(self._connections[account_id])}", "debug", "notifications")
 
     def disconnect(self, account_id: int, ws: WebSocket):
+        """Remove a websocket connection for an account."""
         conns = self._connections.get(account_id, [])
         try:
             conns.remove(ws)
@@ -72,6 +75,7 @@ class NotificationManager:
         log(f"WS disconnected account_id={account_id}", "debug", "notifications")
 
     async def send_to_user(self, account_id: int, data: dict):
+        """Send a JSON payload to every active websocket for an account."""
         conns = list(self._connections.get(account_id, []))
         dead: list[WebSocket] = []
         for ws in conns:
@@ -126,6 +130,7 @@ def _ensure_initial_notifications(account_id: int) -> None:
 
 
 def get_notifications(account_id: int) -> list[dict]:
+    """Return notifications for an account ordered from newest to oldest."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -142,6 +147,7 @@ def get_notifications(account_id: int) -> list[dict]:
 
 
 def get_unread_count(account_id: int) -> int:
+    """Return the unread notification count for an account."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -153,6 +159,7 @@ def get_unread_count(account_id: int) -> int:
 
 
 def mark_read(notification_id: int, account_id: int) -> bool:
+    """Mark one notification as read for an account."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -165,6 +172,7 @@ def mark_read(notification_id: int, account_id: int) -> bool:
 
 
 def delete_notification(notification_id: int, account_id: int) -> bool:
+    """Delete one notification for an account."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -184,6 +192,7 @@ async def notify(
     action_type: str | None = None,
     action_url: str | None = None,
 ) -> dict:
+    """Create a notification and push it to active account websockets."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -216,6 +225,7 @@ async def notify_once(
     action_type: str | None = None,
     action_url: str | None = None,
 ) -> dict | None:
+    """Create a keyed notification only if it has not been sent before."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -248,6 +258,7 @@ async def notify_once(
 _main_loop: asyncio.AbstractEventLoop | None = None
 
 def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Store the main asyncio event loop for synchronous notification helpers."""
     global _main_loop
     _main_loop = loop
 
@@ -259,6 +270,7 @@ def notify_sync(
     action_type: str | None = None,
     action_url: str | None = None,
 ) -> None:
+    """Schedule or run notification delivery from synchronous code."""
     coro = notify(account_id, icon, title, text, action_type, action_url)
     try:
         loop = asyncio.get_running_loop()
@@ -279,6 +291,7 @@ def notify_once_sync(
     action_type: str | None = None,
     action_url: str | None = None,
 ) -> None:
+    """Schedule or run keyed notification delivery from synchronous code."""
     coro = notify_once(account_id, notification_key, icon, title, text, action_type, action_url)
     try:
         loop = asyncio.get_running_loop()

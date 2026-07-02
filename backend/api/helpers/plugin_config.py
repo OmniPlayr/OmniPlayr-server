@@ -59,6 +59,7 @@ def _load_plugin_config(plugin_key: str) -> dict:
 
 
 def get_plugin_config(plugin_key: str, key_path: str, default=None):
+    """Return a plugin configuration value by dotted key path."""
     log(f"Getting plugin config: plugin={plugin_key!r} key={key_path!r} default={default!r}", "debug", "plugin_config")
     loaded = _load_plugin_config(plugin_key)
     parts = key_path.split(".")
@@ -78,6 +79,7 @@ def get_plugin_config(plugin_key: str, key_path: str, default=None):
 
 
 def reload_plugin_config(plugin_key: str):
+    """Clear and reload cached configuration for a plugin."""
     log(f"Reloading plugin config for plugin_key={plugin_key!r}", "debug", "plugin_config")
     if plugin_key in _plugin_configs:
         del _plugin_configs[plugin_key]
@@ -87,6 +89,7 @@ def reload_plugin_config(plugin_key: str):
 
 
 def flatten_plugin_configs(plugin_key: str):
+    """Return flattened plugin config metadata for UI rendering."""
     _, types_dir, defaults_dir = _plugin_dirs(plugin_key)
     loaded = _plugin_configs.get(plugin_key, {})
     return _flatten_configs_from(types_dir, defaults_dir, loaded)

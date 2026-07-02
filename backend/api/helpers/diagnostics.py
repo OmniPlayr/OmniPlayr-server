@@ -38,19 +38,23 @@ _LOOP_LAG_CRIT = 2.0
 
 
 def record_error(level: str) -> None:
+    """Increment the diagnostic error counter for a severity level."""
     if level in _error_counts:
         _error_counts[level] += 1
 
 
 def get_error_counts() -> dict:
+    """Return current diagnostic error counters."""
     return dict(_error_counts)
 
 
 def get_uptime_seconds() -> float:
+    """Return backend process uptime in seconds."""
     return time.monotonic() - _start_time
 
 
 def reset_error_counts() -> None:
+    """Reset all diagnostic error counters to zero."""
     for key in _error_counts:
         _error_counts[key] = 0
 
@@ -204,6 +208,7 @@ def _check_load() -> None:
 
 
 def run_diagnostics() -> None:
+    """Run one diagnostic pass over system health signals."""
     log("Running periodic system diagnostics", "diag", "diag")
     _check_cpu()
     _check_memory()
@@ -236,6 +241,7 @@ async def _periodic_diagnostics(interval_seconds: int = 600) -> None:
 
 
 def start_diagnostics(interval_seconds: int = 600) -> None:
+    """Start background diagnostic and event-loop lag monitors."""
     loop = asyncio.get_event_loop()
     loop.create_task(_loop_lag_monitor())
     loop.create_task(_periodic_diagnostics(interval_seconds))

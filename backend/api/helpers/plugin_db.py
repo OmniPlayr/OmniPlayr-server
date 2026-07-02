@@ -23,12 +23,14 @@ _grants: dict[str, dict[str, str]] = {}
 
 
 def set_table_protection(table: str, level: ProtectionLevel) -> None:
+    """Set the plugin access protection level for a database table."""
     old = PROTECTED_TABLES.get(table, "none")
     log(f"set_table_protection: {table!r} {old!r} -> {level!r}", "debug", "plugins")
     PROTECTED_TABLES[table] = level
 
 
 def remove_table_protection(table: str) -> None:
+    """Remove plugin access protection from a database table."""
     if table not in PROTECTED_TABLES:
         log(f"remove_table_protection: {table!r} has no protection, skipping", "debug", "plugins")
         return
@@ -37,6 +39,7 @@ def remove_table_protection(table: str) -> None:
 
 
 class PluginDB:
+    """Plugin-scoped database helper enforcing table grants and protections."""
     def __init__(self, plugin_key: str, grants: dict[str, str]):
         self._plugin_key = plugin_key
         self._grants = grants
@@ -82,6 +85,7 @@ class PluginDB:
         order_by: str | None = None,
         limit: int | None = None,
     ) -> list[dict]:
+        """Fetch rows from an accessible table with optional filtering and ordering."""
         log(f"[{self._plugin_key}] fetch: table={table!r} columns={columns!r} where={where!r} order_by={order_by!r} limit={limit!r}", "debug", "plugins")
 
         self._assert_access(table, "read")
@@ -124,6 +128,7 @@ class PluginDB:
             return rows
 
     def fetch_one(self, table: str, where: dict[str, Any], columns: list[str] | None = None) -> dict | None:
+        """Fetch the first row matching a table filter."""
         log(f"[{self._plugin_key}] fetch_one: table={table!r} where={where!r}", "debug", "plugins")
         results = self.fetch(table, where=where, columns=columns, limit=1)
         result = results[0] if results else None
@@ -131,6 +136,7 @@ class PluginDB:
         return result
 
     def insert(self, table: str, data: dict[str, Any]) -> dict:
+        """Insert a row into a writable table and return the inserted row."""
         log(f"[{self._plugin_key}] insert: table={table!r} cols={list(data.keys())}", "debug", "plugins")
 
         self._assert_access(table, "write")
@@ -155,6 +161,7 @@ class PluginDB:
             return result
 
     def update(self, table: str, data: dict[str, Any], where: dict[str, Any]) -> int:
+        """Update rows in a writable table and return the affected row count."""
         log(f"[{self._plugin_key}] update: table={table!r} set={list(data.keys())} where={list(where.keys())}", "debug", "plugins")
 
         self._assert_access(table, "write")
@@ -186,6 +193,7 @@ class PluginDB:
             return count
 
     def delete(self, table: str, where: dict[str, Any]) -> int:
+        """Delete rows from a writable table and return the affected row count."""
         log(f"[{self._plugin_key}] delete: table={table!r} where={list(where.keys())}", "debug", "plugins")
 
         self._assert_access(table, "write")
@@ -211,6 +219,7 @@ class PluginDB:
             return count
 
     def count(self, table: str, where: dict[str, Any] | None = None) -> int:
+        """Count rows in an accessible table with an optional filter."""
         log(f"[{self._plugin_key}] count: table={table!r} where={where!r}", "debug", "plugins")
 
         self._assert_access(table, "read")
@@ -236,6 +245,7 @@ class PluginDB:
 
     @property
     def accessible_tables(self) -> dict[str, str]:
+        """Return the table grants available to this plugin."""
         return dict(self._grants)
 
 
@@ -289,6 +299,7 @@ def request_db_access(
     read: list[str] | None = None,
     readwrite: list[str] | None = None,
 ) -> PluginDB:
+    """Request database table grants for a backend plugin."""
     log(f"[{plugin_key}] request_db_access: own={list(own.keys()) if own else None} read={read!r} readwrite={readwrite!r}", "debug", "plugins")
 
     grants: dict[str, str] = {}

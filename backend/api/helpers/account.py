@@ -10,6 +10,7 @@ from api.helpers.config import get_config
 import json
 
 def list_accounts():
+    """Return all accounts with password state and masked sensitive fields."""
     log("Listing all accounts", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -42,6 +43,7 @@ def get_account_summary(account_id: int):
 
 
 def get_account(account_id: int):
+    """Return a full account record with masked account tokens, if it exists."""
     log(f"Fetching account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -77,6 +79,7 @@ def get_account(account_id: int):
 
 
 def create_account(name: str, role: str, avatar_b64: str | None):
+    """Create an account and return the inserted account record."""
     log(f"Creating account name={name!r} role={role!r} has_avatar={avatar_b64 is not None}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -95,6 +98,7 @@ def create_account(name: str, role: str, avatar_b64: str | None):
 
 
 def update_account(account_id: int, name: str | None, role: str | None, avatar_b64: str | None, nickname: str | None = None, about: str | None = None, password: str | None = None, old_password: str | None = None):
+    """Update account profile fields, role, avatar, or password."""
     remove_password = password == ""
     hashed_password = password_hash(password) if password else None
     log(f"Updating account id={account_id} name={name!r} nickname={nickname!r} about={about!r} role={role!r} has_avatar={avatar_b64 is not None} has_password={hashed_password is not None} remove_password={remove_password}", "debug", "account")
@@ -172,6 +176,7 @@ def update_account(account_id: int, name: str | None, role: str | None, avatar_b
     return row
 
 def delete_profile_picture(account_id: int) -> bool:
+    """Remove the profile picture for an account."""
     log(f"Attempting to delete profile picture for account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -185,6 +190,7 @@ def delete_profile_picture(account_id: int) -> bool:
     return deleted is not None
 
 def delete_account(account_id: int, force: bool = False) -> bool:
+    """Delete an account, optionally bypassing last-admin protection."""
     log(f"Attempting to delete account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -211,6 +217,7 @@ def delete_account(account_id: int, force: bool = False) -> bool:
 
 # This checks if the user has a password set and if the password is correct
 def verify_account_password(account_id: int, password: str) -> str:
+    """Return the password verification status for an account."""
     log(f"Verifying account password for account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -225,6 +232,7 @@ def verify_account_password(account_id: int, password: str) -> str:
             return "match" if password_check(password, row["password"]) else "no_match"
 
 def create_account_token(account_id: int, password_protected: bool = False, user_agent: str | None = None, ip_address: str | None = None):
+    """Create a persistent account token for an account."""
     log(f"Creating account token for account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -248,6 +256,7 @@ def create_account_token(account_id: int, password_protected: bool = False, user
     }
 
 def revoke_token(account_id: int, token: str | None, revoke_all: bool = False):
+    """Revoke one account token or all active tokens for an account."""
     log(f"Revoking token for account id={account_id}", "debug", "account")
     def mask(value: str):
         return f"{value[:4]}*****{value[-4:]}" if len(value) > 8 else "*****"
@@ -288,6 +297,7 @@ def revoke_token(account_id: int, token: str | None, revoke_all: bool = False):
     return True
 
 def delete_account_token(account_id: int, token: str):
+    """Permanently delete a revoked account token."""
     log(f"Deleting revoked token for account id={account_id}", "debug", "account")
 
     def mask(value: str):
@@ -324,6 +334,7 @@ def delete_account_token(account_id: int, token: str):
 
 # This creates the 2FA Secret and QR code, and returns it
 def create_2fa_setup(account_id: int):
+    """Create a two-factor authentication secret, QR code, and backup codes."""
     log(f"Creating 2FA setup for account id={account_id}", "debug", "account")
     secret = pyotp.random_base32()
     
@@ -389,6 +400,7 @@ def create_2fa_setup(account_id: int):
 
 # This is to check if the 2FA code is valid, if it is and 2FA is not enabled, it will enable 2FA
 def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = False, backup_code: str | None = None):
+    """Verify a two-factor authentication code or backup code for an account."""
     log(f"Verifying 2FA code for account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -431,6 +443,7 @@ def verify_2fa_code(account_id: int, code: str, allow_enabled_bypass: bool = Fal
 
 # This deletes 2fa for an account if its enabled
 def delete_2fa(account_id: int, code: str):
+    """Disable two-factor authentication for an account after code verification."""
     log(f"Deleting 2FA for account id={account_id}", "debug", "account")
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -460,6 +473,7 @@ def delete_2fa(account_id: int, code: str):
 
 # This makes backup codes for the 2fa
 def create_backup_codes(account_id: int):
+    """Create and store backup codes for account two-factor authentication."""
     log(f"Creating backup codes for account id={account_id}", "debug", "account")
     uses_backup_codes = get_config("2fa.backup_codes", True)
     if not uses_backup_codes:
@@ -479,6 +493,7 @@ def create_backup_codes(account_id: int):
 
 # This deletes the backup codes for the 2fa
 def delete_backup_codes(account_id: int):
+    """Delete all backup codes for an account."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -491,6 +506,7 @@ def delete_backup_codes(account_id: int):
 
 # This verifies the backup codes for the 2fa
 def verify_backup_code(account_id: int, code: str):
+    """Verify and consume a two-factor authentication backup code."""
     log(f"Verifying backup code for account id={account_id}", "debug", "account")
     uses_backup_codes = get_config("2fa.backup_codes", True)
     if not uses_backup_codes:
@@ -509,6 +525,7 @@ def verify_backup_code(account_id: int, code: str):
 
 # This checks if the user has backup codes
 def has_backup_codes(account_id: int):
+    """Return whether an account has any backup codes available."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(

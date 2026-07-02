@@ -1,0 +1,84 @@
+name: Sync Backend SDK
+
+on:
+  workflow_run:
+    workflows:
+      - Update Backend Version
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: backend-sdk-sync-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync-backend-sdk:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.OMNIPLAYR_RELEASE_SDK_CLIENT_ID }}
+          private-key: ${{ secrets.OMNIPLAYR_RELEASE_SDK_PRIVATE_KEY }}
+          owner: OmniPlayr
+          repositories: |
+            OmniPlayr-server
+            OmniPlayr-plugin-SDK
+          permission-contents: write
+
+      - name: Checkout server
+        uses: actions/checkout@v4
+        with:
+          repository: OmniPlayr/OmniPlayr-server
+          ref: main
+          path: server
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Checkout SDK
+        uses: actions/checkout@v4
+        with:
+          repository: OmniPlayr/OmniPlayr-plugin-SDK
+          ref: main
+          path: sdk
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate backend SDK
+        run: python server/.github/scripts/generate-backend-sdk.py --server-repo server --sdk-repo sdk
+
+      - name: Validate generated SDK
+        run: python -m compileall sdk/backend/src
+
+      - name: Get GitHub App bot user ID
+        id: app-user
+        run: |
+          user_id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)
+          echo "user-id=$user_id" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Commit and push SDK changes
+        working-directory: sdk
+        run: |
+          git config --local user.email "${{ steps.app-user.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
+          git config --local user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
+
+          if [ -z "$(git status --porcelain -- backend)" ]; then
+            echo "No backend SDK changes"
+          else
+            git add backend
+            git commit -m "chore: sync backend sdk from server"
+            git pull --rebase origin main
+            git push origin main
+          fi

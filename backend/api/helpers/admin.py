@@ -7,6 +7,7 @@ def verify_admin(
     auth=Depends(verify_auth),
     x_account_token: str = Header(..., alias="X-Account-Token"),
 ) -> bool:
+    """Verify if an account has admin access based on account token."""
     log("Verifying admin access", "debug", "admin")
 
     account_id = get_token_user(x_account_token)
@@ -31,6 +32,7 @@ def verify_admin(
     return True
 
 def get_admin_status(account_id: int) -> bool:
+    """Return whether an account is an admin account based on account id."""
     log(f"Checking admin status for account id={account_id}", "debug", "admin")
     with get_conn() as conn:
         with conn.cursor() as cur:

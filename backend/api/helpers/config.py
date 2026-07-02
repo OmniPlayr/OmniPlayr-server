@@ -160,6 +160,7 @@ def _validate_against_types(config_data, type_data, path="", cfg_file=None):
 
 
 def load_configs():
+    """Load and validate backend configuration files from disk."""
     from api.helpers.log import log
     global _loaded_configs
     _loaded_configs = {}
@@ -221,6 +222,7 @@ def _reload_live_key(key_path):
 
 # You call this function by doing for example get_config("auth.access_token_lifetime")
 def get_config(key_path, default=None):
+    """Return a backend configuration value by dotted key path."""
     from api.helpers.log import log
     configs_ready = bool(_loaded_configs)
     if configs_ready:
@@ -300,10 +302,12 @@ def _flatten_configs_from(types_dir, defaults_dir, loaded_configs):
 
 
 def flatten_configs():
+    """Return flattened backend config metadata for UI rendering."""
     return _flatten_configs_from(CONFIG_TYPES_DIR, CONFIG_DEFAULTS_DIR, _loaded_configs)
 
 
 def flatten_frontend_configs():
+    """Return flattened frontend config metadata for UI rendering."""
     loaded = {}
     if FRONTEND_CONFIG_DIR.exists():
         for f in FRONTEND_CONFIG_DIR.glob("*.toml"):
