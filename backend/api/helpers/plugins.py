@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import importlib.util
+import os
 import sys
 import json
 import subprocess
@@ -164,6 +165,48 @@ def _install_plugin_dependencies(plugin_key: str, plugin_dir: Path):
         log(f"Failed to install dependencies for plugin {plugin_key!r}: {e}", "error", "plugins")
 
 
+def _as_plugin_spec(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {"version": value}
+
+
+def _candidate_plugin_dirs(plugin_key: str, plugin_spec: dict[str, Any]) -> list[Path]:
+    candidates: list[Path] = []
+    dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
+    configured_path = plugin_spec.get("path")
+    if dev_mode and isinstance(configured_path, str) and configured_path.strip():
+        candidates.append(Path(configured_path.strip()))
+
+    candidates.extend([
+        Path("plugins") / plugin_key,
+        Path("backend/plugins") / plugin_key,
+    ])
+    if dev_mode:
+        local_root = Path("/local-plugins/backend")
+        candidates.extend([
+            local_root / plugin_key,
+            local_root,
+        ])
+
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for path in candidates:
+        key = str(path)
+        if key not in seen:
+            unique.append(path)
+            seen.add(key)
+    return unique
+
+
+def get_backend_plugin_dir(plugin_key: str, plugin_spec: Any = None) -> Path:
+    spec = _as_plugin_spec(plugin_spec)
+    for path in _candidate_plugin_dirs(plugin_key, spec):
+        if (path / "__init__.py").exists() or (path / "package.json").exists():
+            return path
+    return Path("plugins") / plugin_key
+
+
 def load_plugins():
     log("Loading plugins", "debug", "plugins")
     plugins_dir = Path("plugins")
@@ -177,12 +220,16 @@ def load_plugins():
     with open(config_path) as f:
         config = json.load(f)
 
-    declared: dict = config.get("plugins", {})
+    declared = config.get("plugins", {})
+    if isinstance(declared, list):
+        declared = {name: "*" for name in declared}
+    if not isinstance(declared, dict):
+        declared = {}
     log(f"Found {len(declared)} declared plugin(s): {list(declared.keys())}", "debug", "plugins")
 
-    for plugin_key in declared:
+    for plugin_key, plugin_spec in declared.items():
         log(f"Attempting to load plugin {plugin_key!r}", "debug", "plugins")
-        plugin_dir = plugins_dir / plugin_key
+        plugin_dir = get_backend_plugin_dir(plugin_key, plugin_spec)
         init_file = plugin_dir / "__init__.py"
         if not init_file.exists():
             log(f"Plugin {plugin_key!r} has no __init__.py at {init_file}, skipping", "warning", "plugins")

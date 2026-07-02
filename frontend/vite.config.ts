@@ -9,9 +9,14 @@ export default defineConfig({
     {
       name: 'ensure-plugins-dir',
       buildStart() {
-        const dir = path.resolve(__dirname, 'src/plugins')
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true })
+        const dirNames = process.env.NODE_ENV === 'production'
+          ? ['plugins']
+          : ['plugins', 'local-plugins']
+        for (const dirName of dirNames) {
+          const dir = path.resolve(__dirname, 'src', dirName)
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true })
+          }
         }
       },
     },

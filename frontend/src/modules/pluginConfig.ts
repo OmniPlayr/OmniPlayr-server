@@ -8,30 +8,74 @@ import {
     type TomlValue,
 } from './config';
 
-const _rawConfigs = import.meta.glob('../plugins/*/config/*.toml', {
+const _installedRawConfigs = import.meta.glob('../plugins/*/config/*.toml', {
     eager: true,
     query: '?raw',
     import: 'default',
 }) as Record<string, string>;
+const _localRawConfigs = import.meta.env.DEV ? import.meta.glob([
+    '../local-plugins/*/config/*.toml',
+    '../local-plugins/config/*.toml',
+], {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+}) as Record<string, string> : {};
+const _rawConfigs = { ..._installedRawConfigs, ..._localRawConfigs };
 
-const _rawTypes = import.meta.glob('../plugins/*/config_types/*.toml', {
+const _installedRawTypes = import.meta.glob('../plugins/*/config_types/*.toml', {
     eager: true,
     query: '?raw',
     import: 'default',
 }) as Record<string, string>;
+const _localRawTypes = import.meta.env.DEV ? import.meta.glob([
+    '../local-plugins/*/config_types/*.toml',
+    '../local-plugins/config_types/*.toml',
+], {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+}) as Record<string, string> : {};
+const _rawTypes = { ..._installedRawTypes, ..._localRawTypes };
 
-const _rawDefaults = import.meta.glob('../plugins/*/config_defaults/*.toml', {
+const _installedRawDefaults = import.meta.glob('../plugins/*/config_defaults/*.toml', {
     eager: true,
     query: '?raw',
     import: 'default',
 }) as Record<string, string>;
+const _localRawDefaults = import.meta.env.DEV ? import.meta.glob([
+    '../local-plugins/*/config_defaults/*.toml',
+    '../local-plugins/config_defaults/*.toml',
+], {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+}) as Record<string, string> : {};
+const _rawDefaults = { ..._installedRawDefaults, ..._localRawDefaults };
+
+const _installedPackages = import.meta.glob('../plugins/*/package.json', { eager: true }) as Record<string, { default: { id?: string } }>;
+const _localPackages = import.meta.env.DEV ? import.meta.glob([
+    '../local-plugins/*/package.json',
+    '../local-plugins/package.json',
+], { eager: true }) as Record<string, { default: { id?: string } }> : {};
+const _packages = { ..._installedPackages, ..._localPackages };
 
 const _pluginConfigs: Record<string, Record<string, TomlObject>> = {};
 
 function _pluginIdFromPath(path: string): string {
     const parts = path.split('/');
     const idx = parts.indexOf('plugins');
-    return idx !== -1 ? parts[idx + 1] : '';
+    if (idx !== -1) return parts[idx + 1] ?? '';
+
+    const localIdx = parts.indexOf('local-plugins');
+    if (localIdx === -1) return '';
+
+    const next = parts[localIdx + 1];
+    if (next && !['config', 'config_types', 'config_defaults', 'package.json'].includes(next)) {
+        return next;
+    }
+
+    return _packages['../local-plugins/package.json']?.default?.id ?? '';
 }
 
 function _stemFromPath(path: string): string {

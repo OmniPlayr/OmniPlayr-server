@@ -74,7 +74,14 @@ async function loadAccount() {
 }
 
 async function loadPlugins(): Promise<void> {
-    const modules = import.meta.glob('./plugins/*/index.{ts,tsx}');
+    const installedModules = import.meta.glob('./plugins/*/index.{ts,tsx}');
+    const localModules = import.meta.env.DEV
+        ? import.meta.glob([
+            './local-plugins/*/index.{ts,tsx}',
+            './local-plugins/index.{ts,tsx}',
+        ])
+        : {};
+    const modules = { ...installedModules, ...localModules };
     const loaded = await Promise.all(Object.values(modules).map(m => (m as () => Promise<unknown>)()));
     for (const mod of loaded) {
         if (mod && typeof (mod as any).init === 'function') {

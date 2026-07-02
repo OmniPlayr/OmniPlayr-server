@@ -9,6 +9,7 @@ import mimetypes
 
 from urllib.parse import quote
 from api.helpers.log import log
+from api.helpers.plugins import get_backend_plugin_dir
 
 router = APIRouter()
 
@@ -28,8 +29,17 @@ def load_json(path: Path):
 # This is a helper to get the base path for a plugin
 def get_plugin_base(plugin_key: str, frontend: bool):
     if frontend:
-        return Path("frontend/src/plugins") / plugin_key
-    return Path("plugins") / plugin_key
+        bases = [Path("/frontend/src/plugins"), Path("frontend/src/plugins")]
+        if os.environ.get("DEV_MODE", "").lower() == "true":
+            bases.extend([Path("/frontend/src/local-plugins"), Path("frontend/src/local-plugins")])
+        for base in bases:
+            candidate = base / plugin_key
+            if (candidate / "package.json").exists():
+                return candidate
+            if base.name == "local-plugins" and (base / "package.json").exists():
+                return base
+        return Path("/frontend/src/plugins") / plugin_key
+    return get_backend_plugin_dir(plugin_key)
 
 # This is a helper to load the meta for a plugin, so the folder, if its a frontend plugin, and its json from the package.json
 def load_plugin_meta(plugin_path: Path, plugin_key: str, frontend: bool):
@@ -44,7 +54,7 @@ def load_plugin_meta(plugin_path: Path, plugin_key: str, frontend: bool):
 
     log(f"Plugin meta loaded for {plugin_key!r}: name={pkg.get('name')!r}", "debug", "module.server_info")
     return {
-        "folder": plugin_key,
+        "folder": pkg.get("id") if frontend and plugin_key == "local-plugins" else plugin_key,
         "frontend": frontend,
         "package": pkg
     }
@@ -58,6 +68,8 @@ def scan_plugins(folder: Path):
         return []
 
     candidates = [item for item in folder.iterdir() if item.is_dir()]
+    if (folder / "package.json").exists():
+        candidates.append(folder)
 
     with ThreadPoolExecutor() as executor:
         futures = {executor.submit(load_plugin_meta, item, item.name, True): item for item in candidates}
@@ -95,13 +107,18 @@ def get_plugins():
         log("GET /info/plugins: config.local.json not found", "warning", "module.server_info")
         return {"error": "Config file not found"}
 
-    backend_list = config.get("plugins", [])
+    backend_list = config.get("plugins", {})
+    if isinstance(backend_list, list):
+        backend_list = {name: "*" for name in backend_list}
+    if not isinstance(backend_list, dict):
+        backend_list = {}
     log(f"GET /info/plugins: {len(backend_list)} declared backend plugin(s)", "debug", "module.server_info")
-    backend_plugins_dir = Path("plugins")
-    frontend_plugins_dir = Path("/frontend/src/plugins")
+    frontend_plugin_dirs = [Path("/frontend/src/plugins")]
+    if os.environ.get("DEV_MODE", "").lower() == "true":
+        frontend_plugin_dirs.append(Path("/frontend/src/local-plugins"))
 
-    def load_backend_plugin(p):
-        plugin_path = backend_plugins_dir / p
+    def load_backend_plugin(p, spec):
+        plugin_path = get_backend_plugin_dir(p, spec)
         if not plugin_path.exists():
             log(f"GET /info/plugins: declared backend plugin {p!r} directory not found", "debug", "module.server_info")
             return None
@@ -109,12 +126,20 @@ def get_plugins():
 
     with ThreadPoolExecutor() as executor:
         backend_future = executor.submit(
-            lambda: [r for r in (load_backend_plugin(p) for p in backend_list) if r]
+            lambda: [r for r in (load_backend_plugin(p, spec) for p, spec in backend_list.items()) if r]
         )
-        frontend_future = executor.submit(scan_plugins, frontend_plugins_dir)
+        frontend_futures = [executor.submit(scan_plugins, folder) for folder in frontend_plugin_dirs]
 
         backend_plugins = backend_future.result()
-        frontend_plugins = frontend_future.result()
+        frontend_plugins = []
+        seen_frontend = set()
+        for future in frontend_futures:
+            for plugin in future.result():
+                folder = plugin.get("folder")
+                if folder in seen_frontend:
+                    continue
+                seen_frontend.add(folder)
+                frontend_plugins.append(plugin)
 
     log(f"GET /info/plugins: {len(backend_plugins)} loaded backend plugin(s)", "debug", "module.server_info")
     log(f"GET /info/plugins: {len(frontend_plugins)} frontend plugin(s)", "debug", "module.server_info")

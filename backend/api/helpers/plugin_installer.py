@@ -251,6 +251,116 @@ def _update_backend_config(plugin_id: str, version: str) -> None:
     log(f"Registered {plugin_id} v{version} in config.local.json", "info", "plugin_installer")
 
 
+def _read_plugin_package(source_dir: Path) -> dict:
+    pkg_path = source_dir / "package.json"
+    if not pkg_path.exists():
+        raise ValueError(f"No package.json found in {source_dir}")
+    try:
+        pkg = json.loads(pkg_path.read_text("utf-8"))
+    except Exception as e:
+        raise ValueError(f"Could not read plugin package.json: {e}") from e
+    if not isinstance(pkg, dict):
+        raise ValueError("Plugin package.json must be a JSON object")
+    return pkg
+
+
+def _resolve_local_plugin_source(source_path: str) -> Path:
+    source_dir = Path(source_path).expanduser().resolve()
+    if not source_dir.exists() or not source_dir.is_dir():
+        raise ValueError(f"Local plugin path is not a directory: {source_path}")
+    return source_dir
+
+
+def _register_local_backend_plugin(plugin_id: str, source_dir: Path) -> None:
+    config_path = Path("/compose/backend/config.local.json")
+    if not config_path.exists():
+        config_path = Path("config.local.json")
+
+    try:
+        config = json.loads(config_path.read_text("utf-8")) if config_path.exists() else {}
+    except Exception:
+        config = {}
+
+    plugins = config.setdefault("plugins", {})
+    if isinstance(plugins, list):
+        plugins = {name: "*" for name in plugins}
+        config["plugins"] = plugins
+    if not isinstance(plugins, dict):
+        plugins = {}
+        config["plugins"] = plugins
+
+    plugins[plugin_id] = {
+        "version": "local",
+        "path": str(source_dir),
+    }
+    config_path.write_text(json.dumps(config, indent=4), "utf-8")
+    log(f"Registered local backend plugin {plugin_id} from {source_dir}", "info", "plugin_installer")
+
+
+def _link_or_copy_local_frontend_plugin(plugin_id: str, source_dir: Path, mode: str) -> str:
+    if mode not in {"link", "copy"}:
+        raise ValueError("mode must be 'link' or 'copy'")
+
+    if not _ensure_plugin_root("frontend"):
+        raise ValueError("Frontend plugin directory is not available.")
+
+    install_dir = PLUGIN_DIRS["frontend"] / plugin_id
+    if install_dir.exists() or install_dir.is_symlink():
+        if install_dir.is_symlink() or install_dir.is_file():
+            install_dir.unlink()
+        else:
+            shutil.rmtree(install_dir)
+
+    if mode == "link":
+        try:
+            install_dir.symlink_to(source_dir, target_is_directory=True)
+            log(f"Linked frontend plugin {plugin_id}: {install_dir} -> {source_dir}", "info", "plugin_installer")
+            return "linked"
+        except Exception as e:
+            log(f"Could not symlink frontend plugin {plugin_id}, copying instead: {e}", "warning", "plugin_installer")
+
+    shutil.copytree(source_dir, install_dir)
+    log(f"Copied frontend plugin {plugin_id} from {source_dir} to {install_dir}", "info", "plugin_installer")
+    return "copied"
+
+
+def install_local_plugin(source_path: str, target: str, package_id: str | None = None, mode: str = "link") -> dict:
+    if os.environ.get("DEV_MODE", "").lower() != "true":
+        raise ValueError("Local plugin installs are only available in dev mode.")
+
+    if target not in PLUGIN_DIRS:
+        raise ValueError(f"Unknown target '{target}'. Use 'backend' or 'frontend'.")
+
+    source_dir = _resolve_local_plugin_source(source_path)
+    pkg = _read_plugin_package(source_dir)
+    plugin_id = package_id or pkg.get("id")
+    if not isinstance(plugin_id, str) or not plugin_id.strip():
+        raise ValueError("Missing plugin id. Add package.json id or pass package_id.")
+    plugin_id = plugin_id.strip()
+
+    if target == "backend":
+        if not (source_dir / "__init__.py").exists():
+            raise ValueError(f"Backend plugin path must contain __init__.py: {source_dir}")
+        _register_local_backend_plugin(plugin_id, source_dir)
+        return {
+            "package_id": plugin_id,
+            "target": target,
+            "status": "registered",
+            "path": str(source_dir),
+            "restart_required": True,
+        }
+
+    result = _link_or_copy_local_frontend_plugin(plugin_id, source_dir, mode)
+    frontend_rebuild_scheduled = _schedule_frontend_rebuild()
+    return {
+        "package_id": plugin_id,
+        "target": target,
+        "status": result,
+        "path": str(source_dir),
+        "frontend_rebuild_scheduled": frontend_rebuild_scheduled,
+    }
+
+
 def _install_frontend_dependencies(install_dir: Path) -> None:
     pkg_path = install_dir / "package.json"
     if not pkg_path.exists():
