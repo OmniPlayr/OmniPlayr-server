@@ -10,6 +10,7 @@ from pathlib import Path
 
 HELPER_MODULES = {
     "account": "backend/api/helpers/account.py",
+    "admin": "backend/api/helpers/admin.py",
     "server": "backend/api/helpers/server.py",
     "notifications": "backend/api/helpers/notifications.py",
     "logging": "backend/api/helpers/log.py",
