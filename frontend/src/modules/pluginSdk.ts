@@ -29,7 +29,9 @@ export {
     reloadPluginConfig,
 } from './pluginConfig';
 export type { FlatConfigItem, TomlObject, TomlValue } from './config';
+export { getAccount } from './account';
 export { navigate } from './navigate';
+export { useIsMobile } from './useIsMobile';
 export { useNotificationsContext } from './NotificationsContext';
 export type {
     Notification,

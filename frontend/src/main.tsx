@@ -30,6 +30,9 @@ import { NotificationsProvider } from './modules/NotificationsContext';
 import Updating from './Updating.tsx';
 import Failure from './Fail.tsx';
 import '@wokki20/jspt/dist/jspt.css';
+import { useIsMobile } from './modules/useIsMobile';
+
+export { useIsMobile } from './modules/useIsMobile';
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -109,17 +112,6 @@ function resolveActiveTabFromPath(pathname: string): string | null {
     const tab = getTabByUrl(pathname);
     if (tab) return tab.id;
     return null;
-}
-
-export function useIsMobile() {
-    const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 768px)');
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
-    return isMobile;
 }
 
 function AppShell() {
