@@ -78,7 +78,13 @@ async function loadPlugins(): Promise<void> {
     const localModules = import.meta.env.DEV
         ? import.meta.glob([
             './local-plugins/*/index.{ts,tsx}',
+            './local-plugins/*/frontend/index.{ts,tsx}',
+            './local-plugins/frontend/index.{ts,tsx}',
             './local-plugins/index.{ts,tsx}',
+            './local-frontend-plugins/*/index.{ts,tsx}',
+            './local-frontend-plugins/*/frontend/index.{ts,tsx}',
+            './local-frontend-plugins/frontend/index.{ts,tsx}',
+            './local-frontend-plugins/index.{ts,tsx}',
         ])
         : {};
     const modules = { ...installedModules, ...localModules };
