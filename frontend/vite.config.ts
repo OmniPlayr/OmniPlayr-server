@@ -14,6 +14,9 @@ const coreImportPattern = /^\.\.\/\.\.\/(modules|i18n|assets|styles|config)(\/.*
 export default defineConfig({
   resolve: {
     preserveSymlinks: true,
+    alias: {
+      '@omniplayr/plugins': path.resolve(__dirname, 'src/modules/pluginSdk.ts'),
+    },
   },
   plugins: [
     react(),
