@@ -1,6 +1,16 @@
 name: Publish Release Manifest
 
 on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'backend/config.json'
+      - 'frontend/src/config/version.toml'
+      - 'docker-compose.yml'
+      - '.github/scripts/generate-release-manifest.js'
+      - '.github/workflows/publish-release-manifest.yml'
   workflow_run:
     workflows:
       - Update Backend Version
@@ -29,7 +39,7 @@ concurrency:
 
 jobs:
   publish:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,8 +50,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             echo "name=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
-          else
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "name=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create GitHub App token
@@ -57,6 +69,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             cutoff="${{ github.event.workflow_run.created_at }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            cutoff="${{ github.event.head_commit.timestamp }}"
           else
             cutoff="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           fi
