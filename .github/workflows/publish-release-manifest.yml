@@ -11,17 +11,6 @@ on:
       - 'docker-compose.yml'
       - '.github/scripts/generate-release-manifest.js'
       - '.github/workflows/publish-release-manifest.yml'
-  workflow_run:
-    workflows:
-      - Update Backend Version
-      - Update Frontend Version
-      - Update Root Docker Compose
-      - Sync Backend SDK
-    types:
-      - completed
-    branches:
-      - dev
-      - main
   workflow_dispatch:
     inputs:
       branch:
@@ -34,23 +23,20 @@ on:
           - main
 
 concurrency:
-  group: release-manifest-${{ github.event.workflow_run.head_branch || inputs.branch || github.ref_name }}
+  group: release-manifest-${{ inputs.branch || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   publish:
-    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
     steps:
       - name: Select branch
         id: branch
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "name=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "name=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"
           else
             echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
@@ -64,62 +50,10 @@ jobs:
           private-key: ${{ secrets.OMNIPLAYR_RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
 
-      - name: Wait for triggered workflows to settle
+      - name: Wait for branch to settle
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            cutoff="${{ github.event.workflow_run.created_at }}"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            cutoff="${{ github.event.head_commit.timestamp }}"
-          else
-            cutoff="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          fi
-
-          if [ "${{ steps.branch.outputs.name }}" = "main" ]; then
-            relevant_filter='(.name == "Update Backend Version" or .name == "Update Frontend Version" or .name == "Update Root Docker Compose" or .name == "Sync Backend SDK")'
-          else
-            relevant_filter='(.name == "Update Backend Version" or .name == "Update Frontend Version" or .name == "Update Root Docker Compose")'
-          fi
-
-          echo "Waiting briefly for sibling workflows to queue"
-          sleep 60
-
-          for attempt in $(seq 1 60); do
-            active_runs="$(
-              {
-                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=queued --paginate --jq ".workflow_runs[] | select($relevant_filter) | \"\(.name) #\(.run_number)\""
-                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=in_progress --paginate --jq ".workflow_runs[] | select($relevant_filter) | \"\(.name) #\(.run_number)\""
-              } | sort -u
-            )"
-
-            if [ -n "$active_runs" ]; then
-              echo "Waiting for triggered relevant workflows to finish:"
-              echo "$active_runs"
-              sleep 30
-              continue
-            fi
-
-            failed_runs="$(
-              gh api "repos/${{ github.repository }}/actions/runs" \
-                -f branch="${{ steps.branch.outputs.name }}" \
-                -f status=completed \
-                --paginate \
-                --jq ".workflow_runs[] | select($relevant_filter and .created_at >= \"$cutoff\" and .conclusion != \"success\") | \"\(.name) #\(.run_number) concluded \(.conclusion)\""
-            )"
-
-            if [ -n "$failed_runs" ]; then
-              echo "A triggered relevant workflow did not succeed:"
-              echo "$failed_runs"
-              exit 1
-            fi
-
-            echo "No triggered relevant workflows are still running on ${{ steps.branch.outputs.name }}"
-            exit 0
-          done
-
-          echo "Timed out waiting for triggered workflows on ${{ steps.branch.outputs.name }}" >&2
-          exit 1
-        env:
-          GH_TOKEN: ${{ github.token }}
+          echo "Waiting for version/update pushes to settle"
+          sleep 90
 
       - uses: actions/checkout@v4
         with:

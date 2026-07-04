@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getConfig } from '../modules/config';
 import { ArrowRight, TriangleAlert, WifiOff, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next'; 
 
 const GITHUB_CACHE_KEY = 'omniplayr_github_info';
 
