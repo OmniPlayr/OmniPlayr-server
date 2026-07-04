@@ -63,7 +63,6 @@ jobs:
           client-id: ${{ vars.OMNIPLAYR_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.OMNIPLAYR_RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
-          permission-actions: read
 
       - name: Wait for triggered workflows to settle
         run: |
@@ -120,7 +119,7 @@ jobs:
           echo "Timed out waiting for triggered workflows on ${{ steps.branch.outputs.name }}" >&2
           exit 1
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
 
       - uses: actions/checkout@v4
         with:

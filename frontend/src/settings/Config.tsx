@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ScrollText, FileSliders, Folder, Server, CircleFadingArrowUp, Search, Link, Save, RotateCcw, Puzzle, ChevronDown } from "lucide-react";
 import "../styles/settings/Config.css";
 import { Tooltip } from "react-tooltip";
-import { makeToast } from "@wokki20/jspt";
+import { makeToast } from "@wokki20/jspt"; 
 
 const SEARCH_FIELD_PREFIXES = ["type:", "value:", "default:", "comment:", "min:", "max:", "step:", "in_values:", "liveupdate:"];
 
