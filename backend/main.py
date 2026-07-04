@@ -16,6 +16,7 @@ from api.helpers.account import list_accounts
 from api.helpers.diagnostics import start_diagnostics
 from api.helpers.health import router as health_router
 from api.helpers.https_proxy import start_https_proxy
+from api.helpers.updater import verify_startup_signature
 
 import asyncio
 
@@ -68,6 +69,9 @@ async def lifespan(app: FastAPI):
 
     # This loads the config files
     load_configs()
+
+    startup_signature = verify_startup_signature()
+    log(f"Startup signature verification status: {startup_signature.get('status')}", "info", "main")
 
     # This sets up the database, but needs to be after the configs are loaded, because the database also logs, and else you are going to get a lot of duplicate logs (I think)
     await init_db_when_ready()

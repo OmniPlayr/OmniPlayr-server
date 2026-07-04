@@ -5,6 +5,9 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
+import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -21,6 +24,10 @@ import tomllib
 from api.helpers.notifications import notify_sync
 
 import asyncio
+
+_SAFE_MODE_FILE = ".safe_mode"
+_RELEASE_ZIP_ASSET = "omniplayr-source.zip"
+_MANIFEST_ASSET = "manifest.json"
 
 ROOT_PRESERVED = {
     "backend",
@@ -51,6 +58,18 @@ FRONTEND_PRESERVED = {
 _OVERWRITE_ALWAYS = {
     Path("src/config/version.toml"),
 }
+
+
+class GithubRateLimitError(RuntimeError):
+    def __init__(self, reset_at: str | None = None):
+        super().__init__("GitHub API rate limit reached")
+        self.reset_at = reset_at
+
+
+class ReleaseManifestUnavailable(RuntimeError):
+    pass
+
+
 def _normalize_version_str(v: str) -> str:
     try:
         if not v:
@@ -77,7 +96,8 @@ def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
         frontend = data.get("version", {}).get("frontend", {})
         log(f"Remote frontend section parsed: {frontend}", "debug", "updater")
 
-        safe_version = _normalize_version_str(frontend.get("safeVersion", "0.0.0-main"))
+        raw_safe_version = frontend.get("safeVersion", "0.0.0-main")
+        safe_version = _normalize_version_str(raw_safe_version)
         version_tuple = (
             int(frontend.get("year", 0)),
             int(frontend.get("month", 0)),
@@ -90,6 +110,7 @@ def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
             "version_tuple": version_tuple,
             "branch": frontend.get("branch", "main"),
             "safe_version": safe_version,
+            "safe_version_raw": raw_safe_version,
         }
 
     except Exception as e:
@@ -97,6 +118,7 @@ def _fetch_remote_frontend_info(owner: str, repo: str, branch: str) -> dict:
         return {
             "version_tuple": (0, 0, 0, "main"),
             "safe_version": "0.0.0",
+            "safe_version_raw": "0.0.0",
         }
 
 
@@ -122,7 +144,8 @@ def _get_frontend_info() -> dict:
         month = int(frontend.get("month", 0))
         bugfix = int(frontend.get("bugfix", 0))
         branch = frontend.get("branch", "main")
-        safe_version = _normalize_version_str(frontend.get("safeVersion", "0.0.0-main"))
+        raw_safe_version = frontend.get("safeVersion", "0.0.0-main")
+        safe_version = _normalize_version_str(raw_safe_version)
 
         log(f"Local frontend version_tuple=({year},{month},{bugfix}) branch={branch!r} safe_version={safe_version!r}", "debug", "updater")
 
@@ -130,6 +153,7 @@ def _get_frontend_info() -> dict:
             "version_tuple": (year, month, bugfix),
             "branch": branch,
             "safe_version": safe_version,
+            "safe_version_raw": raw_safe_version,
         }
 
     except Exception as e:
@@ -137,6 +161,7 @@ def _get_frontend_info() -> dict:
         return {
             "version_tuple": (0, 0, 0),
             "safe_version": "0.0.0",
+            "safe_version_raw": "0.0.0",
             "branch": "main",
         }
 
@@ -266,6 +291,322 @@ def _tarball_url(owner: str, repo: str, branch: str) -> str:
     return url
 
 
+def _github_request(url: str, accept: str = "application/vnd.github+json", timeout: int = 20):
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": accept,
+            "User-Agent": "OmniPlayr-Updater/1.0",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        return urllib.request.urlopen(req, timeout=timeout)
+    except urllib.error.HTTPError as e:
+        if e.code in (403, 429) and e.headers.get("X-RateLimit-Remaining") == "0":
+            reset_at = e.headers.get("X-RateLimit-Reset")
+            log(f"GitHub API rate limit reached; reset={reset_at}", "warning", "updater")
+            raise GithubRateLimitError(reset_at) from e
+        raise
+
+
+def _github_json(url: str) -> dict | list:
+    with _github_request(url) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _release_tag(branch: str, backend_safe_version: str, frontend_safe_version: str) -> str:
+    safe_branch = "".join(c if c.isalnum() or c in "._-" else "-" for c in branch)
+    return f"{safe_branch}-backend-{backend_safe_version}_frontend-{frontend_safe_version}"
+
+
+def _release_api_url(owner: str, repo: str, tag: str) -> str:
+    quoted_tag = urllib.parse.quote(tag, safe="")
+    return f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{quoted_tag}"
+
+
+def _find_release_asset(release: dict, asset_name: str) -> dict | None:
+    for asset in release.get("assets", []):
+        if asset.get("name") == asset_name:
+            return asset
+    return None
+
+
+def _download_release_asset(release: dict, asset_name: str) -> bytes:
+    asset = _find_release_asset(release, asset_name)
+    if not asset:
+        raise RuntimeError(f"Release asset {asset_name!r} not found")
+
+    url = asset.get("url") or asset.get("browser_download_url")
+    accept = "application/octet-stream" if asset.get("url") else "*/*"
+    log(f"Downloading release asset {asset_name!r} from {url!r}", "debug", "updater")
+    with _github_request(url, accept=accept, timeout=60) as resp:
+        return resp.read()
+
+
+def _fetch_release(owner: str, repo: str, tag: str) -> dict:
+    log(f"Fetching GitHub release for tag {tag!r}", "debug", "updater")
+    return _github_json(_release_api_url(owner, repo, tag))
+
+
+def _fetch_release_manifest(owner: str, repo: str, tag: str) -> tuple[dict, dict]:
+    try:
+        release = _fetch_release(owner, repo, tag)
+        data = _download_release_asset(release, _MANIFEST_ASSET)
+        manifest = json.loads(data.decode("utf-8"))
+        if not manifest.get("sha256"):
+            raise ReleaseManifestUnavailable(f"Release manifest for {tag!r} does not contain a sha256")
+        return manifest, release
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            raise ReleaseManifestUnavailable(f"Release manifest for {tag!r} was not found") from e
+        raise
+    except RuntimeError as e:
+        if _MANIFEST_ASSET in str(e):
+            raise ReleaseManifestUnavailable(f"Release manifest asset for {tag!r} was not found") from e
+        raise
+
+
+def _fetch_branch_releases(owner: str, repo: str, branch: str) -> list[dict]:
+    releases: list[dict] = []
+    page = 1
+    prefix = f"{branch}-backend-"
+    while True:
+        url = f"https://api.github.com/repos/{owner}/{repo}/releases?per_page=100&page={page}"
+        batch = _github_json(url)
+        if not batch:
+            break
+        releases.extend(release for release in batch if str(release.get("tag_name", "")).startswith(prefix))
+        if len(batch) < 100:
+            break
+        page += 1
+    return releases
+
+
+def _previous_release_manifests(owner: str, repo: str, branch: str, target_tag: str) -> list[dict]:
+    releases = _fetch_branch_releases(owner, repo, branch)
+    target_index = next((i for i, release in enumerate(releases) if release.get("tag_name") == target_tag), None)
+    older_releases = releases[target_index + 1:] if target_index is not None else [
+        release for release in releases if release.get("tag_name") != target_tag
+    ]
+
+    manifests = []
+    for release in older_releases:
+        try:
+            data = _download_release_asset(release, _MANIFEST_ASSET)
+            manifests.append(json.loads(data.decode("utf-8")))
+        except GithubRateLimitError:
+            raise
+        except Exception as e:
+            log(f"Skipping previous release {release.get('tag_name')!r}: {e}", "warning", "updater")
+    return manifests
+
+
+def _digest_records(records: list[dict]) -> str:
+    digest = hashlib.sha256()
+    for record in records:
+        digest.update(record["path"].encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(record["sha256"].encode("ascii"))
+        digest.update(b"\0")
+        digest.update(str(record["size"]).encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _local_manifest_check(root: Path, manifest: dict) -> dict:
+    records = []
+    missing = []
+    mismatched = []
+
+    for expected in manifest.get("files", []):
+        rel = expected["path"]
+        local_path = root / rel
+        if not local_path.exists() or not local_path.is_file():
+            missing.append(rel)
+            continue
+
+        actual = {
+            "path": rel,
+            "group": expected.get("group"),
+            "size": local_path.stat().st_size,
+            "sha256": _file_sha256(local_path),
+        }
+        records.append(actual)
+
+        if actual["size"] != expected.get("size") or actual["sha256"] != expected.get("sha256"):
+            mismatched.append(rel)
+
+    local_sha = _digest_records(records)
+    expected_sha = manifest.get("sha256")
+    matched = not missing and not mismatched and local_sha == expected_sha
+
+    return {
+        "matched": matched,
+        "expected_sha256": expected_sha,
+        "local_sha256": local_sha,
+        "missing": missing,
+        "mismatched": mismatched,
+    }
+
+
+def _enter_safe_mode(reason: str, compose_root: Path | None = None):
+    marker_paths = [Path(_SAFE_MODE_FILE)]
+    if compose_root is not None:
+        marker_paths.append(compose_root / "backend" / _SAFE_MODE_FILE)
+
+    try:
+        for marker_path in marker_paths:
+            marker_path.parent.mkdir(parents=True, exist_ok=True)
+            marker_path.write_text(reason + "\n", encoding="utf-8")
+        log(f"Safe mode enabled: {reason}", "warning", "updater")
+    except Exception as e:
+        log(f"Failed to enable safe mode: {e}", "error", "updater")
+
+
+def _extract_release_zip(release: dict, dest: Path):
+    data = _download_release_asset(release, _RELEASE_ZIP_ASSET)
+    zip_path = dest / _RELEASE_ZIP_ASSET
+    zip_path.write_bytes(data)
+    with zipfile.ZipFile(zip_path) as zf:
+        resolved_dest = dest.resolve()
+        for member in zf.infolist():
+            target = (dest / member.filename).resolve()
+            if resolved_dest not in target.parents and target != resolved_dest:
+                raise RuntimeError(f"Unsafe path in release zip: {member.filename}")
+        zf.extractall(dest)
+
+
+def _copy_missing_added_file(source_root: Path, root: Path, rel: str) -> bool:
+    source = source_root / rel
+    target = root / rel
+    if not source.exists() or not source.is_file():
+        log(f"Cannot restore missing file {rel!r}: not found in release source", "warning", "updater")
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+    log(f"Restored missing added file: {rel}", "info", "updater")
+    return True
+
+
+def _delete_stale_file(root: Path, rel: str) -> bool:
+    target = root / rel
+    if not target.exists():
+        return False
+    if not target.is_file():
+        log(f"Skipping stale delete for non-file path: {rel}", "warning", "updater")
+        return False
+    target.unlink()
+    log(f"Deleted stale removed file: {rel}", "info", "updater")
+    return True
+
+
+def _fix_added_deleted_files(
+    root: Path,
+    owner: str,
+    repo: str,
+    branch: str,
+    target_tag: str,
+    target_manifest: dict,
+    target_release: dict,
+    target_source_root: Path | None = None,
+) -> dict:
+    target_paths = {record["path"] for record in target_manifest.get("files", [])}
+    previous_manifests = _previous_release_manifests(owner, repo, branch, target_tag)
+
+    if not previous_manifests:
+        log("No previous release manifests found for add/delete repair", "warning", "updater")
+        return _local_manifest_check(root, target_manifest)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        zip_source_root = None
+        if target_source_root is None:
+            zip_source_root = Path(tmp_dir) / "release-files"
+            zip_source_root.mkdir()
+            _extract_release_zip(target_release, zip_source_root)
+
+        source_root = target_source_root or zip_source_root
+
+        for previous_manifest in previous_manifests:
+            previous_paths = {record["path"] for record in previous_manifest.get("files", [])}
+            added_paths = sorted(target_paths - previous_paths)
+            deleted_paths = sorted(previous_paths - target_paths)
+
+            log(
+                f"Trying add/delete repair from previous manifest: added={len(added_paths)} deleted={len(deleted_paths)}",
+                "debug",
+                "updater",
+            )
+
+            for rel in added_paths:
+                if not (root / rel).exists():
+                    _copy_missing_added_file(source_root, root, rel)
+
+            for rel in deleted_paths:
+                if rel not in target_paths:
+                    _delete_stale_file(root, rel)
+
+            check = _local_manifest_check(root, target_manifest)
+            if check["matched"]:
+                log("Signature matched after add/delete repair", "success", "updater")
+                return check
+
+        return _local_manifest_check(root, target_manifest)
+
+
+def _verify_release_manifest(
+    root: Path,
+    owner: str,
+    repo: str,
+    branch: str,
+    manifest: dict,
+    release: dict,
+    fix_files: bool,
+    go_safe_mode: bool,
+    safe_mode_root: Path | None = None,
+    target_source_root: Path | None = None,
+) -> dict:
+    target_tag = manifest.get("tagName") or release.get("tag_name")
+    check = _local_manifest_check(root, manifest)
+    if check["matched"]:
+        log(f"Release signature verified: {check['local_sha256']}", "success", "updater")
+        return {"status": "verified", **check}
+
+    log(
+        f"Release signature mismatch expected={check['expected_sha256']} local={check['local_sha256']} "
+        f"missing={len(check['missing'])} mismatched={len(check['mismatched'])}",
+        "warning",
+        "updater",
+    )
+
+    if fix_files:
+        check = _fix_added_deleted_files(
+            root,
+            owner,
+            repo,
+            branch,
+            target_tag,
+            manifest,
+            release,
+            target_source_root=target_source_root,
+        )
+        if check["matched"]:
+            return {"status": "verified_after_fix", **check}
+
+    if go_safe_mode:
+        _enter_safe_mode("Release signature verification failed", compose_root=safe_mode_root)
+
+    return {"status": "failed", **check}
+
+
 def _load_cache() -> dict | None:
     log("Loading update cache from database", "debug", "updater")
     try:
@@ -379,6 +720,7 @@ def check_for_updates(force: bool = False) -> dict:
         return {"error": "Could not reach GitHub"}
 
     latest_backend = remote.get("version", "0.0.0")
+    latest_backend_safe = remote.get("safeVersion", latest_backend)
     log(f"Remote backend version: {latest_backend!r}", "debug", "updater")
 
     remote_frontend = _fetch_remote_frontend_info(owner, repo, branch)
@@ -414,6 +756,7 @@ def check_for_updates(force: bool = False) -> dict:
     log(f"Update check result: backend_new={backend_new} frontend_new={frontend_new} update_available={update_available}", "debug", "updater")
 
     url = _tarball_url(owner, repo, branch)
+    release_tag = _release_tag(branch, latest_backend_safe, remote_frontend["safe_version_raw"])
 
     _save_cache(
         latest_backend,
@@ -431,9 +774,12 @@ def check_for_updates(force: bool = False) -> dict:
     return {
         "current_version": current_version,
         "latest_version": latest_backend,
+        "latest_safe_version": latest_backend_safe,
         "latest_frontend_version": _normalize_version_str(remote_frontend["safe_version"]),
+        "latest_frontend_safe_version": remote_frontend["safe_version_raw"],
         "update_available": update_available,
         "tarball_url": url,
+        "release_tag": release_tag,
         "from_cache": False,
     }
 
@@ -630,6 +976,56 @@ def _merge_or_copy(source: Path, target: Path, root: Path):
         log(f"Updated: {target}", "info", "updater")
 
 
+def verify_startup_signature() -> dict:
+    """Verify the current installation against the GitHub release manifest."""
+    verify_signature = bool(get_config("tampering.verify_signature_on_startup", False))
+    if not verify_signature:
+        log("Startup signature verification disabled", "debug", "updater")
+        return {"status": "disabled"}
+
+    owner, repo = _get_repo()
+    if not owner or not repo:
+        return {"status": "skipped", "error": "GitHub repository not configured"}
+
+    raw_compose_dir = get_config("paths.compose_dir", "/compose")
+    compose_dir = Path(_to_linux_path(raw_compose_dir))
+    current = _get_current_info()
+    frontend_current = _get_frontend_info()
+
+    branch = current.get("branch", frontend_current.get("branch", "main"))
+    backend_safe = current.get("safeVersion", current.get("version", "0.0.0"))
+    frontend_safe = frontend_current.get("safe_version_raw", frontend_current.get("safe_version", "0.0.0"))
+    release_tag = _release_tag(branch, backend_safe, frontend_safe)
+
+    fix_files = bool(get_config("tampering.fix_files_on_startup", False)) and verify_signature
+    go_safe_mode = bool(get_config("tampering.go_in_safe_mode", False)) and verify_signature
+
+    try:
+        manifest, release = _fetch_release_manifest(owner, repo, release_tag)
+        return _verify_release_manifest(
+            compose_dir,
+            owner,
+            repo,
+            branch,
+            manifest,
+            release,
+            fix_files=fix_files,
+            go_safe_mode=go_safe_mode,
+            safe_mode_root=compose_dir,
+        )
+    except GithubRateLimitError as e:
+        log(f"Startup signature verification skipped because GitHub rate limit was reached; reset={e.reset_at}", "warning", "updater")
+        return {"status": "rate_limited", "reset_at": e.reset_at}
+    except ReleaseManifestUnavailable as e:
+        log(f"Startup signature verification skipped: {e}", "warning", "updater")
+        return {"status": "skipped_manifest_unavailable", "release_tag": release_tag}
+    except Exception as e:
+        log(f"Startup signature verification failed: {e}", "error", "updater")
+        if go_safe_mode:
+            _enter_safe_mode("Startup release signature verification failed", compose_root=compose_dir)
+        return {"status": "failed", "error": str(e)}
+
+
 def apply_update() -> dict:
     """Download and apply the latest available OmniPlayr update."""
     log("apply_update called", "debug", "updater")
@@ -642,6 +1038,42 @@ def apply_update() -> dict:
 
     tarball_url = fresh.get("tarball_url")
     log(f"Tarball URL from fresh check: {tarball_url!r}", "debug", "updater")
+
+    owner, repo = _get_repo()
+    if not owner or not repo:
+        return {"error": "GitHub repository not configured"}
+
+    current = _get_current_info()
+    branch = current.get("branch", "main")
+    verify_signature = bool(get_config("tampering.verify_signature_on_update", False))
+    fix_files = bool(get_config("tampering.fix_files_on_update", False)) and verify_signature
+    go_safe_mode = bool(get_config("tampering.go_in_safe_mode", False)) and verify_signature
+    target_manifest = None
+    target_release = None
+
+    if verify_signature:
+        release_tag = fresh.get("release_tag")
+        if not release_tag:
+            release_tag = _release_tag(
+                branch,
+                fresh.get("latest_safe_version", fresh.get("latest_version", "0.0.0")),
+                fresh.get("latest_frontend_safe_version", fresh.get("latest_frontend_version", "0.0.0")),
+            )
+        try:
+            target_manifest, target_release = _fetch_release_manifest(owner, repo, release_tag)
+            log(f"Fetched target release manifest {release_tag!r}; expected sha={target_manifest.get('sha256')}", "debug", "updater")
+        except GithubRateLimitError as e:
+            return {"error": "GitHub rate limit reached while fetching release manifest", "rate_limited": True, "reset_at": e.reset_at}
+        except ReleaseManifestUnavailable as e:
+            log(f"Update signature verification skipped: {e}", "warning", "updater")
+            verify_signature = False
+            fix_files = False
+            go_safe_mode = False
+        except Exception as e:
+            log(f"Could not fetch target release manifest: {e}", "error", "updater")
+            if go_safe_mode:
+                _enter_safe_mode("Could not fetch release signature manifest")
+            return {"error": f"Could not fetch release signature manifest: {e}"}
 
     raw_compose_dir = get_config("paths.compose_dir", "/compose")
     compose_dir = Path(_to_linux_path(raw_compose_dir))
@@ -695,6 +1127,25 @@ def apply_update() -> dict:
                 log(f"Syncing compose root: {source_root} -> {compose_dir}", "debug", "updater")
                 _copy_update(source_root, compose_dir, preserved=ROOT_PRESERVED)
                 log("Compose root sync complete", "debug", "updater")
+
+            if verify_signature and target_manifest and target_release:
+                verify_result = _verify_release_manifest(
+                    compose_dir,
+                    owner,
+                    repo,
+                    branch,
+                    target_manifest,
+                    target_release,
+                    fix_files=fix_files,
+                    go_safe_mode=go_safe_mode,
+                    safe_mode_root=compose_dir,
+                    target_source_root=source_root,
+                )
+                if verify_result["status"] == "failed":
+                    return {
+                        "error": "Release signature verification failed after update",
+                        "verification": verify_result,
+                    }
 
         requirements = compose_dir / "backend" / "requirements.txt"
         log(f"Checking for requirements.txt at {requirements}: exists={requirements.exists()}", "debug", "updater")

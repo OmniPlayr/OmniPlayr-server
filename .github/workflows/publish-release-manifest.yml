@@ -1,0 +1,180 @@
+name: Publish Release Manifest
+
+on:
+  workflow_run:
+    workflows:
+      - Update Backend Version
+      - Update Frontend Version
+      - Update Root Docker Compose
+      - Sync Backend SDK
+    types:
+      - completed
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to publish
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - main
+
+concurrency:
+  group: release-manifest-${{ github.event.workflow_run.head_branch || inputs.branch || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Select branch
+        id: branch
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "name=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.OMNIPLAYR_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OMNIPLAYR_RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-actions: read
+
+      - name: Wait for required workflows
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            cutoff="${{ github.event.workflow_run.created_at }}"
+          else
+            cutoff="1970-01-01T00:00:00Z"
+          fi
+
+          required_workflows=(
+            "Update Backend Version"
+            "Update Frontend Version"
+            "Update Root Docker Compose"
+          )
+
+          if [ "${{ steps.branch.outputs.name }}" = "main" ]; then
+            required_workflows+=("Sync Backend SDK")
+          fi
+
+          for attempt in $(seq 1 60); do
+            missing_workflows=()
+
+            for workflow in "${required_workflows[@]}"; do
+              success_count="$(
+                gh api "repos/${{ github.repository }}/actions/runs" \
+                  -f branch="${{ steps.branch.outputs.name }}" \
+                  -f status=completed \
+                  --paginate \
+                  --jq ".workflow_runs[] | select(.name == \"$workflow\" and .conclusion == \"success\" and .updated_at >= \"$cutoff\") | .id" \
+                  | head -n 1 \
+                  | wc -l
+              )"
+
+              if [ "$success_count" -eq 0 ]; then
+                missing_workflows+=("$workflow")
+              fi
+            done
+
+            active_runs="$(
+              {
+                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=queued --paginate --jq '.workflow_runs[] | select(.name != "Publish Release Manifest") | "\(.name) #\(.run_number)"'
+                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=in_progress --paginate --jq '.workflow_runs[] | select(.name != "Publish Release Manifest") | "\(.name) #\(.run_number)"'
+              } | sort -u
+            )"
+
+            if [ "${#missing_workflows[@]}" -eq 0 ] && [ -z "$active_runs" ]; then
+              echo "All required workflows completed successfully and no other queued or in-progress workflows remain on ${{ steps.branch.outputs.name }}"
+              exit 0
+            fi
+
+            if [ "${#missing_workflows[@]}" -gt 0 ]; then
+              echo "Waiting for required workflows to complete successfully:"
+              printf ' - %s\n' "${missing_workflows[@]}"
+            fi
+
+            if [ -n "$active_runs" ]; then
+              echo "Waiting for active workflows to finish:"
+              echo "$active_runs"
+            fi
+
+            sleep 30
+          done
+
+          echo "Timed out waiting for required workflows on ${{ steps.branch.outputs.name }}" >&2
+          exit 1
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.branch.outputs.name }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Generate manifest
+        run: GITHUB_SHA="$(git rev-parse HEAD)" node .github/scripts/generate-release-manifest.js
+        env:
+          GITHUB_REF_NAME: ${{ steps.branch.outputs.name }}
+
+      - name: Create repository zip
+        run: |
+          git archive --format=zip --output=.github/release-output/omniplayr-source.zip HEAD
+
+      - name: Load release metadata
+        id: release
+        run: |
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> "$GITHUB_OUTPUT"
+          done < .github/release-output/release-env.txt
+
+      - name: Move release tag to current branch head
+        run: |
+          git tag -f "${{ steps.release.outputs.TAG_NAME }}"
+          git push origin "refs/tags/${{ steps.release.outputs.TAG_NAME }}" --force
+
+      - name: Publish release assets
+        run: |
+          TAG="${{ steps.release.outputs.TAG_NAME }}"
+          TITLE="${{ steps.release.outputs.RELEASE_NAME }}"
+          NOTES="Important-file manifest for ${{ steps.branch.outputs.name }} at $(git rev-parse HEAD). Combined SHA256: ${{ steps.release.outputs.MANIFEST_SHA256 }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --latest=false
+            if [ "${{ steps.release.outputs.PRERELEASE }}" = "true" ]; then
+              gh release edit "$TAG" --prerelease
+            else
+              gh release edit "$TAG" --prerelease=false
+            fi
+          else
+            ARGS=("--title" "$TITLE" "--notes" "$NOTES" "--latest=false")
+            if [ "${{ steps.release.outputs.PRERELEASE }}" = "true" ]; then
+              ARGS+=("--prerelease")
+            fi
+            gh release create "$TAG" "${ARGS[@]}"
+          fi
+
+          gh release upload "$TAG" \
+            .github/release-output/manifest.json#manifest.json \
+            .github/release-output/omniplayr-source.zip#omniplayr-source.zip \
+            --clobber
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}

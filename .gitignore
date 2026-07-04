@@ -95,6 +95,7 @@ coverage.xml
 *.bak
 *.tmp
 *.temp
+.github/release-output/
 
 # Plugins
 backend/plugins/

@@ -2,3 +2,10 @@
 owner = "str # comment: The owner of the GitHub repository to check for updates"
 repo = "str # comment: The name of the GitHub repository to check for updates"
 check_interval_hours = "int # comment: How often to check for updates in hours"
+
+[tampering]
+verify_signature_on_update = "bool # comment: If the server should verify the signature of the update with the SHA 256 hash after the update has been applied"
+verify_signature_on_startup = "bool # comment: If the server should verify the signature of the update with the SHA 256 hash on startup"
+fix_files_on_update = "bool # comment: If the server should fix files if the SHA 256 hash does not match after the update has been applied"
+fix_files_on_startup = "bool # comment: If the server should fix files if the SHA 256 hash does not match on startup"
+go_in_safe_mode = "bool # comment: If the server should go into safe mode if the SHA 256 hash does not match on startup or after an update has been applied"

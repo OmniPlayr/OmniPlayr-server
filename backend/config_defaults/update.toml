@@ -2,3 +2,10 @@
 owner = "OmniPlayr"
 repo = "OmniPlayr-server"
 check_interval_hours = 24
+
+[tampering]
+verify_signature_on_update = true
+verify_signature_on_startup = true
+fix_files_on_update = true
+fix_files_on_startup = true
+go_in_safe_mode = true
