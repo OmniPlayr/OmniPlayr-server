@@ -9,8 +9,6 @@ on:
       - 'backend/config.json'
       - 'frontend/src/config/version.toml'
       - 'docker-compose.yml'
-      - '.github/scripts/generate-release-manifest.js'
-      - '.github/workflows/publish-release-manifest.yml'
   workflow_dispatch:
     inputs:
       branch:
