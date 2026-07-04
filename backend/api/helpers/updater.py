@@ -798,7 +798,7 @@ def _copy_update(source: Path, dest: Path, inherited_patterns: list[str] | None 
             log(f"Skipping symlink: {item.name!r}", "debug", "updater")
             continue
 
-        if preserved and item.name in preserved:
+        if preserved and source == root and item.name in preserved:
             log(f"Skipping preserved item: {item.name!r}", "debug", "updater")
             continue
 
