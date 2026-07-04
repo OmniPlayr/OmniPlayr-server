@@ -53,69 +53,57 @@ jobs:
           permission-contents: write
           permission-actions: read
 
-      - name: Wait for required workflows
+      - name: Wait for triggered workflows to settle
         run: |
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             cutoff="${{ github.event.workflow_run.created_at }}"
           else
-            cutoff="1970-01-01T00:00:00Z"
+            cutoff="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           fi
-
-          required_workflows=(
-            "Update Backend Version"
-            "Update Frontend Version"
-            "Update Root Docker Compose"
-          )
 
           if [ "${{ steps.branch.outputs.name }}" = "main" ]; then
-            required_workflows+=("Sync Backend SDK")
+            relevant_filter='(.name == "Update Backend Version" or .name == "Update Frontend Version" or .name == "Update Root Docker Compose" or .name == "Sync Backend SDK")'
+          else
+            relevant_filter='(.name == "Update Backend Version" or .name == "Update Frontend Version" or .name == "Update Root Docker Compose")'
           fi
 
+          echo "Waiting briefly for sibling workflows to queue"
+          sleep 60
+
           for attempt in $(seq 1 60); do
-            missing_workflows=()
-
-            for workflow in "${required_workflows[@]}"; do
-              success_count="$(
-                gh api "repos/${{ github.repository }}/actions/runs" \
-                  -f branch="${{ steps.branch.outputs.name }}" \
-                  -f status=completed \
-                  --paginate \
-                  --jq ".workflow_runs[] | select(.name == \"$workflow\" and .conclusion == \"success\" and .updated_at >= \"$cutoff\") | .id" \
-                  | head -n 1 \
-                  | wc -l
-              )"
-
-              if [ "$success_count" -eq 0 ]; then
-                missing_workflows+=("$workflow")
-              fi
-            done
-
             active_runs="$(
               {
-                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=queued --paginate --jq '.workflow_runs[] | select(.name != "Publish Release Manifest") | "\(.name) #\(.run_number)"'
-                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=in_progress --paginate --jq '.workflow_runs[] | select(.name != "Publish Release Manifest") | "\(.name) #\(.run_number)"'
+                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=queued --paginate --jq ".workflow_runs[] | select($relevant_filter) | \"\(.name) #\(.run_number)\""
+                gh api "repos/${{ github.repository }}/actions/runs" -f branch="${{ steps.branch.outputs.name }}" -f status=in_progress --paginate --jq ".workflow_runs[] | select($relevant_filter) | \"\(.name) #\(.run_number)\""
               } | sort -u
             )"
 
-            if [ "${#missing_workflows[@]}" -eq 0 ] && [ -z "$active_runs" ]; then
-              echo "All required workflows completed successfully and no other queued or in-progress workflows remain on ${{ steps.branch.outputs.name }}"
-              exit 0
-            fi
-
-            if [ "${#missing_workflows[@]}" -gt 0 ]; then
-              echo "Waiting for required workflows to complete successfully:"
-              printf ' - %s\n' "${missing_workflows[@]}"
-            fi
-
             if [ -n "$active_runs" ]; then
-              echo "Waiting for active workflows to finish:"
+              echo "Waiting for triggered relevant workflows to finish:"
               echo "$active_runs"
+              sleep 30
+              continue
             fi
 
-            sleep 30
+            failed_runs="$(
+              gh api "repos/${{ github.repository }}/actions/runs" \
+                -f branch="${{ steps.branch.outputs.name }}" \
+                -f status=completed \
+                --paginate \
+                --jq ".workflow_runs[] | select($relevant_filter and .created_at >= \"$cutoff\" and .conclusion != \"success\") | \"\(.name) #\(.run_number) concluded \(.conclusion)\""
+            )"
+
+            if [ -n "$failed_runs" ]; then
+              echo "A triggered relevant workflow did not succeed:"
+              echo "$failed_runs"
+              exit 1
+            fi
+
+            echo "No triggered relevant workflows are still running on ${{ steps.branch.outputs.name }}"
+            exit 0
           done
 
-          echo "Timed out waiting for required workflows on ${{ steps.branch.outputs.name }}" >&2
+          echo "Timed out waiting for triggered workflows on ${{ steps.branch.outputs.name }}" >&2
           exit 1
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
