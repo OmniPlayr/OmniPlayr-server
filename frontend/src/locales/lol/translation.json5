@@ -90,7 +90,56 @@
     "settings.tab.people.other": "Othr Peepl",
     "settings.tab.people.other.desc": "Manaj othr accountz",
 
+    "settings.tab.devoptions": "Dev Opshunz",
+    "settings.tab.devoptions.desc": "Advansed opshunz for devz",
+
+    "settings.devoptions.show_info_tabs": "Show Info Tabz",
+    "settings.devoptions.show_info_tabs.desc": "Show enabled dev info toolz az draggable tabz n windowz.",
+    "settings.devoptions.info_tabs.title": "Info Tabz",
+    "settings.devoptions.info_tabs.desc": "Choos which dev info windowz can show up while usin OmniPlayr.",
+    "settings.devoptions.audio_info": "Audio Info",
+    "settings.devoptions.audio_info.desc": "Show live audio levelz, peakz, frequenseez, n capture diagnosikz.",
+    "settings.devoptions.network_info": "Netwurk Info",
+    "settings.devoptions.network_info.desc": "Show request timingz, transfurr totalz, speedz, n seshun netwurk aktivitee.",
+    "settings.devoptions.console_info": "Console",
+    "settings.devoptions.console_info.desc": "Show console logz, warningz, errorz, n debug messagez.",
+
     // --- End settings translations
+
+    // --- Start developer info translations
+    "developer.info.window.minimize": "Minimiz",
+    "developer.info.audio.title": "Audio Info",
+    "developer.info.audio.start_capture": "Start Tab Capture",
+    "developer.info.audio.stop_capture": "Stop Capture",
+    "developer.info.audio.reset_peaks": "Reset Peakz",
+    "developer.info.audio.error.no_track": "No audio track capturd. Make shur \"Share tab audio\" iz checkd.",
+    "developer.info.audio.error.start_failed": "Faild 2 start tab capture.",
+    "developer.info.audio.band.overall": "Overall",
+    "developer.info.audio.band.bass": "Bass",
+    "developer.info.audio.band.mid": "Mid",
+    "developer.info.audio.band.treble": "Treble",
+    "developer.info.audio.level": "{{band}} Level (dBFS): {{value}} dB",
+    "developer.info.audio.peak": "{{band}} Peak (dBFS): {{value}} dB",
+    "developer.info.audio.average_frequency": "Average Frequensee: {{value}} Hz",
+    "developer.info.audio.average_level": "Average Spektrum Level (dBFS): {{value}} dB",
+    "developer.info.audio.dominant_frequency": "Dominant Frequensee: {{value}} Hz",
+    "developer.info.audio.dominant_level": "Dominant Level (dBFS): {{value}} dB",
+    "developer.info.audio.rms_level": "RMS Level (dBFS): {{value}} dB",
+    "developer.info.audio.sample_rate": "Sample Rate: {{value}} Hz",
+    "developer.info.audio.fft_size": "FFT Size: {{value}}",
+    "developer.info.audio.bin_resolution": "Bin Resolushun: {{value}} Hz",
+    "developer.info.network.title": "Netwurk Info",
+    "developer.info.network.total_requests": "Total Requestz: {{value}}",
+    "developer.info.network.failed_requests": "Faild Requestz: {{value}}",
+    "developer.info.network.received": "Receevd: {{value}}",
+    "developer.info.network.sent": "Sent: {{value}}",
+    "developer.info.network.download_speed": "Average Download: {{value}}",
+    "developer.info.network.upload_speed": "Average Upload: {{value}}",
+    "developer.info.network.empty": "No requestz capturd yet.",
+    "developer.info.console.title": "Console",
+    "developer.info.console.clear": "Clear Console",
+    "developer.info.console.empty": "No console messagez capturd yet.",
+    // --- End developer info translations
 
     // --- Start sidebar translations    
 

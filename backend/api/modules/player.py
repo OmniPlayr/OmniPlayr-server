@@ -1,10 +1,46 @@
-from fastapi import APIRouter, HTTPException, Request, Depends, Header
+import inspect
+from fastapi import APIRouter, HTTPException, Request, Depends, Header, Query, status
 from fastapi.responses import StreamingResponse
 from api.helpers.plugins import get_plugin
-from api.helpers.server import verify_auth, get_token_user
+from api.helpers.server import verify_auth, verify_token, get_token_user
 from api.helpers.log import log
 
 router = APIRouter()
+
+
+def _resolve_stream_auth(request: Request, token: str | None, account_token: str | None) -> int:
+    access_token = token
+    auth_header = request.headers.get("authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        access_token = auth_header[7:].strip()
+
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing access token",
+        )
+
+    verify_token(access_token)
+
+    resolved_account_token = account_token or request.headers.get("x-account-token")
+    if not resolved_account_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing account token",
+        )
+
+    account_id = get_token_user(resolved_account_token)
+    if account_id is None:
+        raise HTTPException(status_code=403, detail="Invalid account token")
+
+    return account_id
+
+
+def _plugin_accepts_range_header(plugin) -> bool:
+    try:
+        return "range_header" in inspect.signature(plugin.get_stream).parameters
+    except (TypeError, ValueError):
+        return False
 
 # This is to build a stream URL for the plugins
 def _build_stream_url(request: Request, source_type: str, song_id: str) -> str:
@@ -59,9 +95,15 @@ def get_media_info(source_type: str, song_id: str, request: Request, auth=Depend
 
 # This is to stream a song, you just send the source type that the plugin is registered for, and the song ID or path
 @router.get("/stream/{source_type}:{song_id:path}")
-def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(verify_auth), x_account_token: str = Header(..., alias="X-Account-Token")):
+def stream_media(
+    source_type: str,
+    song_id: str,
+    request: Request,
+    token: str | None = Query(None),
+    account_token: str | None = Query(None),
+):
     log(f"GET /player/stream/{source_type}:{song_id} requested", "debug", "module.player")
-    account_id = get_token_user(x_account_token)
+    account_id = _resolve_stream_auth(request, token, account_token)
     log(f"Stream request: account_id={account_id} source_type={source_type!r} song_id={song_id!r}", "debug", "module.player")
 
     plugin = get_plugin(source_type)
@@ -102,6 +144,21 @@ def stream_media(source_type: str, song_id: str, request: Request, auth=Depends(
             end = min(end, file_size - 1)
             length = end - start + 1
             log(f"Ranged stream: start={start} end={end} length={length}", "debug", "module.player")
+
+            if _plugin_accepts_range_header(plugin):
+                log(f"Opening plugin ranged stream for song_id={song_id!r}", "debug", "module.player")
+                stream = plugin.get_stream(song_id, account_id, range_header=range_header)
+                return StreamingResponse(
+                    stream,
+                    status_code=206,
+                    media_type=content_type,
+                    headers={
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(length),
+                        "Cache-Control": "no-cache",
+                    },
+                )
 
             def _ranged_stream():
                 stream = plugin.get_stream(song_id, account_id)

@@ -90,7 +90,56 @@
     "settings.tab.people.other": "Andere mensen",
     "settings.tab.people.other.desc": "Andere accounts beheren",
 
+    "settings.tab.devoptions": "Opties voor ontwikkelaars",
+    "settings.tab.devoptions.desc": "Geavanceerde instellingen voor ontwikkelaars",
+
+    "settings.devoptions.show_info_tabs": "Infotabs weergeven",
+    "settings.devoptions.show_info_tabs.desc": "Toon ingeschakelde ontwikkelaarsinformatie als versleepbare tabs en vensters.",
+    "settings.devoptions.info_tabs.title": "Infotabs",
+    "settings.devoptions.info_tabs.desc": "Kies welke ontwikkelaarsinformatievensters zichtbaar mogen zijn tijdens het gebruik van OmniPlayr.",
+    "settings.devoptions.audio_info": "Audio-informatie",
+    "settings.devoptions.audio_info.desc": "Toon live audioniveaus, pieken, frequenties en opnamediagnose.",
+    "settings.devoptions.network_info": "Netwerkinformatie",
+    "settings.devoptions.network_info.desc": "Toon requesttimings, overdrachtstotalen, snelheden en netwerkactiviteit voor deze sessie.",
+    "settings.devoptions.console_info": "Console",
+    "settings.devoptions.console_info.desc": "Toon consolelogs, waarschuwingen, fouten en debugberichten.",
+
     // --- End settings translations
+
+    // --- Start developer info translations
+    "developer.info.window.minimize": "Minimaliseren",
+    "developer.info.audio.title": "Audio-informatie",
+    "developer.info.audio.start_capture": "Tabopname starten",
+    "developer.info.audio.stop_capture": "Opname stoppen",
+    "developer.info.audio.reset_peaks": "Pieken resetten",
+    "developer.info.audio.error.no_track": "Geen audiospoor vastgelegd. Zorg dat \"Tabaudio delen\" is aangevinkt.",
+    "developer.info.audio.error.start_failed": "Kon tabopname niet starten.",
+    "developer.info.audio.band.overall": "Totaal",
+    "developer.info.audio.band.bass": "Bas",
+    "developer.info.audio.band.mid": "Midden",
+    "developer.info.audio.band.treble": "Treble",
+    "developer.info.audio.level": "{{band}} niveau (dBFS): {{value}} dB",
+    "developer.info.audio.peak": "{{band}} piek (dBFS): {{value}} dB",
+    "developer.info.audio.average_frequency": "Gemiddelde frequentie: {{value}} Hz",
+    "developer.info.audio.average_level": "Gemiddeld spectrumniveau (dBFS): {{value}} dB",
+    "developer.info.audio.dominant_frequency": "Dominante frequentie: {{value}} Hz",
+    "developer.info.audio.dominant_level": "Dominant niveau (dBFS): {{value}} dB",
+    "developer.info.audio.rms_level": "RMS-niveau (dBFS): {{value}} dB",
+    "developer.info.audio.sample_rate": "Samplefrequentie: {{value}} Hz",
+    "developer.info.audio.fft_size": "FFT-grootte: {{value}}",
+    "developer.info.audio.bin_resolution": "Binresolutie: {{value}} Hz",
+    "developer.info.network.title": "Netwerkinformatie",
+    "developer.info.network.total_requests": "Totaal aantal requests: {{value}}",
+    "developer.info.network.failed_requests": "Mislukte requests: {{value}}",
+    "developer.info.network.received": "Ontvangen: {{value}}",
+    "developer.info.network.sent": "Verzonden: {{value}}",
+    "developer.info.network.download_speed": "Gemiddelde download: {{value}}",
+    "developer.info.network.upload_speed": "Gemiddelde upload: {{value}}",
+    "developer.info.network.empty": "Nog geen requests vastgelegd.",
+    "developer.info.console.title": "Console",
+    "developer.info.console.clear": "Console wissen",
+    "developer.info.console.empty": "Nog geen consoleberichten vastgelegd.",
+    // --- End developer info translations
 
     // --- Start sidebar translations
 

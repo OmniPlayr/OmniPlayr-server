@@ -31,6 +31,7 @@ import Updating from './Updating.tsx';
 import Failure from './Fail.tsx';
 import '@wokki20/jspt/dist/jspt.css';
 import { useIsMobile } from './modules/useIsMobile';
+import DeveloperContext from './modules/DeveloperContext';
 
 export { useIsMobile } from './modules/useIsMobile';
 
@@ -276,6 +277,7 @@ function AppShell() {
         <>
             {showShell ? (
                 <NotificationsProvider>
+                    <DeveloperContext />
                     <div className="dashboard" data-component="Dashboard">
                         {!isMobile && (
                             <Header

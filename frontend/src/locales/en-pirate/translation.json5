@@ -90,7 +90,56 @@
     "settings.tab.people.other": "Other Scallywags",
     "settings.tab.people.other.desc": "Manage the rest of the crew",
 
+    "settings.tab.devoptions": "Shipwright Options",
+    "settings.tab.devoptions.desc": "Advanced Ship Rules for shipwrights",
+
+    "settings.devoptions.show_info_tabs": "Show Info Tabs",
+    "settings.devoptions.show_info_tabs.desc": "Show enabled shipwright info tools as draggable tabs and windows.",
+    "settings.devoptions.info_tabs.title": "Info Tabs",
+    "settings.devoptions.info_tabs.desc": "Choose which shipwright info windows can appear while sailin' OmniPlayr.",
+    "settings.devoptions.audio_info": "Audio Information",
+    "settings.devoptions.audio_info.desc": "Show live audio levels, peaks, frequencies, and capture diagnostics.",
+    "settings.devoptions.network_info": "Network Information",
+    "settings.devoptions.network_info.desc": "Show request timings, transfer totals, speeds, and session network activity.",
+    "settings.devoptions.console_info": "Console",
+    "settings.devoptions.console_info.desc": "Show console logs, warnings, errors, and debug messages.",
+
     // --- End settings translations
+
+    // --- Start developer info translations
+    "developer.info.window.minimize": "Minimize",
+    "developer.info.audio.title": "Audio Information",
+    "developer.info.audio.start_capture": "Start Tab Capture",
+    "developer.info.audio.stop_capture": "Stop Capture",
+    "developer.info.audio.reset_peaks": "Reset Peaks",
+    "developer.info.audio.error.no_track": "No audio track captured. Make sure \"Share tab audio\" be checked.",
+    "developer.info.audio.error.start_failed": "Failed to start tab capture.",
+    "developer.info.audio.band.overall": "Overall",
+    "developer.info.audio.band.bass": "Bass",
+    "developer.info.audio.band.mid": "Mid",
+    "developer.info.audio.band.treble": "Treble",
+    "developer.info.audio.level": "{{band}} Level (dBFS): {{value}} dB",
+    "developer.info.audio.peak": "{{band}} Peak (dBFS): {{value}} dB",
+    "developer.info.audio.average_frequency": "Average Frequency: {{value}} Hz",
+    "developer.info.audio.average_level": "Average Spectrum Level (dBFS): {{value}} dB",
+    "developer.info.audio.dominant_frequency": "Dominant Frequency: {{value}} Hz",
+    "developer.info.audio.dominant_level": "Dominant Level (dBFS): {{value}} dB",
+    "developer.info.audio.rms_level": "RMS Level (dBFS): {{value}} dB",
+    "developer.info.audio.sample_rate": "Sample Rate: {{value}} Hz",
+    "developer.info.audio.fft_size": "FFT Size: {{value}}",
+    "developer.info.audio.bin_resolution": "Bin Resolution: {{value}} Hz",
+    "developer.info.network.title": "Network Information",
+    "developer.info.network.total_requests": "Total Requests: {{value}}",
+    "developer.info.network.failed_requests": "Failed Requests: {{value}}",
+    "developer.info.network.received": "Received: {{value}}",
+    "developer.info.network.sent": "Sent: {{value}}",
+    "developer.info.network.download_speed": "Average Download: {{value}}",
+    "developer.info.network.upload_speed": "Average Upload: {{value}}",
+    "developer.info.network.empty": "No requests captured yet.",
+    "developer.info.console.title": "Console",
+    "developer.info.console.clear": "Clear Console",
+    "developer.info.console.empty": "No console messages captured yet.",
+    // --- End developer info translations
 
     // --- Start sidebar translations
 

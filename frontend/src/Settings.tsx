@@ -12,7 +12,8 @@ import {
     Users,
     Terminal as TerminalIcon,
     Languages,
-    KeyRound
+    KeyRound,
+    CodeXml
 } from "lucide-react";
 
 import './styles/Settings.css';
@@ -31,6 +32,8 @@ import OtherPeople from "./settings/OtherPeople";
 import Language from "./settings/Language";
 import BackupCodes from "./settings/BackupCodes";
 import { useTranslation } from 'react-i18next';
+import { isDev } from './modules/dev';
+import DeveloperOptions from "./settings/DeveloperOptions";
 
 function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteractionRequired }: any) {
     const navigate = useNavigate();
@@ -79,6 +82,14 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             title: t("settings.tab.about"),
             description: t("settings.tab.about.desc"),
             component: () => <About updateAvailable={updateAvailable} onRefreshCheck={onRefreshCheck} />
+        },
+        {
+            id: "devoptions",
+            icon: CodeXml,
+            title: t("settings.tab.devoptions"),
+            description: t("settings.tab.devoptions.desc"),
+            condition: () => isDev,
+            component: () => <DeveloperOptions />
         }
     ];
 

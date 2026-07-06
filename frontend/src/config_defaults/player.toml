@@ -5,6 +5,8 @@ prev_include_priority_queue = false
 [volume]
 default_volume = 1
 volume_persistence = "localStorage"
+fade_on_pause = true
+pause_fade_ms = 350
 
 [buffering]
 prefetch_enabled = true

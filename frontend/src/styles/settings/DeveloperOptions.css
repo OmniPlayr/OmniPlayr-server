@@ -1,0 +1,40 @@
+.developer-settings-item-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 12px;
+    background-color: var(--clr-popup-a10);
+}
+
+.developer-settings-item-group-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--clr-text-a0);
+}
+
+.developer-settings-item-group-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.developer-settings-item-group-description {
+    font-size: 14px;
+    color: var(--clr-text-a30);
+}
+
+.developer-settings-item-group .settings-toggle-item.disabled {
+    opacity: 0.45;
+}
+
+.developer-settings-item-group .settings-toggle-item.disabled,
+.developer-settings-item-group .settings-toggle-item.disabled .switch {
+    cursor: not-allowed;
+}
+
+.developer-settings-item-group-description {
+    font-size: 13px;
+    color: var(--clr-text-a30);
+}

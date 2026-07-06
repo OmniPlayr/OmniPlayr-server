@@ -5,6 +5,8 @@ prev_include_priority_queue = "bool # comment: When enabled, back-navigation als
 [volume]
 default_volume = "float <minmax [0, 1] step [0.01]> # comment: Volume to use on first launch or when persistence is off"
 volume_persistence = "string <in ['localStorage', 'sessionStorage', 'none']> # liveupdate:true # comment: Where to save and restore the last used volume across sessions"
+fade_on_pause = "bool # liveupdate:true # comment: Fade audio out before pausing"
+pause_fade_ms = "int <minmax [0, 3000] step [50]> # liveupdate:true # comment: Duration of the pause fade in milliseconds"
 
 [buffering]
 prefetch_enabled = "bool # comment: Fetch the next track in the background so switching to it is instant"

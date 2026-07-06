@@ -27,6 +27,7 @@ export interface SourcePlugin {
     destroy(): void;
     activate?(): void;
     setVolume?(fraction: number): void;
+    setTransientVolume?(fraction: number): void;
 }
 
 export interface TrackMetadata {
@@ -51,7 +52,7 @@ interface HistoryItem extends QueueItem {
 }
 
 interface PrefetchEntry {
-    blobUrl: string;
+    streamUrl: string;
     metadata: TrackMetadata;
 }
 
@@ -74,6 +75,17 @@ const VOLUME_STORAGE_KEY = 'player_volume';
 const HISTORY_STORAGE_KEY = 'player_history';
 const PLAYBACK_STATE_STORAGE_KEY = 'player_playback_state';
 const CURRENT_TRACK_STORAGE_KEY = 'player_current_track';
+const MIN_GAIN = 0.0001;
+
+function buildAuthenticatedStreamUrl(baseUrl: string, sourceType: string, songId: string, token: string, accountToken: string | null): string {
+    const encoded = encodeURIComponent(songId);
+    const params = new URLSearchParams({
+        token,
+        account_token: accountToken ?? '',
+    });
+
+    return `${baseUrl}/api/player/stream/${sourceType}:${encoded}?${params.toString()}`;
+}
 
 export function getVolumeStorage(): Storage | null {
     const mode = getConfig<string>('player.volume_persistence') ?? 'localStorage';
@@ -96,7 +108,6 @@ class AudioPlayer {
     private gainNode: GainNode | null = null;
     private sourceNode: MediaElementAudioSourceNode | null = null;
     private isTransitioning = false;
-    private currentBlobUrl: string | null = null;
     private trackListeners = new Set<TrackChangeListener>();
     private skipHistoryPush = false;
 
@@ -121,6 +132,13 @@ class AudioPlayer {
     private pendingAutoplay = false;
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
+    private fadeFrame: number | null = null;
+    private fadeNonce = 0;
+    private isPauseFadePending = false;
+    private isPauseRequested = false;
+
+    private analyserNode: AnalyserNode | null = null;
+    private analyserData: Uint8Array<ArrayBuffer> | null = null;
 
     isLoading = false;
     currentSongId: string | null = null;
@@ -132,6 +150,8 @@ class AudioPlayer {
     repeat: RepeatMode = 'off';
 
     constructor() {
+        this.audio.crossOrigin = 'anonymous';
+
         for (const event of ['timeupdate', 'play', 'pause', 'ended', 'loadedmetadata', 'waiting', 'playing']) {
             this.audio.addEventListener(event, () => this.notify());
         }
@@ -139,6 +159,10 @@ class AudioPlayer {
         this.audio.addEventListener('timeupdate', () => this.saveCurrentTrackState());
         this.audio.addEventListener('pause', () => this.saveCurrentTrackState());
         this.audio.addEventListener('play', () => this.saveCurrentTrackState());
+        this.audio.addEventListener('play', () => {
+            this.isPauseRequested = false;
+            this.notify();
+        });
 
         this.audio.addEventListener('ended', () => {
             this.clearCurrentTrackState();
@@ -160,9 +184,16 @@ class AudioPlayer {
     private initAudioGraph() {
         this.ctx = new AudioContext();
         this.gainNode = this.ctx.createGain();
+        this.analyserNode = this.ctx.createAnalyser();
         this.sourceNode = this.ctx.createMediaElementSource(this.audio);
+
+        this.analyserNode.fftSize = 2048;
+        this.analyserData = new Uint8Array(this.analyserNode.fftSize);
+
         this.sourceNode.connect(this.gainNode);
-        this.gainNode.connect(this.ctx.destination);
+        this.gainNode.connect(this.analyserNode);
+        this.analyserNode.connect(this.ctx.destination);
+
         this.gainNode.gain.value = 1;
     }
 
@@ -266,7 +297,7 @@ class AudioPlayer {
                 nextQueueItems: this.nextQueueItems,
                 nextQueueOriginal: this.nextQueueOriginal,
 
-                streamUrl: this.lastStreamUrl,
+                streamUrl: null,
             };
 
             storage.setItem(CURRENT_TRACK_STORAGE_KEY, JSON.stringify(state));
@@ -370,14 +401,12 @@ class AudioPlayer {
 
         navigator.mediaSession.setActionHandler('play', () => {
             if (this.isTransitioning) return;
-            if (this.activePlugin) this.activePlugin.resume();
-            else this.audio.play();
+            this.resumePlayback();
         });
 
         navigator.mediaSession.setActionHandler('pause', () => {
             if (this.isTransitioning) return;
-            if (this.activePlugin) this.activePlugin.pause();
-            else this.audio.pause();
+            this.pauseWithOptionalFade();
         });
 
         navigator.mediaSession.setActionHandler('nexttrack', () => this.skip());
@@ -457,34 +486,30 @@ class AudioPlayer {
                 const accountToken = getAccount();
                 const encoded = encodeURIComponent(next.songId);
 
+                if (!accountToken) return;
+
                 const headers = {
                     Authorization: `Bearer ${token}`,
                     'X-Account-Token': String(accountToken),
                 };
 
                 const signal = controller.signal;
+                const streamUrl = buildAuthenticatedStreamUrl(baseUrl, next.sourceType, next.songId, token, accountToken);
 
-                const [metaRes, streamRes] = await Promise.all([
-                    fetch(`${baseUrl}/api/player/media/${next.sourceType}:${encoded}`, { headers, signal }),
-                    fetch(`${baseUrl}/api/player/stream/${next.sourceType}:${encoded}`, { headers, signal }),
-                ]);
+                const metaRes = await fetch(`${baseUrl}/api/player/media/${next.sourceType}:${encoded}`, { headers, signal });
 
-                if (!metaRes.ok || !streamRes.ok || signal.aborted) return;
+                if (!metaRes.ok || signal.aborted) return;
 
-                const [metaJson, blob] = await Promise.all([
-                    metaRes.json(),
-                    streamRes.blob(),
-                ]);
+                const metaJson = await metaRes.json();
 
                 if (signal.aborted) return;
 
-                for (const [k, entry] of this.prefetchCache) {
-                    URL.revokeObjectURL(entry.blobUrl);
+                for (const [k] of this.prefetchCache) {
                     this.prefetchCache.delete(k);
                 }
 
                 this.prefetchCache.set(cacheKey, {
-                    blobUrl: URL.createObjectURL(blob),
+                    streamUrl,
                     metadata: metaJson.metadata as TrackMetadata,
                 });
             } catch {
@@ -562,6 +587,132 @@ class AudioPlayer {
             clearInterval(this.endCheckInterval);
             this.endCheckInterval = null;
         }
+    }
+
+    private getOutputGain(fraction = this._volumeFraction) {
+        const f = Math.max(0, Math.min(1, fraction));
+        const minDb = -60;
+        const db = minDb + f * Math.abs(minDb);
+
+        return Math.max(MIN_GAIN, Math.pow(10, db / 20));
+    }
+
+    private applyOutputVolume(fraction = this._volumeFraction) {
+        if (!this.gainNode || !this.ctx) return;
+
+        this.gainNode.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.gainNode.gain.setTargetAtTime(this.getOutputGain(fraction), this.ctx.currentTime, 0.01);
+    }
+
+    private cancelPauseFade() {
+        this.fadeNonce += 1;
+        this.isPauseFadePending = false;
+        this.isPauseRequested = false;
+
+        if (this.fadeFrame !== null) {
+            cancelAnimationFrame(this.fadeFrame);
+            this.fadeFrame = null;
+        }
+
+        this.applyOutputVolume();
+        this.activePlugin?.setTransientVolume?.(this._volumeFraction);
+        this.syncMediaSessionState();
+    }
+
+    private shouldFadeOnPause() {
+        return Boolean(getConfig<boolean>('volume.fade_on_pause')) && (getConfig<number>('volume.pause_fade_ms') ?? 350) > 0;
+    }
+
+    private pauseImmediately() {
+        this.isPauseRequested = true;
+        this.syncMediaSessionState();
+        this.notify();
+
+        if (this.activePlugin) this.activePlugin.pause();
+        else this.audio.pause();
+    }
+
+    private resumePlayback() {
+        this.cancelPauseFade();
+
+        if (this.activePlugin) this.activePlugin.resume();
+        else this.audio.play();
+
+        this.syncMediaSessionState();
+        this.notify();
+    }
+
+    private pauseWithOptionalFade() {
+        if (!this.shouldFadeOnPause()) {
+            this.cancelPauseFade();
+            this.pauseImmediately();
+            return;
+        }
+
+        const durationMs = Math.max(0, getConfig<number>('volume.pause_fade_ms') ?? 350);
+        const nonce = ++this.fadeNonce;
+        this.isPauseFadePending = true;
+        this.isPauseRequested = true;
+        this.syncMediaSessionState();
+        this.notify();
+
+        if (this.fadeFrame !== null) {
+            cancelAnimationFrame(this.fadeFrame);
+            this.fadeFrame = null;
+        }
+
+        if (this.activePlugin) {
+            if (!this.activePlugin.setTransientVolume) {
+                this.isPauseFadePending = false;
+                this.pauseImmediately();
+                return;
+            }
+
+            const startedAt = performance.now();
+            const from = this._volumeFraction;
+
+            const step = (now: number) => {
+                if (nonce !== this.fadeNonce) return;
+
+                const progress = Math.min(1, (now - startedAt) / durationMs);
+                this.activePlugin?.setTransientVolume?.(from * (1 - progress));
+
+                if (progress < 1) {
+                    this.fadeFrame = requestAnimationFrame(step);
+                    return;
+                }
+
+                this.fadeFrame = null;
+                this.activePlugin?.pause();
+                this.activePlugin?.setTransientVolume?.(this._volumeFraction);
+                this.isPauseFadePending = false;
+                this.notify();
+            };
+
+            this.fadeFrame = requestAnimationFrame(step);
+            return;
+        }
+
+        if (!this.gainNode || !this.ctx) {
+            this.audio.pause();
+            this.isPauseFadePending = false;
+            return;
+        }
+
+        const now = this.ctx.currentTime;
+
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setValueAtTime(Math.max(this.gainNode.gain.value, MIN_GAIN), now);
+        this.gainNode.gain.linearRampToValueAtTime(MIN_GAIN, now + durationMs / 1000);
+
+        window.setTimeout(() => {
+            if (nonce !== this.fadeNonce) return;
+
+            this.audio.pause();
+            this.isPauseFadePending = false;
+            this.applyOutputVolume();
+            this.notify();
+        }, durationMs);
     }
 
     addToQueue(songId: string, sourceType: string, extra?: Record<string, unknown>) {
@@ -745,6 +896,7 @@ class AudioPlayer {
     }
 
     skip() {
+        this.cancelPauseFade();
         this.audio.pause();
         this.next();
     }
@@ -764,6 +916,7 @@ class AudioPlayer {
             this.isLoading = true;
 
             if (this.activePlugin && this.activePlugin !== plugin) {
+                this.cancelPauseFade();
                 this.activePlugin.destroy();
             }
 
@@ -833,6 +986,7 @@ class AudioPlayer {
         }
 
         if (this.activePlugin) {
+            this.cancelPauseFade();
             this.activePlugin.destroy();
             this.activePlugin = null;
         }
@@ -883,13 +1037,8 @@ class AudioPlayer {
                 this.prefetchCache.delete(cacheKey);
 
                 this.currentMetadata = cached.metadata;
-
-                if (this.currentBlobUrl) {
-                    URL.revokeObjectURL(this.currentBlobUrl);
-                }
-
-                this.currentBlobUrl = cached.blobUrl;
-                this.audio.src = cached.blobUrl;
+                this.lastStreamUrl = cached.streamUrl;
+                this.audio.src = cached.streamUrl;
 
                 this.isLoading = false;
 
@@ -905,19 +1054,12 @@ class AudioPlayer {
 
                 const encoded = encodeURIComponent(songId);
 
-                this.lastStreamUrl = `${baseUrl}/api/player/stream/${sourceType}:${encoded}`;
+                this.lastStreamUrl = buildAuthenticatedStreamUrl(baseUrl, sourceType, songId, token, accountToken);
 
-                const [metaRes, streamRes] = await Promise.all([
-                    fetch(`${baseUrl}/api/player/media/${sourceType}:${encoded}`, { headers }),
-                    fetch(`${baseUrl}/api/player/stream/${sourceType}:${encoded}`, { headers }),
-                ]);
+                const metaRes = await fetch(`${baseUrl}/api/player/media/${sourceType}:${encoded}`, { headers });
 
                 if (!metaRes.ok) {
                     throw new Error(`Metadata fetch failed: ${metaRes.status}`);
-                }
-
-                if (!streamRes.ok) {
-                    throw new Error(`Stream fetch failed: ${streamRes.status}`);
                 }
 
                 const metaJson = await metaRes.json();
@@ -926,14 +1068,7 @@ class AudioPlayer {
 
                 this.notify();
 
-                const blob = await streamRes.blob();
-
-                if (this.currentBlobUrl) {
-                    URL.revokeObjectURL(this.currentBlobUrl);
-                }
-
-                this.currentBlobUrl = URL.createObjectURL(blob);
-                this.audio.src = this.currentBlobUrl;
+                this.audio.src = this.lastStreamUrl;
 
                 this.isLoading = false;
 
@@ -963,12 +1098,20 @@ class AudioPlayer {
     togglePlay() {
         if (this.activePlugin) {
             if (this.activePlugin.activate) this.activePlugin.activate();
-            this.activePlugin.isPlaying() ? this.activePlugin.pause() : this.activePlugin.resume();
+            if (this.isPlaying) {
+                this.pauseWithOptionalFade();
+            } else {
+                this.resumePlayback();
+            }
             this.notify();
             return;
         }
         if (!this.audio.src) return;
-        this.audio.paused ? this.audio.play() : this.audio.pause();
+        if (!this.isPlaying) {
+            this.resumePlayback();
+        } else {
+            this.pauseWithOptionalFade();
+        }
     }
 
     seek(fraction: number) {
@@ -987,10 +1130,7 @@ class AudioPlayer {
 
         if (!this.gainNode || !this.ctx) return;
 
-        const minDb = -60;
-        const db = minDb + f * Math.abs(minDb);
-        const gain = Math.pow(10, db / 20);
-        this.gainNode.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.01);
+        this.applyOutputVolume(f);
 
         const storage = getVolumeStorage();
         storage?.setItem(VOLUME_STORAGE_KEY, String(f));
@@ -1008,6 +1148,8 @@ class AudioPlayer {
     }
 
     get isPlaying() {
+        if (this.isPauseRequested) return false;
+        if (this.isPauseFadePending) return false;
         if (this.activePlugin) return this.activePlugin.isPlaying();
         return !this.audio.paused && !this.audio.ended;
     }
@@ -1059,6 +1201,21 @@ class AudioPlayer {
         return this.priorityQueue.length > 0
             || this.nextQueueItems.length > 0
             || (this.repeat === 'all' && this.nextQueueOriginal.length > 0);
+    }
+
+    get currentOutputVolume() {
+        if (!this.analyserNode || !this.analyserData) return 0;
+
+        this.analyserNode.getByteTimeDomainData(this.analyserData);
+
+        let sum = 0;
+
+        for (const value of this.analyserData) {
+            const sample = (value - 128) / 128;
+            sum += sample * sample;
+        }
+
+        return Math.sqrt(sum / this.analyserData.length);
     }
 }
 

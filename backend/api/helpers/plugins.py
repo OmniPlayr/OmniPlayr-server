@@ -203,23 +203,42 @@ def _as_plugin_spec(value: Any) -> dict[str, Any]:
     return {"version": value}
 
 
+def _is_local_plugin_spec(plugin_spec: dict[str, Any]) -> bool:
+    version = plugin_spec.get("version")
+    return isinstance(version, str) and version.lower() == "local"
+
+
+def _plugin_dir_exists(path: Path) -> bool:
+    return (path / "__init__.py").exists() or (path / "package.json").exists()
+
+
+def _local_plugin_candidates(root: Path, plugin_key: str) -> list[Path]:
+    return [
+        root / plugin_key / "backend",
+        root / plugin_key,
+        root / "backend",
+        root,
+    ]
+
+
 def _candidate_plugin_dirs(plugin_key: str, plugin_spec: dict[str, Any]) -> list[Path]:
     candidates: list[Path] = []
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
     configured_path = plugin_spec.get("path")
     if dev_mode and isinstance(configured_path, str) and configured_path.strip():
-        candidates.append(Path(configured_path.strip()))
+        candidates.extend(_local_plugin_candidates(Path(configured_path.strip()), plugin_key))
+
+    if dev_mode and _is_local_plugin_spec(plugin_spec):
+        for root in (Path("/external-backend-plugins"), Path("/external-plugins")):
+            candidates.extend(_local_plugin_candidates(root, plugin_key))
 
     candidates.extend([
         Path("plugins") / plugin_key,
         Path("backend/plugins") / plugin_key,
     ])
     if dev_mode:
-        local_root = Path("/local-plugins/backend")
-        candidates.extend([
-            local_root / plugin_key,
-            local_root,
-        ])
+        candidates.extend(_local_plugin_candidates(Path("/local-plugins"), plugin_key))
+        candidates.extend(_local_plugin_candidates(Path("/local-plugins/backend"), plugin_key))
 
     seen: set[str] = set()
     unique: list[Path] = []
@@ -236,7 +255,7 @@ def get_backend_plugin_dir(plugin_key: str, plugin_spec: Any = None) -> Path:
 
     spec = _as_plugin_spec(plugin_spec)
     for path in _candidate_plugin_dirs(plugin_key, spec):
-        if (path / "__init__.py").exists() or (path / "package.json").exists():
+        if _plugin_dir_exists(path):
             return path
     return Path("plugins") / plugin_key
 
