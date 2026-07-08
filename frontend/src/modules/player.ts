@@ -130,6 +130,7 @@ class AudioPlayer {
     private activePlugin: SourcePlugin | null = null;
 
     private pendingAutoplay = false;
+    private endAdvanceInProgress = false;
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
     private fadeFrame: number | null = null;
@@ -166,7 +167,9 @@ class AudioPlayer {
 
         this.audio.addEventListener('ended', () => {
             this.clearCurrentTrackState();
-            this.next();
+            this.next().catch(error => {
+                this.reportPluginError('advance native audio to next track', error);
+            });
         });
 
         for (const event of ['play', 'pause', 'loadedmetadata']) {
@@ -531,6 +534,97 @@ class AudioPlayer {
         this.trackListeners.forEach(cb => cb(this.currentSongId, this.currentSourceType));
     }
 
+    private reportPluginError(context: string, error: unknown) {
+        console.error(`[player] Plugin ${context} failed:`, error);
+    }
+
+    private safelyDestroyPlugin(plugin: SourcePlugin) {
+        try {
+            Promise.resolve(plugin.destroy()).catch(error => {
+                this.reportPluginError('destroy', error);
+            });
+        } catch (error) {
+            this.reportPluginError('destroy', error);
+        }
+    }
+
+    private safelyActivatePlugin(plugin: SourcePlugin) {
+        try {
+            Promise.resolve(plugin.activate?.()).catch(error => {
+                this.reportPluginError('activate', error);
+            });
+        } catch (error) {
+            this.reportPluginError('activate', error);
+        }
+    }
+
+    private safelySetPluginVolume(plugin: SourcePlugin, fraction: number) {
+        try {
+            Promise.resolve(plugin.setVolume?.(fraction)).catch(error => {
+                this.reportPluginError('set volume', error);
+            });
+        } catch (error) {
+            this.reportPluginError('set volume', error);
+        }
+    }
+
+    private safelySetPluginTransientVolume(plugin: SourcePlugin | null, fraction: number) {
+        try {
+            Promise.resolve(plugin?.setTransientVolume?.(fraction)).catch(error => {
+                this.reportPluginError('set transient volume', error);
+            });
+        } catch (error) {
+            this.reportPluginError('set transient volume', error);
+        }
+    }
+
+    private safelyPausePlugin(plugin: SourcePlugin) {
+        try {
+            Promise.resolve(plugin.pause()).catch(error => {
+                this.reportPluginError('pause', error);
+            });
+        } catch (error) {
+            this.reportPluginError('pause', error);
+        }
+    }
+
+    private safelyResumePlugin(plugin: SourcePlugin) {
+        try {
+            Promise.resolve(plugin.resume()).catch(error => {
+                this.reportPluginError('resume', error);
+            });
+        } catch (error) {
+            this.reportPluginError('resume', error);
+        }
+    }
+
+    private safelySeekPlugin(plugin: SourcePlugin, seconds: number) {
+        try {
+            Promise.resolve(plugin.seek(seconds)).catch(error => {
+                this.reportPluginError('seek', error);
+            });
+        } catch (error) {
+            this.reportPluginError('seek', error);
+        }
+    }
+
+    private advanceAfterEnd() {
+        if (this.endAdvanceInProgress) return;
+        this.endAdvanceInProgress = true;
+        this.clearCurrentTrackState();
+        this.next().catch(error => {
+            this.reportPluginError('advance to next track', error);
+        }).finally(() => {
+            this.endAdvanceInProgress = false;
+        });
+    }
+
+    private startNext(context: string) {
+        this.next().catch(error => {
+            this.reportPluginError(context, error);
+        });
+    }
+
     subscribeToTrackChange(cb: TrackChangeListener): () => void {
         this.trackListeners.add(cb);
         return () => this.trackListeners.delete(cb);
@@ -577,7 +671,7 @@ class AudioPlayer {
 
             if (duration > 0 && time >= duration - 0.25) {
                 this.stopEndWatcher();
-                this.next();
+                this.advanceAfterEnd();
             }
         }, 200);
     }
@@ -615,7 +709,7 @@ class AudioPlayer {
         }
 
         this.applyOutputVolume();
-        this.activePlugin?.setTransientVolume?.(this._volumeFraction);
+        this.safelySetPluginTransientVolume(this.activePlugin, this._volumeFraction);
         this.syncMediaSessionState();
     }
 
@@ -628,14 +722,14 @@ class AudioPlayer {
         this.syncMediaSessionState();
         this.notify();
 
-        if (this.activePlugin) this.activePlugin.pause();
+        if (this.activePlugin) this.safelyPausePlugin(this.activePlugin);
         else this.audio.pause();
     }
 
     private resumePlayback() {
         this.cancelPauseFade();
 
-        if (this.activePlugin) this.activePlugin.resume();
+        if (this.activePlugin) this.safelyResumePlugin(this.activePlugin);
         else this.audio.play();
 
         this.syncMediaSessionState();
@@ -675,7 +769,7 @@ class AudioPlayer {
                 if (nonce !== this.fadeNonce) return;
 
                 const progress = Math.min(1, (now - startedAt) / durationMs);
-                this.activePlugin?.setTransientVolume?.(from * (1 - progress));
+                this.safelySetPluginTransientVolume(this.activePlugin, from * (1 - progress));
 
                 if (progress < 1) {
                     this.fadeFrame = requestAnimationFrame(step);
@@ -683,8 +777,8 @@ class AudioPlayer {
                 }
 
                 this.fadeFrame = null;
-                this.activePlugin?.pause();
-                this.activePlugin?.setTransientVolume?.(this._volumeFraction);
+                if (this.activePlugin) this.safelyPausePlugin(this.activePlugin);
+                this.safelySetPluginTransientVolume(this.activePlugin, this._volumeFraction);
                 this.isPauseFadePending = false;
                 this.notify();
             };
@@ -719,7 +813,7 @@ class AudioPlayer {
         this.priorityQueue.push({ songId, sourceType, extra });
 
         if (!this.currentSongId && !this.isTransitioning) {
-            this.next();
+            this.startNext('start queued track');
         } else {
             this.schedulePrefetch();
         }
@@ -741,7 +835,7 @@ class AudioPlayer {
         this.nextQueueItems = this.shuffle ? this.smartShuffle([...items]) : [...items];
 
         if (!this.currentSongId && !this.isTransitioning) {
-            this.next();
+            this.startNext('start next queue');
         } else {
             this.schedulePrefetch();
         }
@@ -757,7 +851,7 @@ class AudioPlayer {
         this.nextQueueItems.push(...toAdd);
 
         if (!this.currentSongId && !this.isTransitioning) {
-            this.next();
+            this.startNext('start appended queue');
         } else {
             this.schedulePrefetch();
         }
@@ -898,7 +992,9 @@ class AudioPlayer {
     skip() {
         this.cancelPauseFade();
         this.audio.pause();
-        this.next();
+        this.next().catch(error => {
+            this.reportPluginError('skip to next track', error);
+        });
     }
 
     async playSong(
@@ -917,7 +1013,7 @@ class AudioPlayer {
 
             if (this.activePlugin && this.activePlugin !== plugin) {
                 this.cancelPauseFade();
-                this.activePlugin.destroy();
+                this.safelyDestroyPlugin(this.activePlugin);
             }
 
             if (!this.plugins.has(this.currentSourceType ?? '')) {
@@ -925,7 +1021,7 @@ class AudioPlayer {
             }
 
             this.activePlugin = plugin;
-            if (plugin.activate) plugin.activate();
+            this.safelyActivatePlugin(plugin);
 
             if (this.currentSongId && !this.skipHistoryPush) {
                 const includePriority = getConfig<boolean>('navigation.prev_include_priority_queue') ?? false;
@@ -968,14 +1064,15 @@ class AudioPlayer {
                     },
 
                     onEnded: () => {
-                        this.clearCurrentTrackState();
-                        this.next();
+                        this.advanceAfterEnd();
                     },
                     onStateChange: () => {
                         this.notify();
                     },
                 });
                 this.schedulePrefetch();
+            } catch (error) {
+                this.reportPluginError(`playback for ${sourceType}:${songId}`, error);
             } finally {
                 this.isLoading = false;
                 this.isTransitioning = false;
@@ -987,7 +1084,7 @@ class AudioPlayer {
 
         if (this.activePlugin) {
             this.cancelPauseFade();
-            this.activePlugin.destroy();
+            this.safelyDestroyPlugin(this.activePlugin);
             this.activePlugin = null;
         }
         const token = localStorage.getItem('access_token');
@@ -1097,7 +1194,7 @@ class AudioPlayer {
 
     togglePlay() {
         if (this.activePlugin) {
-            if (this.activePlugin.activate) this.activePlugin.activate();
+            this.safelyActivatePlugin(this.activePlugin);
             if (this.isPlaying) {
                 this.pauseWithOptionalFade();
             } else {
@@ -1116,7 +1213,7 @@ class AudioPlayer {
 
     seek(fraction: number) {
         if (this.activePlugin) {
-            this.activePlugin.seek(this.activePlugin.getDuration() * Math.max(0, Math.min(1, fraction)));
+            this.safelySeekPlugin(this.activePlugin, this.activePlugin.getDuration() * Math.max(0, Math.min(1, fraction)));
             return;
         }
         if (!this.audio.duration) return;
@@ -1135,7 +1232,7 @@ class AudioPlayer {
         const storage = getVolumeStorage();
         storage?.setItem(VOLUME_STORAGE_KEY, String(f));
 
-        this.activePlugin?.setVolume?.(f);
+        if (this.activePlugin) this.safelySetPluginVolume(this.activePlugin, f);
         this.notify();
     }
 
