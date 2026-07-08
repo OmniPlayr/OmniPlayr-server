@@ -264,8 +264,8 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                 <div className="sidebar-footer">
                     <div className="sidebar-tabs">
                         <div
-                            className={`sidebar-tab${activeTabId === null ? ' active' : ''}`}
-                            onClick={() => handleTabChange(null)}
+                            className={`sidebar-tab${activeTabId === '__home' ? ' active' : ''}`}
+                            onClick={() => handleTabChange('__home')}
                         >
                             <House className="tab-icon" />
                             <p className="tab-text">{t("sidebar.tab.home")}</p>

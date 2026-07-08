@@ -108,6 +108,7 @@ function NavigateSetter() {
 }
 
 function resolveActiveTabFromPath(pathname: string): string | null {
+    if (pathname === '/') return '__home';
     if (pathname.startsWith('/settings')) return '__settings';
     if (pathname.startsWith('/notifications')) return '__mobile_notifications';
     const tab = getTabByUrl(pathname);
@@ -213,7 +214,8 @@ function AppShell() {
     usePlugins();
 
     const handleTabChange = (tabId: string | null) => {
-        if (tabId === null) {
+        if (!tabId) return;
+        if (tabId === '__home') {
             navigate('/');
             return;
         }
@@ -240,7 +242,7 @@ function AppShell() {
         setIsAuth(isTokenValid());
         setNavHistory(['/']);
         setHistoryIndex(0);
-        setActiveTabId(null);
+        setActiveTabId('__home');
         navigate('/dashboard');
         setSearchParams({});
     }, [searchParams]);
@@ -295,7 +297,7 @@ function AppShell() {
                                 <>
                                 <BottomNav
                                     onMenuToggle={() => setSidebarOpen(prev => !prev)}
-                                    onHome={() => handleTabChange(null)}
+                                    onHome={() => handleTabChange('__home')}
                                     onSettings={() => handleTabChange('__settings')}
                                     onNotifications={() => handleTabChange('__mobile_notifications')}
                                     activeTabId={resolvedTabId}
