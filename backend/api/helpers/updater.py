@@ -1049,6 +1049,8 @@ def apply_update() -> dict:
     current = _get_current_info()
     branch = current.get("branch", "main")
     verify_signature = bool(get_config("tampering.verify_signature_on_update", False))
+    if (os.environ.get("DEV_MODE", "").lower() == "true"):
+        verify_signature = False
     fix_files = bool(get_config("tampering.fix_files_on_update", False)) and verify_signature
     go_safe_mode = bool(get_config("tampering.go_in_safe_mode", False)) and verify_signature
     target_manifest = None
