@@ -209,6 +209,10 @@
     "accountSelect.title": "Who be listenin'?",
     // --- End Account Select translations
 
+    // --- Start Player translations
+    "player.toast.playback_failed": "OmniPlayr cannot play this track at the moment",
+    // --- End Player translations
+
     // --- Start Theme translations
     "settings.theme.dark": "Dark Waters",
     "settings.theme.light": "Clear Skies",

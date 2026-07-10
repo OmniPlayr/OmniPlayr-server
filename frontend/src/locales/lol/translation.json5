@@ -209,6 +209,10 @@
     "accountSelect.title": "Hoo iz listenin?",
     // --- End Account Select translations
 
+    // --- Start Player translations
+    "player.toast.playback_failed": "OmniPlayr cannot play dis track rite now",
+    // --- End Player translations
+
     // --- Start Theme translations
     "settings.theme.dark": "Drak",
     "settings.theme.light": "Liet",

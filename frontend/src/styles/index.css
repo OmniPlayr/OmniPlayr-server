@@ -426,6 +426,68 @@ input.switch:checked::after {
     }
 }
 
+/* OmniPlayr Toast Styling */
+.op-toast-container {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    z-index: 2000;
+    transform: translateX(-50%);
+}
+
+.op-toast {
+    width: max-content;
+    padding: 10px 15px;
+    background-color: var(--clr-popup-a10);
+    border: 1px solid var(--clr-popup-a30);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    animation: toast-pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes toast-pop-in {
+    0% { opacity: 0; transform: translateY(100%); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.op-toast.closing {
+    animation: toast-pop-out 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes toast-pop-out {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(100%); }
+}
+
+.op-toast-dismissible {
+    cursor: pointer;
+}
+
+.op-toast-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    color: var(--clr-text-a0);
+}
+
+.op-toast-error {
+    background-color: var(--clr-danger-a0);
+    border: 1px solid var(--clr-danger-a10);
+}
+
+.op-toast-warning {
+    background-color: var(--clr-warning-a0);
+    border: 1px solid var(--clr-warning-a10);
+}
+
+.op-toast-success {
+    background-color: var(--clr-success-a0);
+    border: 1px solid var(--clr-success-a10);
+}
+
 /* Account Login Popup */
 .enter-password-popup-title {
     font-size: 18px;

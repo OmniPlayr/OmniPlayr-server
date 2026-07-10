@@ -1,5 +1,7 @@
 import { getConfig } from './config';
 import { getAccount } from './account';
+import { createToast } from './ToastContext';
+import i18n from '../i18n';
 
 type PlayerListener = () => void;
 type TrackChangeListener = (songId: string | null, sourceType: string | null) => void;
@@ -76,6 +78,7 @@ const HISTORY_STORAGE_KEY = 'player_history';
 const PLAYBACK_STATE_STORAGE_KEY = 'player_playback_state';
 const CURRENT_TRACK_STORAGE_KEY = 'player_current_track';
 const MIN_GAIN = 0.0001;
+const PLAYBACK_FAILURE_GRACE_MS = 3000;
 
 function buildAuthenticatedStreamUrl(baseUrl: string, sourceType: string, songId: string, token: string, accountToken: string | null): string {
     const encoded = encodeURIComponent(songId);
@@ -132,6 +135,7 @@ class AudioPlayer {
     private pendingAutoplay = false;
     private endAdvanceInProgress = false;
     private playbackFailureAdvancePending = false;
+    private playbackFailureTimer: ReturnType<typeof setTimeout> | null = null;
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
     private fadeFrame: number | null = null;
@@ -163,8 +167,11 @@ class AudioPlayer {
         this.audio.addEventListener('play', () => this.saveCurrentTrackState());
         this.audio.addEventListener('play', () => {
             this.isPauseRequested = false;
+            this.cancelPendingPlaybackFailure();
             this.notify();
         });
+
+        this.audio.addEventListener('playing', () => this.cancelPendingPlaybackFailure());
 
         this.audio.addEventListener('ended', () => {
             this.clearCurrentTrackState();
@@ -174,9 +181,6 @@ class AudioPlayer {
         });
 
         this.audio.addEventListener('error', () => {
-            // The media endpoint has already succeeded by the time a stream is
-            // assigned. Keep metadata failures separate: only a failure from the
-            // audio element itself should skip the current track.
             if (!this.activePlugin && this.currentMetadata) {
                 this.advanceAfterPlaybackFailure();
             }
@@ -633,16 +637,43 @@ class AudioPlayer {
         if (this.playbackFailureAdvancePending) return;
 
         this.playbackFailureAdvancePending = true;
-        this.finishPendingPlaybackFailureAdvance();
+        this.playbackFailureTimer = setTimeout(
+            () => this.finishPendingPlaybackFailureAdvance(),
+            PLAYBACK_FAILURE_GRACE_MS
+        );
+    }
+
+    private cancelPendingPlaybackFailure() {
+        if (this.playbackFailureTimer) {
+            clearTimeout(this.playbackFailureTimer);
+            this.playbackFailureTimer = null;
+        }
+        this.playbackFailureAdvancePending = false;
     }
 
     private finishPendingPlaybackFailureAdvance() {
-        if (!this.playbackFailureAdvancePending || this.isTransitioning) return;
+        this.playbackFailureTimer = null;
+        if (!this.playbackFailureAdvancePending) return;
+
+        if (this.isTransitioning) {
+            this.playbackFailureTimer = setTimeout(
+                () => this.finishPendingPlaybackFailureAdvance(),
+                250
+            );
+            return;
+        }
 
         this.playbackFailureAdvancePending = false;
+        createToast({
+            id: `playback-failure-${Date.now()}`,
+            message: i18n.t('player.toast.playback_failed'),
+            type: 'info',
+            duration: 5000,
+            dismissable: true,
+        });
         this.clearCurrentTrackState();
         this.next(true).catch(error => {
-            this.reportPluginError('advance after native audio failure', error);
+            this.reportPluginError('advance after playback failure', error);
         });
     }
 
@@ -1031,6 +1062,7 @@ class AudioPlayer {
         fromNextQueue = false,
         autoplay = true
     ) {
+        this.cancelPendingPlaybackFailure();
         const plugin = this.plugins.get(sourceType);
         this.stopEndWatcher();
 
@@ -1085,6 +1117,7 @@ class AudioPlayer {
                         this.notify();
                     },
                     onReady: () => {
+                        this.cancelPendingPlaybackFailure();
                         this.isLoading = false;
                         this.startEndWatcher();
                         this.notify();
@@ -1100,6 +1133,7 @@ class AudioPlayer {
                 this.schedulePrefetch();
             } catch (error) {
                 this.reportPluginError(`playback for ${sourceType}:${songId}`, error);
+                this.advanceAfterPlaybackFailure();
             } finally {
                 this.isLoading = false;
                 this.isTransitioning = false;
@@ -1217,11 +1251,13 @@ class AudioPlayer {
 
             this.saveCurrentTrackState();
             this.schedulePrefetch();
+        } catch (error) {
+            this.reportPluginError(`playback for ${sourceType}:${songId}`, error);
+            this.advanceAfterPlaybackFailure();
         } finally {
             this.isLoading = false;
             this.isTransitioning = false;
             this.notify();
-            this.finishPendingPlaybackFailureAdvance();
         }
     }
 

@@ -209,6 +209,10 @@
     "accountSelect.title": "Wie luistert er?",
     // --- End Account Select translations
 
+    // --- Start Player translations
+    "player.toast.playback_failed": "OmniPlayr kan dit nummer op dit moment niet afspelen",
+    // --- End Player translations
+
     // --- Start Theme translations
     "settings.theme.dark": "Donker",
     "settings.theme.light": "Licht",
