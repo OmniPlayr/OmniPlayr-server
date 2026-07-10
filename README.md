@@ -29,7 +29,7 @@ Each audio source is implemented as a plugin. The **MP3 plugin is fully function
 |---|---|---|
 | Local MP3 / files | ✅ Functional | [mp3@built-in](https://omniplayr.wokki20.nl/packages/package/mp3@built-in) |
 | Spotify | ✅ Functional | [spotify@built-in](https://omniplayr.wokki20.nl/packages/package/spotify@built-in) |
-| YouTube Music | 🔜 Planned | No plugin yet |
+| YouTube Music | ✅ Functional | [youtube@built-in](https://omniplayr.wokki20.nl/packages/package/youtube@built-in) |
 | Amazon Music | 🔜 Planned | No plugin yet |
 | SoundCloud | 🟧 Not Fully Tested | [soundcloud@built-in](https://omniplayr.wokki20.nl/packages/package/soundcloud@built-in) |
 

@@ -1,3 +1,6 @@
+// Parser Action
+// @devonly.look-for-start
+
 import {
     Blocks,
     Info,
@@ -33,7 +36,9 @@ import Language from "./settings/Language";
 import BackupCodes from "./settings/BackupCodes";
 import { useTranslation } from 'react-i18next';
 import { isDev } from './modules/dev';
+// @devonly.start
 import DeveloperOptions from "./settings/DeveloperOptions";
+// @devonly.end
 
 function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteractionRequired }: any) {
     const navigate = useNavigate();
@@ -83,6 +88,8 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             description: t("settings.tab.about.desc"),
             component: () => <About updateAvailable={updateAvailable} onRefreshCheck={onRefreshCheck} />
         },
+        // @devonly.linebefore: char.-1
+        // @devonly.start
         {
             id: "devoptions",
             icon: CodeXml,
@@ -91,6 +98,7 @@ function Settings({ account, updateAvailable, onRefreshCheck, pluginsInteraction
             condition: () => isDev,
             component: () => <DeveloperOptions />
         }
+        // @devonly.end
     ];
 
     const subTabs: Record<string, any[]> = {

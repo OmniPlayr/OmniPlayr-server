@@ -1,6 +1,7 @@
 import os
 import uvicorn
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -8,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from api.helpers.db import init_db_when_ready
 from api.router import router
 from api.helpers.config import load_configs, get_config
-from api.helpers.plugins import load_plugins, get_plugin_router
+from api.helpers.plugins import load_plugins, get_plugin_router, get_backend_plugin_reload_dirs
 from api.helpers.config_watcher import start_config_watcher
 from api.helpers.log import log, setup_exception_hook, setup_thread_exception_hook, setup_asyncio_exception_handler, log_exception
 from api.helpers.notifications import notify_sync, set_main_loop
@@ -49,6 +50,26 @@ def _notify_admins_update():
 
 def _is_safe_mode() -> bool:
     return os.path.exists(_SAFE_MODE_FILE)
+
+
+def _reload_dirs() -> list[str]:
+    """Return backend and resolved plugin directories watched in dev mode."""
+
+    backend_dir = Path(__file__).resolve().parent
+    candidates = [backend_dir / "api", backend_dir / "plugins"]
+    candidates.extend(get_backend_plugin_reload_dirs(backend_dir / "config.local.json"))
+
+    reload_dirs: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate.is_dir():
+            continue
+        resolved = str(candidate.resolve())
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        reload_dirs.append(resolved)
+    return reload_dirs
 
 
 def _notify_admins():
@@ -122,10 +143,13 @@ app.include_router(router, prefix="/api")
 app.include_router(health_router, prefix="/api")
 if __name__ == "__main__":
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
+    reload_dirs = _reload_dirs() if dev_mode else None
+    if reload_dirs:
+        log(f"Backend hot reload is watching: {reload_dirs}", "info", "main")
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=8226,
         reload=dev_mode,
-        reload_dirs=["/app/api", "/app/plugins"] if dev_mode else None
+        reload_dirs=reload_dirs,
     )

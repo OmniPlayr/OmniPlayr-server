@@ -1,3 +1,5 @@
+// Parser Action
+// @devonly.all
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentType, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';

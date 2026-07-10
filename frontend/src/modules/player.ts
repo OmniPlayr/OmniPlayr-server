@@ -131,6 +131,7 @@ class AudioPlayer {
 
     private pendingAutoplay = false;
     private endAdvanceInProgress = false;
+    private playbackFailureAdvancePending = false;
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
     private fadeFrame: number | null = null;
@@ -170,6 +171,15 @@ class AudioPlayer {
             this.next().catch(error => {
                 this.reportPluginError('advance native audio to next track', error);
             });
+        });
+
+        this.audio.addEventListener('error', () => {
+            // The media endpoint has already succeeded by the time a stream is
+            // assigned. Keep metadata failures separate: only a failure from the
+            // audio element itself should skip the current track.
+            if (!this.activePlugin && this.currentMetadata) {
+                this.advanceAfterPlaybackFailure();
+            }
         });
 
         for (const event of ['play', 'pause', 'loadedmetadata']) {
@@ -619,6 +629,23 @@ class AudioPlayer {
         });
     }
 
+    private advanceAfterPlaybackFailure() {
+        if (this.playbackFailureAdvancePending) return;
+
+        this.playbackFailureAdvancePending = true;
+        this.finishPendingPlaybackFailureAdvance();
+    }
+
+    private finishPendingPlaybackFailureAdvance() {
+        if (!this.playbackFailureAdvancePending || this.isTransitioning) return;
+
+        this.playbackFailureAdvancePending = false;
+        this.clearCurrentTrackState();
+        this.next(true).catch(error => {
+            this.reportPluginError('advance after native audio failure', error);
+        });
+    }
+
     private startNext(context: string) {
         this.next().catch(error => {
             this.reportPluginError(context, error);
@@ -902,10 +929,10 @@ class AudioPlayer {
         this.notify();
     }
 
-    async next() {
+    async next(ignoreRepeatOne = false) {
         if (this.isTransitioning) return;
 
-        if (this.repeat === 'one' && this.currentSongId) {
+        if (!ignoreRepeatOne && this.repeat === 'one' && this.currentSongId) {
             this.skipHistoryPush = true;
 
             await this.playSong(
@@ -1179,7 +1206,12 @@ class AudioPlayer {
             }
 
             if (autoplay) {
-                await this.audio.play();
+                try {
+                    await this.audio.play();
+                } catch (error) {
+                    this.advanceAfterPlaybackFailure();
+                    throw error;
+                }
                 this.startEndWatcher();
             }
 
@@ -1189,6 +1221,7 @@ class AudioPlayer {
             this.isLoading = false;
             this.isTransitioning = false;
             this.notify();
+            this.finishPendingPlaybackFailureAdvance();
         }
     }
 

@@ -260,6 +260,50 @@ def get_backend_plugin_dir(plugin_key: str, plugin_spec: Any = None) -> Path:
     return Path("plugins") / plugin_key
 
 
+def get_backend_plugin_reload_dirs(config_path: Path | str = "config.local.json") -> list[Path]:
+    """Return resolved local plugin directories that should trigger a dev reload."""
+
+    if os.environ.get("DEV_MODE", "").lower() != "true":
+        return []
+
+    config_file = Path(config_path)
+    if not config_file.exists():
+        return []
+
+    try:
+        with open(config_file) as f:
+            config = json.load(f)
+    except Exception as e:
+        log(f"Could not read {config_file} for plugin reload paths: {e}", "warning", "plugins")
+        return []
+
+    declared = config.get("plugins", {})
+    if isinstance(declared, list):
+        declared = {name: "*" for name in declared}
+    if not isinstance(declared, dict):
+        return []
+
+    reload_dirs: list[Path] = []
+    seen: set[str] = set()
+    for plugin_key, plugin_spec in declared.items():
+        spec = _as_plugin_spec(plugin_spec)
+        if not (_is_local_plugin_spec(spec) or spec.get("path")):
+            continue
+
+        plugin_dir = get_backend_plugin_dir(plugin_key, spec)
+        if not (plugin_dir / "__init__.py").exists():
+            continue
+
+        resolved = plugin_dir.resolve()
+        key = str(resolved)
+        if key in seen:
+            continue
+        seen.add(key)
+        reload_dirs.append(resolved)
+
+    return reload_dirs
+
+
 def load_plugins():
     """Load configured backend plugins into the current server process."""
 
