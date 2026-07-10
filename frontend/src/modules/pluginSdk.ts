@@ -41,9 +41,6 @@ export type {
 export { closePopup, createPopup, goBackPopup } from './PopupContext';
 export type { Popup, PopupButton } from './PopupContext';
 import { getVolumeStorage as getCoreVolumeStorage } from './player';
-/**
- * Return the Storage object OmniPlayr uses for volume persistence, or null when volume persistence is disabled.
- */
 export function getVolumeStorage(): Storage | null {
     return getCoreVolumeStorage();
 }

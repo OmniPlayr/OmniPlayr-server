@@ -225,6 +225,11 @@ export function registerPluginsMenuItem(
         return;
     }
 
+    if (menuRegistry.find(m => m.id === id && m.label === menuItem.label && m.icon === menuItem.icon)) {
+        console.error(`[plugins] blocked: "${id}" menu item with the same label and icon already exists`);
+        return;
+    }
+
     const label = menuItem.label ?? getPluginConfig(id)?.name ?? id;
 
     menuRegistry.push({

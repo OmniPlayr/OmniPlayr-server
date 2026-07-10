@@ -138,6 +138,7 @@
     border-radius: 5px;
     pointer-events: none;
     transition: width 0.1s linear;
+    max-width: 100%;
 }
 
 .progress-bar:active .progress-bar-fill {
