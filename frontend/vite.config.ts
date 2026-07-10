@@ -9,6 +9,11 @@ function isSplitLocalFrontendImporter(importer?: string): boolean {
   return /\/src\/local-(?:frontend-)?plugins\/.+\/frontend\//.test(normalised)
 }
 
+function isLocalPluginCss(file: string): boolean {
+  const normalised = file.replaceAll('\\', '/')
+  return /\/src\/local-(?:frontend-)?plugins\/.+\.css$/.test(normalised)
+}
+
 const coreImportPattern = /^\.\.\/\.\.\/(modules|i18n|assets|styles|config)(\/.*)?$/
 
 export default defineConfig({
@@ -46,8 +51,26 @@ export default defineConfig({
         }
       },
     },
+    {
+      name: 'local-plugin-css-hmr',
+      apply: 'serve',
+      handleHotUpdate(ctx) {
+        if (!isLocalPluginCss(ctx.file)) {
+          return
+        }
+
+        return ctx.modules
+      },
+    },
   ],
   server: {
-    allowedHosts: true
+    allowedHosts: true,
+    watch: {
+      atomic: 500,
+      awaitWriteFinish: {
+        stabilityThreshold: 250,
+        pollInterval: 50,
+      },
+    },
   }
 })

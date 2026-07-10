@@ -1,14 +1,16 @@
-.player {
-    width: 100vw;
-    height: 80px;
-    background-color: var(--clr-surface-a0);
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    margin-left: -10px;
-    padding-left: 10px;
-    padding-right: 10px;
-    margin-top: auto;
+@layer base {
+    .player {
+        width: 100vw;
+        height: 80px;
+        background-color: var(--clr-surface-a0);
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        margin-left: -10px;
+        padding-left: 10px;
+        padding-right: 10px;
+        margin-top: auto;
+    }
 }
 
 .player-song-info {
@@ -150,14 +152,15 @@
     text-align: center;
     user-select: none;
 }
-
-.player-options {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    min-width: 0;
+@layer base {
+    .player-options {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 15px;
+        min-width: 0;
+    }
 }
 
 @media screen and (max-width: 1190px) {
@@ -251,24 +254,26 @@
 }
 
 @media (max-width: 768px) {
-    .player-mini {
-        display: flex;
-        position: fixed;
-        bottom: 68px;
-        left: 10px;
-        right: 10px;
-        height: 68px;
-        border-radius: 18px;
-        background-color: var(--clr-popup-a10);
-        border: 1px solid var(--clr-popup-a30);
-        z-index: 150;
-        align-items: center;
-        padding: 8px 10px 8px 8px;
-        gap: 10px;
-        cursor: pointer;
-        overflow: hidden;
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-        -webkit-tap-highlight-color: transparent;
+    @layer base {
+        .player-mini {
+            display: flex;
+            position: fixed;
+            bottom: 68px;
+            left: 10px;
+            right: 10px;
+            height: 68px;
+            border-radius: 18px;
+            background-color: var(--clr-popup-a10);
+            border: 1px solid var(--clr-popup-a30);
+            z-index: 150;
+            align-items: center;
+            padding: 8px 10px 8px 8px;
+            gap: 10px;
+            cursor: pointer;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            -webkit-tap-highlight-color: transparent;
+        }
     }
 
     .player-mini .player-album-art,
@@ -336,16 +341,18 @@
 }
 
 @media (max-width: 768px) {
-    .player-fullscreen {
-        display: flex;
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        flex-direction: column;
-        align-items: center;
-        transform: translateY(100%);
-        will-change: transform;
-        touch-action: none;
+    @layer base {
+        .player-fullscreen {
+            display: flex;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            transform: translateY(100%);
+            will-change: transform;
+            touch-action: none;
+        }
     }
 
     .player-fullscreen-close {

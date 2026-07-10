@@ -633,6 +633,7 @@ function Player() {
             </div>
 
             <div className="player-options">
+                <div className='plugin-target-before-volume-option'></div>
                 <div className="player-option">
                     <VolumeIcon volume={displayVolume} onClick={handleVolumeIconClick} />
                     <div

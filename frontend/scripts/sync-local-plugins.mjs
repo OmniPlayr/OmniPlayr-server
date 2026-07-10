@@ -3,6 +3,12 @@ import path from 'path';
 
 const WATCH = process.argv.includes('--watch');
 const WATCH_INTERVAL_MS = 1000;
+const IGNORED_ENTRIES = new Set([
+  '.git',
+  'node_modules',
+  'dist',
+  'build',
+]);
 
 const mappings = [
   {
@@ -69,6 +75,8 @@ function snapshotDir(dir) {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     for (const entry of entries) {
+      if (IGNORED_ENTRIES.has(entry.name)) continue;
+
       const full = path.join(current, entry.name);
       const rel = path.join(relative, entry.name);
       if (entry.isDirectory()) {
@@ -83,6 +91,50 @@ function snapshotDir(dir) {
 
   walk(dir);
   return parts.join('|');
+}
+
+function syncDirIncremental(source, target, { prune = true } = {}) {
+  fs.mkdirSync(target, { recursive: true });
+  const sourceEntries = new Map();
+
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    if (IGNORED_ENTRIES.has(entry.name)) continue;
+    sourceEntries.set(entry.name, entry);
+  }
+
+  if (prune) {
+    for (const entry of fs.readdirSync(target, { withFileTypes: true })) {
+      if (IGNORED_ENTRIES.has(entry.name)) continue;
+      if (!sourceEntries.has(entry.name)) {
+        fs.rmSync(path.join(target, entry.name), { recursive: true, force: true });
+      }
+    }
+  }
+
+  for (const [name, entry] of sourceEntries) {
+    const sourcePath = path.join(source, name);
+    const targetPath = path.join(target, name);
+
+    if (entry.isDirectory()) {
+      syncDirIncremental(sourcePath, targetPath, { prune });
+      continue;
+    }
+
+    if (!entry.isFile()) continue;
+
+    const sourceStat = fs.statSync(sourcePath);
+    let shouldCopy = true;
+    if (fs.existsSync(targetPath)) {
+      const targetStat = fs.statSync(targetPath);
+      shouldCopy = sourceStat.size !== targetStat.size
+        || Math.trunc(sourceStat.mtimeMs) !== Math.trunc(targetStat.mtimeMs);
+    }
+
+    if (shouldCopy) {
+      fs.copyFileSync(sourcePath, targetPath);
+      fs.utimesSync(targetPath, sourceStat.atime, sourceStat.mtime);
+    }
+  }
 }
 
 function discoverMappingPlugins(mapping) {
@@ -113,10 +165,9 @@ function syncMapping(mapping, initial = false) {
       continue;
     }
 
-    fs.rmSync(target, { recursive: true, force: true });
-    fs.cpSync(source, target, { recursive: true });
+    syncDirIncremental(source, target, { prune: initial });
     state.set(target, snapshot);
-    console.log(`[local-plugins] ${id}: copied ${source} -> ${target}`);
+    console.log(`[local-plugins] ${id}: synced ${source} -> ${target}`);
   }
 
   for (const entry of fs.readdirSync(mapping.target)) {

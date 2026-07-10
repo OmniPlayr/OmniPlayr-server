@@ -3,7 +3,6 @@ import { StrictMode, useEffect, useState, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'
 import 'normalize.css';
-import './styles/index.css'
 import './styles/themes/light.css'
 import './styles/themes/dark.css'
 import './styles/themes/transparent.css'
@@ -32,8 +31,14 @@ import Failure from './Fail.tsx';
 import '@wokki20/jspt/dist/jspt.css';
 import { useIsMobile } from './modules/useIsMobile';
 import DeveloperContext from './modules/DeveloperContext';
+import './styles/index.css';
 
 export { useIsMobile } from './modules/useIsMobile';
+declare global {
+    interface Window {
+        __omniplayrRoot?: ReturnType<typeof createRoot>;
+    }
+}
 
 const savedTheme = localStorage.getItem('theme') ?? 'dark';
 const preferSystemTheme = localStorage.getItem('prefer_system_theme') === 'true' ? true : false;
@@ -381,7 +386,11 @@ function App() {
     )
 }
 
-createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root')!;
+const root = window.__omniplayrRoot ?? createRoot(rootElement);
+window.__omniplayrRoot = root;
+
+root.render(
     <StrictMode>
         <App />
     </StrictMode>,

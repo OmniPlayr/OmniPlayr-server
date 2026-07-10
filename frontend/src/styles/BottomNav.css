@@ -3,17 +3,19 @@
 }
 
 @media (max-width: 768px) {
-    .bottom-nav {
-        display: flex;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background-color: var(--clr-popup-a0);
-        border-top: 1px solid var(--clr-popup-a30);
-        z-index: 200;
-        align-items: center;
+    @layer base {
+        .bottom-nav {
+            display: flex;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: var(--clr-popup-a0);
+            border-top: 1px solid var(--clr-popup-a30);
+            z-index: 200;
+            align-items: center;
+        }
     }
 
     .bottom-nav-item {

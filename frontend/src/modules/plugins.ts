@@ -210,7 +210,15 @@ export function registerTab(
     }
 
     const label = tab.label ?? getPluginConfig(id)?.name ?? id;
-    tabRegistry.push({ id, label, ...tab });
+    const existingIndex = tabRegistry.findIndex(existing =>
+        existing.id === id && (tab.url ? existing.url === tab.url : existing.label === label)
+    );
+    const next = { id, label, ...tab };
+    if (existingIndex === -1) {
+        tabRegistry.push(next);
+    } else {
+        tabRegistry[existingIndex] = next;
+    }
 }
 
 export function registerPluginsMenuItem(
@@ -234,11 +242,17 @@ export function registerPluginsMenuItem(
 
     const label = menuItem.label ?? getPluginConfig(id)?.name ?? id;
 
-    menuRegistry.push({
+    const next = {
         id,
         label,
         ...menuItem
-    });
+    };
+    const existingIndex = menuRegistry.findIndex(item => item.id === id && item.label === label);
+    if (existingIndex === -1) {
+        menuRegistry.push(next);
+    } else {
+        menuRegistry[existingIndex] = next;
+    }
 }
 
 export function getPluginsMenuItems(): PluginMenuItem[] {
@@ -258,7 +272,12 @@ export function getTabByUrl(url: string): PluginTab | undefined {
 }
 
 export function registerRoute(route: PluginRoute) {
-    routeRegistry.push(route);
+    const existingIndex = routeRegistry.findIndex(existing => existing.path === route.path);
+    if (existingIndex === -1) {
+        routeRegistry.push(route);
+    } else {
+        routeRegistry[existingIndex] = route;
+    }
 }
 
 export function getRoutes(): PluginRoute[] {
@@ -281,7 +300,16 @@ export function modify(pluginId: string, selector: string, fn: DOMHook) {
         return;
     }
     if (!domHooks.has(selector)) domHooks.set(selector, []);
-    domHooks.get(selector)!.push({ fn, pluginId });
+    const hooks = domHooks.get(selector)!;
+    const existingIndex = hooks.findIndex(hook => hook.pluginId === pluginId);
+    if (existingIndex === -1) {
+        hooks.push({ fn, pluginId });
+    } else {
+        hooks[existingIndex] = { fn, pluginId };
+        document.querySelectorAll('[data-hooks-applied]').forEach(el => {
+            el.removeAttribute('data-hooks-applied');
+        });
+    }
 }
 
 function applyDOMHooks() {
