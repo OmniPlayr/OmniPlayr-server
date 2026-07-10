@@ -1,3 +1,5 @@
+@layer base, plugin;
+
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
@@ -140,18 +142,20 @@ button[data-type="secondary"] {
     right: 10px;
     bottom: 80px;
 }
-.dashboard-main {
-    width: 100%;
-    margin-left: 10px;
-    padding: 10px;
-    border-radius: 16px;
-    overflow-y: overlay;
-    height: 100%;
-    background-color: var(--clr-popup-a0);
-    border: 1px solid var(--clr-popup-a30);
-    scrollbar-width: thin;
-    scrollbar-color: var(--clr-surface-a40) transparent;
-    transition: scrollbar-color 0.2s ease;
+@layer base {
+    .dashboard-main {
+        width: 100%;
+        margin-left: 10px;
+        padding: 10px;
+        border-radius: 16px;
+        overflow-y: overlay;
+        height: 100%;
+        background-color: var(--clr-popup-a0);
+        border: 1px solid var(--clr-popup-a30);
+        scrollbar-width: thin;
+        scrollbar-color: var(--clr-surface-a40) transparent;
+        transition: scrollbar-color 0.2s ease;
+    }
 }
 @media (max-width: 768px) {
     .dashboard {
@@ -164,10 +168,12 @@ button[data-type="secondary"] {
         right: 0;
         bottom: 61px;
     }
-    .dashboard-main {
-        margin-left: 0;
-        border-radius: 0;
-        border: none;
+    @layer base {
+        .dashboard-main {
+            margin-left: 0;
+            border-radius: 0;
+            border: none;
+        }
     }
 }
  

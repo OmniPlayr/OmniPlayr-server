@@ -116,45 +116,47 @@ function injectPluginStyles() {
     const style = document.createElement('style');
     style.id = '__plugin-styles';
     style.textContent = `
-        [data-plugin-hooked] > :not(.__plugin-hook-wrapper):not([data-plugin-hooked]) {
-            display: none !important;
-        }
-        #__plugin-error-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 99999;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            pointer-events: none;
-        }
-        .__plugin-error-banner {
-            background: #c0392b;
-            color: #fff;
-            padding: 9px 14px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-family: monospace;
-            font-size: 12px;
-            gap: 12px;
-            pointer-events: all;
-        }
-        .__plugin-error-close {
-            background: none;
-            border: none;
-            color: #fff;
-            cursor: pointer;
-            font-size: 18px;
-            line-height: 1;
-            padding: 0;
-            flex-shrink: 0;
-            opacity: 0.8;
-        }
-        .__plugin-error-close:hover {
-            opacity: 1;
+        @layer plugin {
+            [data-plugin-hooked] > :not(.__plugin-hook-wrapper):not([data-plugin-hooked]) {
+                display: none !important;
+            }
+            #__plugin-error-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 99999;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                pointer-events: none;
+            }
+            .__plugin-error-banner {
+                background: #c0392b;
+                color: #fff;
+                padding: 9px 14px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-family: monospace;
+                font-size: 12px;
+                gap: 12px;
+                pointer-events: all;
+            }
+            .__plugin-error-close {
+                background: none;
+                border: none;
+                color: #fff;
+                cursor: pointer;
+                font-size: 18px;
+                line-height: 1;
+                padding: 0;
+                flex-shrink: 0;
+                opacity: 0.8;
+            }
+            .__plugin-error-close:hover {
+                opacity: 1;
+            }
         }
     `;
     document.head.appendChild(style);

@@ -1,13 +1,15 @@
-.sidebar {
-    width: 300px;
-    min-width: 300px;
-    height: 100%;
-    background-color: var(--clr-popup-a0);
-    padding: var(--pd-dash-component);
-    border-radius: var(--br-dash-component);
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--clr-popup-a30);
+@layer base {
+    .sidebar {
+        width: 300px;
+        min-width: 300px;
+        height: 100%;
+        background-color: var(--clr-popup-a0);
+        padding: var(--pd-dash-component);
+        border-radius: var(--br-dash-component);
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--clr-popup-a30);
+    }
 }
 
 .sidebar-header {
