@@ -1,5 +1,8 @@
 import type { ComponentType } from 'react';
 
+console.log('[plugins.ts loaded]', import.meta.url);
+console.trace('[plugins.ts load trace]');
+
 export interface PluginConfig {
     id: string;
     name: string;

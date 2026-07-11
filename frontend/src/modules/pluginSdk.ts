@@ -2,6 +2,10 @@ export { default as api } from './api';
 export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS' | string;
 export type ApiParams = Record<string, string | number | boolean | null | undefined>;
 export type ApiBody = object;
+
+console.log('[pluginSdk.ts loaded]', import.meta.url);
+console.trace('[pluginSdk.ts load trace]');
+
 export interface ApiError extends Error {
     status: number;
 }
