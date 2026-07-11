@@ -47,6 +47,7 @@ interface PluginSdkSharedState {
     observer: MutationObserver | null;
     stylesInjected: boolean;
     pluginLoadListeners: Array<() => void>;
+    appliedDomHooks: WeakMap<Element, Set<string>>;
 }
 
 const PLUGIN_SDK_STATE_KEY = Symbol.for('omniplayr.plugin-sdk.state');
@@ -66,6 +67,7 @@ const createPluginSdkSharedState = (): PluginSdkSharedState => ({
     observer: null,
     stylesInjected: false,
     pluginLoadListeners: [],
+    appliedDomHooks: new WeakMap<Element, Set<string>>(),
 });
 
 const sharedState: PluginSdkSharedState =
@@ -333,35 +335,65 @@ export function modify(pluginId: string, selector: string, fn: DOMHook) {
         console.error(`[plugins] modify blocked: "${pluginId}" has no valid package.json`);
         return;
     }
-    if (!domHooks.has(selector)) domHooks.set(selector, []);
+
+    if (!domHooks.has(selector)) {
+        domHooks.set(selector, []);
+    }
+
     const hooks = domHooks.get(selector)!;
     const existingIndex = hooks.findIndex(hook => hook.pluginId === pluginId);
+
     if (existingIndex === -1) {
         hooks.push({ fn, pluginId });
     } else {
         hooks[existingIndex] = { fn, pluginId };
-        document.querySelectorAll('[data-hooks-applied]').forEach(el => {
-            el.removeAttribute('data-hooks-applied');
-        });
     }
+
+    const dotIndex = selector.indexOf('.');
+    const file = selector.slice(0, dotIndex);
+    const cls = selector.slice(dotIndex + 1);
+    const hookKey = `${selector}:${pluginId}`;
+
+    document.querySelectorAll(
+        `[data-component="${file}"] .${cls}, [data-component="${file}"].${cls}`
+    ).forEach(el => {
+        sharedState.appliedDomHooks.get(el)?.delete(hookKey);
+    });
+
+    applyDOMHooks();
 }
 
 function applyDOMHooks() {
     injectPluginStyles();
+
     for (const [selector, hooks] of domHooks) {
         const dotIndex = selector.indexOf('.');
         const file = selector.slice(0, dotIndex);
         const cls = selector.slice(dotIndex + 1);
+
         const els = document.querySelectorAll(
             `[data-component="${file}"] .${cls}, [data-component="${file}"].${cls}`
         );
+
         els.forEach(el => {
-            if (el.hasAttribute('data-hooks-applied')) return;
-            el.setAttribute('data-hooks-applied', '');
+            let appliedHooks = sharedState.appliedDomHooks.get(el);
+
+            if (!appliedHooks) {
+                appliedHooks = new Set<string>();
+                sharedState.appliedDomHooks.set(el, appliedHooks);
+            }
+
             hooks.forEach(({ fn, pluginId }) => {
+                const hookKey = `${selector}:${pluginId}`;
+
+                if (appliedHooks.has(hookKey)) return;
+
+                appliedHooks.add(hookKey);
+
                 try {
                     fn(el);
                 } catch (err) {
+                    appliedHooks.delete(hookKey);
                     showPluginError(pluginId, `DOM hook on "${selector}"`, err);
                 }
             });
@@ -374,23 +406,7 @@ export function startDOMHookObserver() {
 
     applyDOMHooks();
 
-    sharedState.observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            mutation.removedNodes.forEach(node => {
-                if (!(node instanceof Element)) return;
-
-                node.querySelectorAll('[data-hooks-applied]').forEach(el => {
-                    el.removeAttribute('data-hooks-applied');
-                    el.removeAttribute('data-plugin-hooked');
-                });
-
-                if (node.hasAttribute('data-hooks-applied')) {
-                    node.removeAttribute('data-hooks-applied');
-                    node.removeAttribute('data-plugin-hooked');
-                }
-            });
-        }
-
+    sharedState.observer = new MutationObserver(() => {
         applyDOMHooks();
     });
 
