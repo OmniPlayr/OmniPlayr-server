@@ -78,7 +78,7 @@ const HISTORY_STORAGE_KEY = 'player_history';
 const PLAYBACK_STATE_STORAGE_KEY = 'player_playback_state';
 const CURRENT_TRACK_STORAGE_KEY = 'player_current_track';
 const MIN_GAIN = 0.0001;
-const PLAYBACK_FAILURE_GRACE_MS = 3000;
+const PLAYBACK_FAILURE_GRACE_MS = 0;
 
 function buildAuthenticatedStreamUrl(baseUrl: string, sourceType: string, songId: string, token: string, accountToken: string | null): string {
     const encoded = encodeURIComponent(songId);

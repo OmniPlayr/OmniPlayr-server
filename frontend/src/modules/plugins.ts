@@ -36,13 +36,50 @@ type Listener = (payload: any) => void;
 type DOMHook = (el: Element) => void;
 type DOMHookEntry = { fn: DOMHook; pluginId: string };
 
-const tabRegistry: PluginTab[] = [];
-const menuRegistry: PluginMenuItem[] = [];
-const eventBus = new Map<string, Set<Listener>>();
-const domHooks = new Map<string, DOMHookEntry[]>();
-const routeRegistry: PluginRoute[] = [];
-const validatedPlugins = new Set<string>();
-const registeredUrls = new Set<string>(['/settings']);
+interface PluginSdkSharedState {
+    tabRegistry: PluginTab[];
+    menuRegistry: PluginMenuItem[];
+    eventBus: Map<string, Set<Listener>>;
+    domHooks: Map<string, DOMHookEntry[]>;
+    routeRegistry: PluginRoute[];
+    validatedPlugins: Set<string>;
+    registeredUrls: Set<string>;
+    observer: MutationObserver | null;
+    stylesInjected: boolean;
+    pluginLoadListeners: Array<() => void>;
+}
+
+const PLUGIN_SDK_STATE_KEY = Symbol.for('omniplayr.plugin-sdk.state');
+
+const globalPluginSdk = globalThis as typeof globalThis & {
+    [PLUGIN_SDK_STATE_KEY]?: PluginSdkSharedState;
+};
+
+const createPluginSdkSharedState = (): PluginSdkSharedState => ({
+    tabRegistry: [],
+    menuRegistry: [],
+    eventBus: new Map<string, Set<Listener>>(),
+    domHooks: new Map<string, DOMHookEntry[]>(),
+    routeRegistry: [],
+    validatedPlugins: new Set<string>(),
+    registeredUrls: new Set<string>(['/settings']),
+    observer: null,
+    stylesInjected: false,
+    pluginLoadListeners: [],
+});
+
+const sharedState: PluginSdkSharedState =
+    globalPluginSdk[PLUGIN_SDK_STATE_KEY] ??= createPluginSdkSharedState();
+
+const {
+    tabRegistry,
+    menuRegistry,
+    eventBus,
+    domHooks,
+    routeRegistry,
+    validatedPlugins,
+    registeredUrls,
+} = sharedState;
 
 const installedConfigs = import.meta.glob('../plugins/*/package.json', { eager: true }) as Record<string, { default: PluginConfig }>;
 const localConfigs = import.meta.env.DEV
@@ -108,11 +145,9 @@ for (const [path, mod] of Object.entries(configs)) {
     }
 }
 
-let stylesInjected = false;
-
 function injectPluginStyles() {
-    if (stylesInjected) return;
-    stylesInjected = true;
+    if (sharedState.stylesInjected) return;
+    sharedState.stylesInjected = true;
     const style = document.createElement('style');
     style.id = '__plugin-styles';
     style.textContent = `
@@ -334,47 +369,56 @@ function applyDOMHooks() {
     }
 }
 
-let observer: MutationObserver | null = null;
-
 export function startDOMHookObserver() {
-    if (observer) return;
+    if (sharedState.observer) return;
+
     applyDOMHooks();
-    observer = new MutationObserver((mutations) => {
+
+    sharedState.observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             mutation.removedNodes.forEach(node => {
                 if (!(node instanceof Element)) return;
+
                 node.querySelectorAll('[data-hooks-applied]').forEach(el => {
                     el.removeAttribute('data-hooks-applied');
                     el.removeAttribute('data-plugin-hooked');
                 });
+
                 if (node.hasAttribute('data-hooks-applied')) {
                     node.removeAttribute('data-hooks-applied');
                     node.removeAttribute('data-plugin-hooked');
                 }
             });
         }
+
         applyDOMHooks();
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+
+    sharedState.observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+    });
 }
 
 export function stopDOMHookObserver() {
-    observer?.disconnect();
-    observer = null;
+    sharedState.observer?.disconnect();
+    sharedState.observer = null;
 }
 
-const _pluginLoadListeners: Array<() => void> = [];
-
 export function onPluginsLoaded(fn: () => void): () => void {
-    _pluginLoadListeners.push(fn);
+    sharedState.pluginLoadListeners.push(fn);
+
     return () => {
-        const idx = _pluginLoadListeners.indexOf(fn);
-        if (idx !== -1) _pluginLoadListeners.splice(idx, 1);
+        const index = sharedState.pluginLoadListeners.indexOf(fn);
+
+        if (index !== -1) {
+            sharedState.pluginLoadListeners.splice(index, 1);
+        }
     };
 }
 
 export function notifyPluginsLoaded(): void {
-    _pluginLoadListeners.forEach(fn => fn());
+    sharedState.pluginLoadListeners.forEach(fn => fn());
 }
 
 export function hasFrontendPlugin(id: string): boolean {

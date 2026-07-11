@@ -252,6 +252,8 @@ function Player() {
     const fsRef = useRef<HTMLDivElement>(null);
     const fsDragStart = useRef(0);
     const fsDragY = useRef(0);
+    const fsScrollStart = useRef(0);
+    const fsGestureMode = useRef<'pending' | 'scrolling' | 'closing' | null>(null);
     const fsIsDragging = useRef(false);
     const fsIsClosing = useRef(false);
 
@@ -345,23 +347,46 @@ function Player() {
     const handleFsPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         const target = e.target as HTMLElement;
         if (target.closest('.fs-progress-bar') || target.closest('.player-fullscreen-controls') || target.closest('.player-fullscreen-close') || target.closest('.fs-play-btn')) return;
-        fsIsDragging.current = true;
+        fsIsDragging.current = false;
+        fsGestureMode.current = 'pending';
         fsDragStart.current = e.clientY;
         fsDragY.current = 0;
-        if (fsRef.current) fsRef.current.style.transition = 'none';
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        fsScrollStart.current = e.currentTarget.scrollTop;
+        e.currentTarget.setPointerCapture(e.pointerId);
     };
 
     const handleFsPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (!fsIsDragging.current || !fsRef.current) return;
-        const dy = Math.max(0, e.clientY - fsDragStart.current);
-        fsDragY.current = dy;
-        fsRef.current.style.transform = `translateY(${dy}px)`;
+        if (!fsRef.current || !fsGestureMode.current) return;
+
+        const dy = e.clientY - fsDragStart.current;
+
+        if (fsGestureMode.current === 'pending') {
+            if (Math.abs(dy) <= 6) return;
+            fsGestureMode.current = fsScrollStart.current <= 0 && dy > 0 ? 'closing' : 'scrolling';
+            fsIsDragging.current = true;
+        }
+
+        if (fsGestureMode.current === 'scrolling') {
+            e.currentTarget.scrollTop = fsScrollStart.current - dy;
+            return;
+        }
+
+        fsRef.current.style.transition = 'none';
+        fsDragY.current = Math.max(0, dy);
+        fsRef.current.style.transform = `translateY(${fsDragY.current}px)`;
     };
 
-    const handleFsPointerUp = () => {
-        if (!fsIsDragging.current || !fsRef.current) return;
+    const handleFsPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+
+        const wasClosing = fsGestureMode.current === 'closing';
+        fsGestureMode.current = null;
         fsIsDragging.current = false;
+
+        if (!wasClosing || !fsRef.current) return;
+
         const dy = fsDragY.current;
         if (dy > window.innerHeight * 0.28) {
             fsIsClosing.current = true;
@@ -484,76 +509,78 @@ function Player() {
                     onPointerMove={handleFsPointerMove}
                     onPointerUp={handleFsPointerUp}
                 >
-                    <div
-                        className="player-fullscreen-close"
-                        onClick={() => setIsFullscreen(false)}
-                    >
-                        <ChevronDown size={30} />
-                    </div>
-
-                    <div className="player-fullscreen-art-area">
-                        <AlbumArt metadata={metadata} onColorChange={setAccentColor} analyserRef={analyserRef} />
-                    </div>
-
-                    <div className="player-fullscreen-bottom">
-                        <div className="player-fullscreen-info">
-                            {metadata?.title && (
-                                <span className="player-fullscreen-title">{metadata.title}</span>
-                            ) || (
-                                <span className="player-fullscreen-title">{metadata?.filename}</span>
-                            )}
-                            <span className="player-fullscreen-artist">
-                                {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
-                            </span>
+                    <div className='player-fullscreen-main'>
+                        <div
+                            className="player-fullscreen-close"
+                            onClick={() => setIsFullscreen(false)}
+                        >
+                            <ChevronDown size={30} />
                         </div>
 
-                        <div className="player-fullscreen-empty-slot" />
+                        <div className="player-fullscreen-art-area">
+                            <AlbumArt metadata={metadata} onColorChange={setAccentColor} analyserRef={analyserRef} />
+                        </div>
 
-                        <div className="player-fullscreen-controls">
-                            <Shuffle
-                                className={`fs-control-icon${shuffle ? ' fs-control-icon--active' : ''}`}
-                                onClick={() => player.toggleShuffle()}
-                            />
-                            <SkipBack
-                                className={`fs-control-icon${!hasPrev ? ' fs-control-icon--disabled' : ''}`}
-                                onClick={() => player.prev()}
-                            />
-                            <div
-                                className="fs-play-btn"
-                                onClick={() => player.togglePlay()}
-                            >
-                                {isLoading
-                                    ? <Loader className="fs-play-icon fs-play-icon--spin" />
-                                    : isPlaying
-                                    ? <Pause className="fs-play-icon" />
-                                    : <Play className="fs-play-icon" />
-                                }
+                        <div className="player-fullscreen-bottom">
+                            <div className="player-fullscreen-info">
+                                {metadata?.title && (
+                                    <span className="player-fullscreen-title">{metadata.title}</span>
+                                ) || (
+                                    <span className="player-fullscreen-title">{metadata?.filename}</span>
+                                )}
+                                <span className="player-fullscreen-artist">
+                                    {[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}
+                                </span>
                             </div>
-                            <SkipForward
-                                className={`fs-control-icon${!hasNext && repeat === 'off' ? ' fs-control-icon--disabled' : ''}`}
-                                onClick={() => player.skip()}
-                            />
-                            <RepeatIcon
-                                mode={repeat}
-                                className={`fs-control-icon${repeat !== 'off' ? ' fs-control-icon--active' : ''}`}
-                                onClick={() => player.cycleRepeat()}
-                            />
-                        </div>
 
-                        <div className="player-fullscreen-progress">
-                            <div
-                                className="fs-progress-bar"
-                                ref={progressBarRef}
-                                onPointerDown={handleProgressPointerDown}
-                            >
+                            <div className="player-fullscreen-empty-slot" />
+
+                            <div className="player-fullscreen-controls">
+                                <Shuffle
+                                    className={`fs-control-icon${shuffle ? ' fs-control-icon--active' : ''}`}
+                                    onClick={() => player.toggleShuffle()}
+                                />
+                                <SkipBack
+                                    className={`fs-control-icon${!hasPrev ? ' fs-control-icon--disabled' : ''}`}
+                                    onClick={() => player.prev()}
+                                />
                                 <div
-                                    className="fs-progress-fill"
-                                    style={{ width: `${displayProgress * 100}%` }}
+                                    className="fs-play-btn"
+                                    onClick={() => player.togglePlay()}
+                                >
+                                    {isLoading
+                                        ? <Loader className="fs-play-icon fs-play-icon--spin" />
+                                        : isPlaying
+                                        ? <Pause className="fs-play-icon" />
+                                        : <Play className="fs-play-icon" />
+                                    }
+                                </div>
+                                <SkipForward
+                                    className={`fs-control-icon${!hasNext && repeat === 'off' ? ' fs-control-icon--disabled' : ''}`}
+                                    onClick={() => player.skip()}
+                                />
+                                <RepeatIcon
+                                    mode={repeat}
+                                    className={`fs-control-icon${repeat !== 'off' ? ' fs-control-icon--active' : ''}`}
+                                    onClick={() => player.cycleRepeat()}
                                 />
                             </div>
-                            <div className="fs-progress-times">
-                                <span>{formatTime(displayTime)}</span>
-                                <span>{formatTime(duration || currentTime)}</span>
+
+                            <div className="player-fullscreen-progress">
+                                <div
+                                    className="fs-progress-bar"
+                                    ref={progressBarRef}
+                                    onPointerDown={handleProgressPointerDown}
+                                >
+                                    <div
+                                        className="fs-progress-fill"
+                                        style={{ width: `${displayProgress * 100}%` }}
+                                    />
+                                </div>
+                                <div className="fs-progress-times">
+                                    <span>{formatTime(displayTime)}</span>
+                                    <span>{formatTime(duration || currentTime)}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
