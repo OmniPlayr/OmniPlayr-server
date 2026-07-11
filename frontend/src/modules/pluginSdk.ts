@@ -60,6 +60,7 @@ export {
     getTabs,
     hasFrontendPlugin,
     modify,
+    notifyPluginsLoaded,
     on,
     onPluginsLoaded,
     registerPluginsMenuItem,

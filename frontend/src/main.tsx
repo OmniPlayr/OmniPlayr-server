@@ -1,5 +1,5 @@
 import './i18n'
-import { StrictMode, useEffect, useState, useRef } from 'react'
+import { StrictMode, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'
 import 'normalize.css';
@@ -14,7 +14,13 @@ import {Player} from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
 import BottomNav from './BottomNav.tsx';
 import { getAccount } from './modules/account.ts';
-import { getPluginsMenuItems, getRoutes, getTab, getTabByUrl, notifyPluginsLoaded } from './modules/plugins';
+import {
+    getPluginsMenuItems,
+    getRoutes,
+    getTab,
+    getTabByUrl,
+    notifyPluginsLoaded,
+} from '@omniplayr/plugins';
 import { usePlugins } from './modules/usePlugins';
 import { setNavigate } from './modules/navigate';
 import { useSearchParams } from "react-router-dom";
@@ -128,6 +134,19 @@ function resolveActiveTabFromPath(pathname: string): string | null {
     return null;
 }
 
+let pluginsLoadPromise: Promise<void> | null = null;
+
+function loadPluginsOnce(): Promise<void> {
+    if (!pluginsLoadPromise) {
+        pluginsLoadPromise = loadPlugins().catch(error => {
+            pluginsLoadPromise = null;
+            throw error;
+        });
+    }
+
+    return pluginsLoadPromise;
+}
+
 function AppShell() {
     const location = useLocation();
     const navigate = useNavigate();
@@ -141,8 +160,6 @@ function AppShell() {
     const [safeMode, setSafeMode] = useState(false);
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [pluginsLoaded, setPluginsLoaded] = useState(false);
-
-    const pluginsInitialized = useRef(false);
 
     const [activeTabId, setActiveTabId] = useState<string | null>(() =>
         resolveActiveTabFromPath(location.pathname)
@@ -163,17 +180,17 @@ function AppShell() {
 
     useEffect(() => {
         if (!isAuth || !accountId) return;
-        if (pluginsInitialized.current) return;
-        pluginsInitialized.current = true;
 
         api("check_update").then((res: any) => {
             if (res?.update_available) setUpdateAvailable(true);
         }).catch(() => {});
+
         const initializePluginsAndPlayer = async (sm: boolean) => {
             setSafeMode(sm);
+
             if (!sm) {
                 try {
-                    await loadPlugins();
+                    await loadPluginsOnce();
                 } catch (error) {
                     console.error(error);
                 }
@@ -187,6 +204,7 @@ function AppShell() {
             .then(initializePluginsAndPlayer)
             .catch(() => initializePluginsAndPlayer(false));
     }, [isAuth, accountId]);
+
     useEffect(() => {
         if (!showShell) return;
 
