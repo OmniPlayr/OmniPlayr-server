@@ -4,9 +4,9 @@ from fastapi.responses import StreamingResponse
 from api.helpers.plugins import get_plugin
 from api.helpers.server import verify_auth, verify_token, get_token_user
 from api.helpers.log import log
+from api.helpers.player import emit_playback_status, get_user_playback, get_user_playbacks, PlaybackEvent
 
 router = APIRouter()
-
 
 def _resolve_stream_auth(request: Request, token: str | None, account_token: str | None) -> int:
     access_token = token
@@ -48,6 +48,39 @@ def _build_stream_url(request: Request, source_type: str, song_id: str) -> str:
     url = f"{base}/api/player/stream/{source_type}:{song_id}"
     log(f"Built stream URL: {url}", "debug", "module.player")
     return url
+
+def _with_request_device_ip(device_info: dict | None, request_ip: str | None) -> dict | None:
+    if not isinstance(device_info, dict):
+        return device_info
+
+    next_device = dict(device_info)
+    if request_ip and not next_device.get("device_ip"):
+        next_device["device_ip"] = request_ip
+    return next_device
+
+def _with_request_ip_in_playback_metadata(playback_metadata: dict | None, request_ip: str | None) -> dict | None:
+    if not isinstance(playback_metadata, dict):
+        return playback_metadata
+
+    next_metadata = dict(playback_metadata)
+    next_metadata["started_on_device"] = _with_request_device_ip(
+        next_metadata.get("started_on_device"),
+        request_ip,
+    )
+
+    transfers = next_metadata.get("transfers")
+    if isinstance(transfers, list):
+        next_transfers = []
+        for transfer in transfers:
+            if isinstance(transfer, dict):
+                next_transfer = dict(transfer)
+                next_transfer["device"] = _with_request_device_ip(next_transfer.get("device"), request_ip)
+                next_transfers.append(next_transfer)
+            else:
+                next_transfers.append(transfer)
+        next_metadata["transfers"] = next_transfers
+
+    return next_metadata
 
 # This is to get the metadata for a song, and its stream URL
 @router.get("/media/{source_type}:{song_id:path}")
@@ -215,3 +248,67 @@ def stream_media(
         headers["Content-Length"] = str(file_size)
     log(f"Returning full stream response for song_id={song_id!r}", "debug", "module.player")
     return StreamingResponse(stream, media_type=content_type, headers=headers)
+
+@router.post("/playback/emit", status_code=201)
+def emit_playback_event(
+    request: Request,
+    playback: PlaybackEvent,
+    auth=Depends(verify_auth),
+    x_account_token: str = Header(..., alias="X-Account-Token")
+):
+    if not auth or not x_account_token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    log("POST /player/playback/emit requested", "debug", "module.player")
+    account_id = get_token_user(x_account_token)
+    log(f"Playback emit request: account_id={account_id}", "debug", "module.player")
+    request_ip = request.client.host if request.client else None
+    device_info = _with_request_device_ip(playback["device_info"], request_ip)
+    playback_metadata = _with_request_ip_in_playback_metadata(playback.get("playback_metadata"), request_ip)
+
+    return emit_playback_status(
+        id=playback.get("id"),
+        account_id=account_id,
+        song_id=playback["song_id"],
+        source_type=playback["source_type"],
+        device_info=device_info,
+        playback_status=playback.get("playback_status", "paused"),
+        playback_metadata=playback_metadata,
+        song_metadata=playback.get("song_metadata"),
+    )
+
+@router.get("/playback/list")
+def get_playbacks(
+    request: Request,
+    all_info: bool = False,
+    limit: int = 10,
+    offset: int = 0,
+    auth=Depends(verify_auth),
+    x_account_token: str = Header(..., alias="X-Account-Token")
+):
+    log("GET /player/playback requested", "debug", "module.player")
+    account_id = get_token_user(x_account_token)
+    log(f"Playback list request: account_id={account_id} all_info={all_info} limit={limit} offset={offset}", "debug", "module.player")
+
+    return get_user_playbacks(
+        account_id=account_id,
+        all_info=all_info,
+        limit=limit,
+        offset=offset,
+    )
+    
+@router.get("/playback/{playback_id}")
+def get_playback(
+    request: Request,
+    playback_id: int,
+    auth=Depends(verify_auth),
+    x_account_token: str = Header(..., alias="X-Account-Token")
+):
+    log(f"GET /player/playback/{playback_id} requested", "debug", "module.player")
+    account_id = get_token_user(x_account_token)
+    log(f"Playback request: account_id={account_id} playback_id={playback_id}", "debug", "module.player")
+
+    return get_user_playback(
+        account_id=account_id,
+        id=playback_id,
+    )

@@ -12,6 +12,9 @@ pause_fade_ms = 350
 prefetch_enabled = true
 prefetch_delay_ms = 1500
 
+[playback]
+emit_interval_seconds = 15
+
 [history]
 max_history_size = 100
 history_persistence = "localStorage"

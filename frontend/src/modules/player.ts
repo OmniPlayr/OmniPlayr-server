@@ -2,6 +2,7 @@ import { getConfig } from './config';
 import { getAccount } from './account';
 import { createToast } from './ToastContext';
 import i18n from '../i18n';
+import api from './api';
 
 type PlayerListener = () => void;
 type TrackChangeListener = (songId: string | null, sourceType: string | null) => void;
@@ -32,6 +33,58 @@ export interface SourcePlugin {
     setTransientVolume?(fraction: number): void;
 }
 
+export interface AudioOutputDevice {
+    device_identifier: string;
+    device_type: string;
+    device_ip?: string | null;
+    label?: string;
+}
+
+export interface AudioOutputPlaybackRequest {
+    songId: string;
+    sourceType: string;
+    streamUrl: string;
+    contentType?: string | null;
+    metadata: TrackMetadata | null;
+    extra?: Record<string, unknown>;
+    device: AudioOutputDevice;
+}
+
+export interface AudioOutputPluginCallbacks {
+    onReady: () => void;
+    onEnded: () => void;
+    onStateChange: () => void;
+    onError: (error: unknown) => void;
+}
+
+export interface AudioOutputPlugin {
+    listDevices(): AudioOutputDevice[];
+    play(request: AudioOutputPlaybackRequest, callbacks: AudioOutputPluginCallbacks): Promise<void>;
+    pause?(): void;
+    resume?(): void;
+    seek?(seconds: number): void;
+    stop?(): void;
+    setVolume?(fraction: number): void;
+    getCurrentTime?(): number;
+    getDuration?(): number;
+    isPlaying?(): boolean;
+}
+
+export interface RegisteredAudioOutputDevice {
+    pluginId: string;
+    device: AudioOutputDevice;
+}
+
+interface PlaybackTransferInfo {
+    device: AudioOutputDevice;
+    transferred_at: string;
+}
+
+interface PlaybackEmitResponse {
+    status?: string;
+    id?: number;
+}
+
 export interface TrackMetadata {
     title: string | null;
     artist: string | null;
@@ -56,6 +109,7 @@ interface HistoryItem extends QueueItem {
 interface PrefetchEntry {
     streamUrl: string;
     metadata: TrackMetadata;
+    contentType: string | null;
 }
 
 interface PersistedTrackState {
@@ -77,8 +131,48 @@ const VOLUME_STORAGE_KEY = 'player_volume';
 const HISTORY_STORAGE_KEY = 'player_history';
 const PLAYBACK_STATE_STORAGE_KEY = 'player_playback_state';
 const CURRENT_TRACK_STORAGE_KEY = 'player_current_track';
+const OUTPUT_DEVICE_STORAGE_KEY = 'player_output_device';
 const MIN_GAIN = 0.0001;
 const PLAYBACK_FAILURE_GRACE_MS = 0;
+const LOCAL_OUTPUT_PLUGIN_ID = 'core';
+
+function getHostProvidedDeviceInfo(): Partial<AudioOutputDevice> | null {
+    const host = globalThis as typeof globalThis & {
+        __OMNIPLAYR_DEVICE_INFO__?: Partial<AudioOutputDevice>;
+    };
+
+    return host.__OMNIPLAYR_DEVICE_INFO__ ?? null;
+}
+
+function isPhoneBrowser() {
+    const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+    if (nav.userAgentData?.mobile) return true;
+
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function isDesktopApp() {
+    const host = globalThis as typeof globalThis & {
+        __TAURI_INTERNALS__?: unknown;
+        process?: { versions?: { electron?: string } };
+    };
+
+    return Boolean(host.__TAURI_INTERNALS__ || host.process?.versions?.electron || /Electron|Tauri/i.test(navigator.userAgent));
+}
+
+function getLocalOutputDevice(): AudioOutputDevice {
+    const provided = getHostProvidedDeviceInfo();
+    const userAgent = navigator.userAgent || 'unknown-user-agent';
+    const browserType = isPhoneBrowser() ? 'phone' : 'browser';
+    const deviceType = provided?.device_type ?? (isDesktopApp() ? 'desktop' : browserType);
+
+    return {
+        device_identifier: provided?.device_identifier || userAgent,
+        device_type: deviceType,
+        device_ip: provided?.device_ip ?? null,
+        label: provided?.label || 'OmniPlayr Web',
+    };
+}
 
 function buildAuthenticatedStreamUrl(baseUrl: string, sourceType: string, songId: string, token: string, accountToken: string | null): string {
     const encoded = encodeURIComponent(songId);
@@ -131,6 +225,15 @@ class AudioPlayer {
 
     private plugins = new Map<string, SourcePlugin>();
     private activePlugin: SourcePlugin | null = null;
+    private outputPlugins = new Map<string, AudioOutputPlugin>();
+    private selectedOutput = { pluginId: LOCAL_OUTPUT_PLUGIN_ID, device: getLocalOutputDevice() };
+    private activeOutputPlugin: AudioOutputPlugin | null = null;
+    private playbackEmitId: number | null = null;
+    private lastPlaybackEmitAt = 0;
+    private playbackEmitInFlight = false;
+    private playbackEmitPending = false;
+    private playbackStartedDevice: AudioOutputDevice = getLocalOutputDevice();
+    private playbackTransfers: PlaybackTransferInfo[] = [];
 
     private pendingAutoplay = false;
     private endAdvanceInProgress = false;
@@ -193,9 +296,13 @@ class AudioPlayer {
 
         this.initAudioGraph();
         this.loadPersistedVolume();
+        this.loadPersistedOutputDevice();
         this.loadPersistedHistory();
         this.loadPersistedPlaybackState();
         this.initMediaControls();
+        window.setInterval(() => {
+            this.maybeEmitPlaybackStatus();
+        }, 1000);
     }
 
     private initAudioGraph() {
@@ -292,6 +399,159 @@ class AudioPlayer {
             }));
         } catch {
 
+        }
+    }
+
+    private loadPersistedOutputDevice() {
+        try {
+            const raw = localStorage.getItem(OUTPUT_DEVICE_STORAGE_KEY);
+            if (!raw) return;
+
+            const parsed = JSON.parse(raw) as { pluginId?: unknown; device?: unknown };
+            const device = parsed.device as Partial<AudioOutputDevice> | undefined;
+
+            if (
+                typeof parsed.pluginId === 'string' &&
+                device &&
+                typeof device.device_identifier === 'string' &&
+                typeof device.device_type === 'string'
+            ) {
+                this.selectedOutput = {
+                    pluginId: parsed.pluginId,
+                    device: {
+                        device_identifier: device.device_identifier,
+                        device_type: device.device_type,
+                        device_ip: typeof device.device_ip === 'string' ? device.device_ip : null,
+                        label: typeof device.label === 'string' ? device.label : undefined,
+                    },
+                };
+            }
+        } catch {
+
+        }
+    }
+
+    private saveSelectedOutputDevice() {
+        try {
+            localStorage.setItem(OUTPUT_DEVICE_STORAGE_KEY, JSON.stringify(this.selectedOutput));
+        } catch {
+
+        }
+    }
+
+    private normaliseDeviceInfo(device: AudioOutputDevice): AudioOutputDevice {
+        return {
+            device_identifier: device.device_identifier,
+            device_type: device.device_type,
+            device_ip: device.device_ip ?? null,
+            label: device.label,
+        };
+    }
+
+    private getIntendedPlaybackDevice(): AudioOutputDevice {
+        if (this.getSelectedOutputPlugin()) {
+            return this.normaliseDeviceInfo(this.selectedOutput.device);
+        }
+
+        return this.normaliseDeviceInfo(getLocalOutputDevice());
+    }
+
+    private getActivePlaybackDevice(): AudioOutputDevice {
+        if (this.activeOutputPlugin) {
+            return this.normaliseDeviceInfo(this.selectedOutput.device);
+        }
+
+        return this.normaliseDeviceInfo(getLocalOutputDevice());
+    }
+
+    private resetPlaybackEmitState(startedDevice = this.getIntendedPlaybackDevice()) {
+        this.playbackEmitId = null;
+        this.lastPlaybackEmitAt = 0;
+        this.playbackStartedDevice = this.normaliseDeviceInfo(startedDevice);
+        this.playbackTransfers = [];
+    }
+
+    private buildPlaybackStatus() {
+        if (this.isLoading) return 'loading';
+        return this.isPlaying ? 'playing' : 'paused';
+    }
+
+    private buildSongMetadata() {
+        const metadata = this.currentMetadata;
+
+        if (!metadata) return {};
+
+        return {
+            title: metadata.title ?? undefined,
+            artist: metadata.artist ?? undefined,
+            album: metadata.album ?? undefined,
+            length: metadata.duration ?? undefined,
+            album_art: metadata.album_art ?? undefined,
+            extra_data: this.currentExtra ? JSON.stringify(this.currentExtra) : undefined,
+        };
+    }
+
+    private requestPlaybackStatusEmit() {
+        void this.maybeEmitPlaybackStatus(true);
+    }
+
+    private async maybeEmitPlaybackStatus(force = false) {
+        if (!this.currentSongId || !this.currentSourceType) return;
+
+        if (this.playbackEmitInFlight) {
+            if (force) this.playbackEmitPending = true;
+            return;
+        }
+
+        const intervalSeconds = Math.max(1, getConfig<number>('playback.emit_interval_seconds') ?? 15);
+        const now = Date.now();
+
+        if (!force && this.lastPlaybackEmitAt > 0 && now - this.lastPlaybackEmitAt < intervalSeconds * 1000) return;
+
+        this.playbackEmitInFlight = true;
+        this.lastPlaybackEmitAt = now;
+
+        const expectedExpiry = intervalSeconds + 5;
+        const deviceInfo = this.getActivePlaybackDevice();
+
+        try {
+            const response = await api(
+                '/player/playback/emit',
+                {
+                    id: this.playbackEmitId,
+                    song_id: this.currentSongId,
+                    source_type: this.currentSourceType,
+                    device_info: deviceInfo,
+                    playback_status: this.buildPlaybackStatus(),
+                    playback_metadata: {
+                        started_on_device: this.playbackStartedDevice,
+                        expected_expiry: expectedExpiry,
+                        volume: Math.round(this._volumeFraction * 100),
+                        transfers: this.playbackTransfers,
+                        shuffle: this.shuffle,
+                        repeat: this.repeat === 'all',
+                        repeat_one: this.repeat === 'one',
+                        current_time: Math.round(this.currentTime || 0),
+                    },
+                    song_metadata: this.buildSongMetadata(),
+                },
+                undefined,
+                false,
+                false,
+                'POST'
+            ) as PlaybackEmitResponse;
+
+            if (response?.status === 'success' && typeof response.id === 'number') {
+                this.playbackEmitId = response.id;
+            }
+        } catch (error) {
+            this.reportPluginError('emit playback status', error);
+        } finally {
+            this.playbackEmitInFlight = false;
+            if (this.playbackEmitPending) {
+                this.playbackEmitPending = false;
+                void this.maybeEmitPlaybackStatus(true);
+            }
         }
     }
 
@@ -531,6 +791,7 @@ class AudioPlayer {
                 this.prefetchCache.set(cacheKey, {
                     streamUrl,
                     metadata: metaJson.metadata as TrackMetadata,
+                    contentType: typeof metaJson.content_type === 'string' ? metaJson.content_type : null,
                 });
             } catch {
 
@@ -592,6 +853,56 @@ class AudioPlayer {
             });
         } catch (error) {
             this.reportPluginError('set transient volume', error);
+        }
+    }
+
+    private safelyStopOutputPlugin(plugin: AudioOutputPlugin | null) {
+        try {
+            Promise.resolve(plugin?.stop?.()).catch(error => {
+                this.reportPluginError('stop output', error);
+            });
+        } catch (error) {
+            this.reportPluginError('stop output', error);
+        }
+    }
+
+    private safelyPauseOutputPlugin(plugin: AudioOutputPlugin) {
+        try {
+            Promise.resolve(plugin.pause?.()).catch(error => {
+                this.reportPluginError('pause output', error);
+            });
+        } catch (error) {
+            this.reportPluginError('pause output', error);
+        }
+    }
+
+    private safelyResumeOutputPlugin(plugin: AudioOutputPlugin) {
+        try {
+            Promise.resolve(plugin.resume?.()).catch(error => {
+                this.reportPluginError('resume output', error);
+            });
+        } catch (error) {
+            this.reportPluginError('resume output', error);
+        }
+    }
+
+    private safelySeekOutputPlugin(plugin: AudioOutputPlugin, seconds: number) {
+        try {
+            Promise.resolve(plugin.seek?.(seconds)).catch(error => {
+                this.reportPluginError('seek output', error);
+            });
+        } catch (error) {
+            this.reportPluginError('seek output', error);
+        }
+    }
+
+    private safelySetOutputPluginVolume(plugin: AudioOutputPlugin | null, fraction: number) {
+        try {
+            Promise.resolve(plugin?.setVolume?.(fraction)).catch(error => {
+                this.reportPluginError('set output volume', error);
+            });
+        } catch (error) {
+            this.reportPluginError('set output volume', error);
         }
     }
 
@@ -744,6 +1055,56 @@ class AudioPlayer {
         }
     }
 
+    private getSelectedOutputPlugin(): AudioOutputPlugin | null {
+        if (this.selectedOutput.pluginId === LOCAL_OUTPUT_PLUGIN_ID) return null;
+        return this.outputPlugins.get(this.selectedOutput.pluginId) ?? null;
+    }
+
+    private getOutputDeviceKey(pluginId: string, device: AudioOutputDevice) {
+        return `${pluginId}:${device.device_type}:${device.device_identifier}`;
+    }
+
+    private isLocalOutputSelected() {
+        return this.selectedOutput.pluginId === LOCAL_OUTPUT_PLUGIN_ID;
+    }
+
+    private async playOnSelectedOutput(request: Omit<AudioOutputPlaybackRequest, 'device'>): Promise<boolean> {
+        const outputPlugin = this.getSelectedOutputPlugin();
+        if (!outputPlugin) return false;
+
+        this.audio.pause();
+        this.audio.removeAttribute('src');
+        this.audio.load();
+
+        if (this.activeOutputPlugin && this.activeOutputPlugin !== outputPlugin) {
+            this.safelyStopOutputPlugin(this.activeOutputPlugin);
+        }
+
+        this.activeOutputPlugin = outputPlugin;
+        await outputPlugin.play(
+            {
+                ...request,
+                device: this.selectedOutput.device,
+            },
+            {
+                onReady: () => {
+                    this.cancelPendingPlaybackFailure();
+                    this.isLoading = false;
+                    this.startEndWatcher();
+                    this.notify();
+                },
+                onEnded: () => this.advanceAfterEnd(),
+                onStateChange: () => this.notify(),
+                onError: (error) => {
+                    this.reportPluginError('output playback', error);
+                    this.advanceAfterPlaybackFailure();
+                },
+            }
+        );
+        this.safelySetOutputPluginVolume(outputPlugin, this._volumeFraction);
+        return true;
+    }
+
     private getOutputGain(fraction = this._volumeFraction) {
         const f = Math.max(0, Math.min(1, fraction));
         const minDb = -60;
@@ -784,17 +1145,21 @@ class AudioPlayer {
         this.notify();
 
         if (this.activePlugin) this.safelyPausePlugin(this.activePlugin);
+        else if (this.activeOutputPlugin) this.safelyPauseOutputPlugin(this.activeOutputPlugin);
         else this.audio.pause();
+        this.requestPlaybackStatusEmit();
     }
 
     private resumePlayback() {
         this.cancelPauseFade();
 
         if (this.activePlugin) this.safelyResumePlugin(this.activePlugin);
+        else if (this.activeOutputPlugin) this.safelyResumeOutputPlugin(this.activeOutputPlugin);
         else this.audio.play();
 
         this.syncMediaSessionState();
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     private pauseWithOptionalFade() {
@@ -810,6 +1175,7 @@ class AudioPlayer {
         this.isPauseRequested = true;
         this.syncMediaSessionState();
         this.notify();
+        this.requestPlaybackStatusEmit();
 
         if (this.fadeFrame !== null) {
             cancelAnimationFrame(this.fadeFrame);
@@ -845,6 +1211,11 @@ class AudioPlayer {
             };
 
             this.fadeFrame = requestAnimationFrame(step);
+            return;
+        }
+
+        if (this.activeOutputPlugin) {
+            this.pauseImmediately();
             return;
         }
 
@@ -951,6 +1322,7 @@ class AudioPlayer {
         this.savePlaybackState();
         this.schedulePrefetch();
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     cycleRepeat() {
@@ -961,6 +1333,7 @@ class AudioPlayer {
         this.savePlaybackState();
         this.schedulePrefetch();
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     async next(ignoreRepeatOne = false) {
@@ -1073,6 +1446,11 @@ class AudioPlayer {
             this.isTransitioning = true;
             this.isLoading = true;
 
+            if (this.activeOutputPlugin) {
+                this.safelyStopOutputPlugin(this.activeOutputPlugin);
+                this.activeOutputPlugin = null;
+            }
+
             if (this.activePlugin && this.activePlugin !== plugin) {
                 this.cancelPauseFade();
                 this.safelyDestroyPlugin(this.activePlugin);
@@ -1108,9 +1486,11 @@ class AudioPlayer {
             this.currentSourceType = sourceType;
             this.currentMetadata = null;
             this.currentExtra = extra ?? null;
+            this.resetPlaybackEmitState(this.getActivePlaybackDevice());
 
             this.notify();
             this.notifyTrackChange();
+            this.requestPlaybackStatusEmit();
 
             try {
                 await plugin.play(songId, extra, autoplay, {
@@ -1118,12 +1498,14 @@ class AudioPlayer {
                         this.currentMetadata = meta;
                         this.updateMediaSessionMetadata();
                         this.notify();
+                        this.requestPlaybackStatusEmit();
                     },
                     onReady: () => {
                         this.cancelPendingPlaybackFailure();
                         this.isLoading = false;
                         this.startEndWatcher();
                         this.notify();
+                        this.requestPlaybackStatusEmit();
                     },
 
                     onEnded: () => {
@@ -1150,6 +1532,10 @@ class AudioPlayer {
             this.cancelPauseFade();
             this.safelyDestroyPlugin(this.activePlugin);
             this.activePlugin = null;
+        }
+        if (this.activeOutputPlugin && this.isLocalOutputSelected()) {
+            this.safelyStopOutputPlugin(this.activeOutputPlugin);
+            this.activeOutputPlugin = null;
         }
         const token = localStorage.getItem('access_token');
 
@@ -1186,24 +1572,31 @@ class AudioPlayer {
         this.currentSourceType = sourceType;
         this.currentMetadata = null;
         this.currentExtra = extra ?? null;
+        this.resetPlaybackEmitState(this.getIntendedPlaybackDevice());
 
         this.notify();
         this.notifyTrackChange();
+        this.requestPlaybackStatusEmit();
 
         try {
             const cacheKey = `${sourceType}:${songId}`;
             const cached = this.prefetchCache.get(cacheKey);
+            let contentType: string | null = null;
 
             if (cached) {
                 this.prefetchCache.delete(cacheKey);
 
                 this.currentMetadata = cached.metadata;
                 this.lastStreamUrl = cached.streamUrl;
-                this.audio.src = cached.streamUrl;
+                contentType = cached.contentType;
+                if (this.isLocalOutputSelected() || !this.getSelectedOutputPlugin()) {
+                    this.audio.src = cached.streamUrl;
+                }
 
                 this.isLoading = false;
 
                 this.notify();
+                this.requestPlaybackStatusEmit();
             } else {
                 const baseUrl = getConfig<string>('api.apiUrl') ?? '';
                 const accountToken = getAccount();
@@ -1226,23 +1619,39 @@ class AudioPlayer {
                 const metaJson = await metaRes.json();
 
                 this.currentMetadata = metaJson.metadata as TrackMetadata;
+                contentType = typeof metaJson.content_type === 'string' ? metaJson.content_type : null;
 
                 this.notify();
+                this.requestPlaybackStatusEmit();
 
-                this.audio.src = this.lastStreamUrl;
+                if (this.isLocalOutputSelected() || !this.getSelectedOutputPlugin()) {
+                    this.audio.src = this.lastStreamUrl;
+                }
 
                 this.isLoading = false;
 
                 this.notify();
+                this.requestPlaybackStatusEmit();
             }
 
             this.updateMediaSessionMetadata();
 
-            if (autoplay && this.ctx?.state === 'suspended') {
+            const playedOnExternalOutput = autoplay && this.lastStreamUrl
+                ? await this.playOnSelectedOutput({
+                    songId,
+                    sourceType,
+                    streamUrl: this.lastStreamUrl,
+                    contentType,
+                    metadata: this.currentMetadata,
+                    extra,
+                })
+                : false;
+
+            if (autoplay && this.ctx?.state === 'suspended' && !playedOnExternalOutput) {
                 await this.ctx.resume();
             }
 
-            if (autoplay) {
+            if (autoplay && !playedOnExternalOutput) {
                 try {
                     await this.audio.play();
                 } catch (error) {
@@ -1254,6 +1663,7 @@ class AudioPlayer {
 
             this.saveCurrentTrackState();
             this.schedulePrefetch();
+            this.requestPlaybackStatusEmit();
         } catch (error) {
             this.reportPluginError(`playback for ${sourceType}:${songId}`, error);
             this.advanceAfterPlaybackFailure();
@@ -1275,6 +1685,15 @@ class AudioPlayer {
             this.notify();
             return;
         }
+        if (this.activeOutputPlugin) {
+            if (this.isPlaying) {
+                this.pauseWithOptionalFade();
+            } else {
+                this.resumePlayback();
+            }
+            this.notify();
+            return;
+        }
         if (!this.audio.src) return;
         if (!this.isPlaying) {
             this.resumePlayback();
@@ -1286,6 +1705,12 @@ class AudioPlayer {
     seek(fraction: number) {
         if (this.activePlugin) {
             this.safelySeekPlugin(this.activePlugin, this.activePlugin.getDuration() * Math.max(0, Math.min(1, fraction)));
+            return;
+        }
+        if (this.activeOutputPlugin) {
+            const duration = this.duration;
+            if (!duration) return;
+            this.safelySeekOutputPlugin(this.activeOutputPlugin, duration * Math.max(0, Math.min(1, fraction)));
             return;
         }
         if (!this.audio.duration) return;
@@ -1305,7 +1730,9 @@ class AudioPlayer {
         storage?.setItem(VOLUME_STORAGE_KEY, String(f));
 
         if (this.activePlugin) this.safelySetPluginVolume(this.activePlugin, f);
+        this.safelySetOutputPluginVolume(this.activeOutputPlugin, f);
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     registerPlugin(sourceType: string, plugin: SourcePlugin | null) {
@@ -1316,20 +1743,120 @@ class AudioPlayer {
         }
     }
 
+    registerOutputPlugin(pluginId: string, plugin: AudioOutputPlugin | null) {
+        if (plugin === null) {
+            const existing = this.outputPlugins.get(pluginId);
+            if (existing && existing === this.activeOutputPlugin) {
+                this.safelyStopOutputPlugin(existing);
+                this.activeOutputPlugin = null;
+            }
+            this.outputPlugins.delete(pluginId);
+            if (this.selectedOutput.pluginId === pluginId) {
+                this.selectedOutput = { pluginId: LOCAL_OUTPUT_PLUGIN_ID, device: getLocalOutputDevice() };
+                this.saveSelectedOutputDevice();
+            }
+        } else {
+            this.outputPlugins.set(pluginId, plugin);
+        }
+        this.notify();
+    }
+
+    getOutputDevices() {
+        const devices = [{ pluginId: LOCAL_OUTPUT_PLUGIN_ID, device: getLocalOutputDevice() }];
+
+        for (const [pluginId, plugin] of this.outputPlugins) {
+            try {
+                for (const device of plugin.listDevices()) {
+                    if (!device.device_identifier || !device.device_type) continue;
+                    devices.push({
+                        pluginId,
+                        device: {
+                            device_identifier: device.device_identifier,
+                            device_type: device.device_type,
+                            device_ip: device.device_ip ?? null,
+                            label: device.label,
+                        },
+                    });
+                }
+            } catch (error) {
+                this.reportPluginError('list output devices', error);
+            }
+        }
+
+        return devices;
+    }
+
+    selectOutputDevice(pluginId: string, device: AudioOutputDevice) {
+        if (!device.device_identifier || !device.device_type) {
+            throw new Error('Output devices require device_identifier and device_type');
+        }
+
+        const previousPlugin = this.activeOutputPlugin;
+        const nextDevice = pluginId === LOCAL_OUTPUT_PLUGIN_ID ? getLocalOutputDevice() : device;
+        this.selectedOutput = {
+            pluginId,
+            device: {
+                device_identifier: nextDevice.device_identifier,
+                device_type: nextDevice.device_type,
+                device_ip: nextDevice.device_ip ?? null,
+                label: nextDevice.label,
+            },
+        };
+        this.saveSelectedOutputDevice();
+        this.playbackTransfers.push({
+            device: this.normaliseDeviceInfo(this.selectedOutput.device),
+            transferred_at: new Date().toISOString(),
+        });
+        this.lastPlaybackEmitAt = 0;
+        this.requestPlaybackStatusEmit();
+
+        if (pluginId === LOCAL_OUTPUT_PLUGIN_ID) {
+            this.safelyStopOutputPlugin(previousPlugin);
+            this.activeOutputPlugin = null;
+            if (this.lastStreamUrl && this.currentSongId && !this.audio.src) {
+                this.audio.src = this.lastStreamUrl;
+            }
+        } else if (this.currentSongId && this.currentSourceType && this.lastStreamUrl) {
+            this.playOnSelectedOutput({
+                songId: this.currentSongId,
+                sourceType: this.currentSourceType,
+                streamUrl: this.lastStreamUrl,
+                contentType: null,
+                metadata: this.currentMetadata,
+                extra: this.currentExtra ?? undefined,
+            }).catch(error => {
+                this.reportPluginError('switch output device', error);
+            });
+        }
+
+        this.notify();
+    }
+
+    get selectedOutputDevice() {
+        return this.selectedOutput;
+    }
+
+    get selectedOutputDeviceKey() {
+        return this.getOutputDeviceKey(this.selectedOutput.pluginId, this.selectedOutput.device);
+    }
+
     get isPlaying() {
         if (this.isPauseRequested) return false;
         if (this.isPauseFadePending) return false;
         if (this.activePlugin) return this.activePlugin.isPlaying();
+        if (this.activeOutputPlugin?.isPlaying) return this.activeOutputPlugin.isPlaying();
         return !this.audio.paused && !this.audio.ended;
     }
 
     get currentTime() {
         if (this.activePlugin) return this.activePlugin.getCurrentTime();
+        if (this.activeOutputPlugin?.getCurrentTime) return this.activeOutputPlugin.getCurrentTime();
         return this.audio.currentTime;
     }
 
     get duration() {
         if (this.activePlugin) return this.activePlugin.getDuration();
+        if (this.activeOutputPlugin?.getDuration) return this.activeOutputPlugin.getDuration();
         return this.audio.duration || 0;
     }
 

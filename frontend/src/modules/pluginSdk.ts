@@ -50,7 +50,12 @@ export function getVolumeStorage(): Storage | null {
 }
 export { player, playSong } from './player';
 export type {
+    AudioOutputDevice,
+    AudioOutputPlaybackRequest,
+    AudioOutputPlugin,
+    AudioOutputPluginCallbacks,
     QueueItem,
+    RegisteredAudioOutputDevice,
     RepeatMode,
     SourcePlugin,
     TrackMetadata,

@@ -89,6 +89,22 @@ SCHEMA = {
         "account_id": "INT NOT NULL",
         "code": "VARCHAR(255) NOT NULL",
         "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+    },
+    "current_playback": {
+        "id": "SERIAL PRIMARY KEY",
+        "account_id": "INT NOT NULL",
+        "song_id": "VARCHAR(255) NOT NULL",
+        "source_type": "VARCHAR(255) NOT NULL",
+        "device_identifier": "TEXT",
+        "device_ip": "VARCHAR(255)",
+        "device_type": "VARCHAR(255)",
+        "device_label": "TEXT",
+        "playback_metadata": "JSONB DEFAULT NULL",
+        "song_metadata": "JSONB DEFAULT NULL",
+        "expires_at": "TIMESTAMPTZ",
+        "playback_status": "VARCHAR(255) NOT NULL DEFAULT 'paused'",
+        "created_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+        "updated_at": "TIMESTAMPTZ NOT NULL DEFAULT NOW()"
     }
 }
 

@@ -1,0 +1,2 @@
+[current_playback]
+expiry = "int <minmax [1, 60] step [1]> # comment: Current playback expiry in seconds before needing to emit a new playback event"

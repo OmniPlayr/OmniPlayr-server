@@ -16,6 +16,7 @@ PROTECTED_TABLES: dict[str, ProtectionLevel] = {
     "initial_notifications_sent": "read",
     "update_cache": "read",
     "backup_codes": "read",
+    "current_playback": "write",
 }
 
 _ownership: dict[str, str] = {}
