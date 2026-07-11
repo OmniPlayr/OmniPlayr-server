@@ -93,7 +93,22 @@ const localConfigs = import.meta.env.DEV
         '../local-plugins/package.json',
     ], { eager: true }) as Record<string, { default: PluginConfig }>
     : {};
-const configs = { ...installedConfigs, ...localConfigs };
+const installedPluginIds = new Set(
+    Object.values(installedConfigs)
+        .map(module => module.default?.id)
+        .filter((id): id is string => !!id)
+);
+
+const filteredLocalConfigs = Object.fromEntries(
+    Object.entries(localConfigs).filter(([, module]) =>
+        !installedPluginIds.has(module.default?.id)
+    )
+);
+
+const configs = {
+    ...installedConfigs,
+    ...filteredLocalConfigs,
+};
 
 function getFolderFromPath(path: string): string {
     if (path.endsWith('/local-plugins/package.json')) {

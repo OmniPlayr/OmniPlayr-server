@@ -91,7 +91,8 @@ async function loadAccount() {
 
 async function loadPlugins(): Promise<void> {
     const installedModules = import.meta.glob('./plugins/*/index.{ts,tsx}');
-    const localModules = import.meta.env.DEV
+
+    const discoveredLocalModules = import.meta.env.DEV
         ? import.meta.glob([
             './local-plugins/*/index.{ts,tsx}',
             './local-plugins/*/frontend/index.{ts,tsx}',
@@ -103,19 +104,51 @@ async function loadPlugins(): Promise<void> {
             './local-frontend-plugins/index.{ts,tsx}',
         ])
         : {};
-    const modules = { ...installedModules, ...localModules };
-    const loaded = await Promise.all(Object.values(modules).map(m => (m as () => Promise<unknown>)()));
-    const initResults = await Promise.allSettled(loaded.map(async mod => {
-        if (mod && typeof (mod as any).init === 'function') {
-            await (mod as any).init();
-        }
-    }));
+
+    const installedPluginIds = new Set(
+        Object.keys(installedModules)
+            .map(modulePath => modulePath.match(/^\.\/plugins\/([^/]+)\//)?.[1])
+            .filter((id): id is string => !!id)
+    );
+
+    const localModules = Object.fromEntries(
+        Object.entries(discoveredLocalModules).filter(([modulePath]) => {
+            const pluginId = modulePath.match(
+                /^\.\/local-(?:frontend-)?plugins\/([^/]+)\//
+            )?.[1];
+
+            return !pluginId || !installedPluginIds.has(pluginId);
+        })
+    );
+
+    const modules = {
+        ...installedModules,
+        ...localModules,
+    };
+
+    console.log('[plugins] installed entries', Object.keys(installedModules));
+    console.log('[plugins] local entries', Object.keys(localModules));
+
+    const loaded = await Promise.all(
+        Object.values(modules).map(moduleLoader =>
+            (moduleLoader as () => Promise<unknown>)()
+        )
+    );
+
+    const initResults = await Promise.allSettled(
+        loaded.map(async module => {
+            if (module && typeof (module as any).init === 'function') {
+                await (module as any).init();
+            }
+        })
+    );
 
     for (const result of initResults) {
         if (result.status === 'rejected') {
             console.error('[plugins] initialization failed:', result.reason);
         }
     }
+
     notifyPluginsLoaded();
 }
 
