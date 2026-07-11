@@ -321,13 +321,34 @@ export function getRoutes(): PluginRoute[] {
 }
 
 export function emit(event: string, payload?: any) {
-    eventBus.get(event)?.forEach(fn => fn(payload));
+    const listeners = eventBus.get(event);
+
+    console.log('[plugins] emit', {
+        event,
+        payload,
+        listenerCount: listeners?.size ?? 0,
+        eventBus,
+    });
+
+    listeners?.forEach(fn => fn(payload));
 }
 
 export function on(event: string, listener: Listener) {
-    if (!eventBus.has(event)) eventBus.set(event, new Set());
+    if (!eventBus.has(event)) {
+        eventBus.set(event, new Set());
+    }
+
     eventBus.get(event)!.add(listener);
-    return () => eventBus.get(event)?.delete(listener);
+
+    console.log('[plugins] on', {
+        event,
+        listenerCount: eventBus.get(event)!.size,
+        eventBus,
+    });
+
+    return () => {
+        eventBus.get(event)?.delete(listener);
+    };
 }
 
 export function modify(pluginId: string, selector: string, fn: DOMHook) {
