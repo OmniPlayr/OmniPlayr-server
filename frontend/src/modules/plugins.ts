@@ -1,8 +1,5 @@
 import type { ComponentType } from 'react';
 
-console.log('[plugins.ts loaded]', import.meta.url);
-console.trace('[plugins.ts load trace]');
-
 export interface PluginConfig {
     id: string;
     name: string;
@@ -340,14 +337,6 @@ export function getRoutes(): PluginRoute[] {
 
 export function emit(event: string, payload?: any) {
     const listeners = eventBus.get(event);
-
-    console.log('[plugins] emit', {
-        event,
-        payload,
-        listenerCount: listeners?.size ?? 0,
-        eventBus,
-    });
-
     listeners?.forEach(fn => fn(payload));
 }
 
@@ -357,12 +346,6 @@ export function on(event: string, listener: Listener) {
     }
 
     eventBus.get(event)!.add(listener);
-
-    console.log('[plugins] on', {
-        event,
-        listenerCount: eventBus.get(event)!.size,
-        eventBus,
-    });
 
     return () => {
         eventBus.get(event)?.delete(listener);
