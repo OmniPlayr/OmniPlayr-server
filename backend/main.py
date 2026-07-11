@@ -136,7 +136,19 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     log_exception(exc, f"Unhandled error on {request.method} {request.url.path}")
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    headers = {}
+    origin = request.headers.get("origin")
+    if origin:
+        headers = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=headers,
+    )
 
 # This sets the /api prefix for in the url, so that we can use /api/...
 app.include_router(router, prefix="/api")

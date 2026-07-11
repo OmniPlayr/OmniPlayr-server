@@ -3,6 +3,7 @@ import os
 import re
 import psycopg2
 import psycopg2.pool
+import threading
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 from api.helpers.userwarn import user_warn
@@ -92,6 +93,9 @@ SCHEMA = {
 }
 
 _pool: psycopg2.pool.ThreadedConnectionPool | None = None
+_max_connections = max(int(os.getenv("DATABASE_POOL_MAX", "10")), 2)
+_connection_slots = threading.BoundedSemaphore(_max_connections)
+_connection_wait_seconds = max(float(os.getenv("DATABASE_POOL_WAIT_SECONDS", "15")), 0.1)
 
 
 def _close_pool() -> None:
@@ -109,7 +113,7 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
         log("Creating database connection pool", "debug", "db")
         _pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=2,
-            maxconn=10,
+            maxconn=_max_connections,
             dsn=DATABASE_URL,
             cursor_factory=RealDictCursor,
         )
@@ -119,7 +123,17 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
 @contextmanager
 def get_conn():
     pool = _get_pool()
-    conn = pool.getconn()
+    if not _connection_slots.acquire(timeout=_connection_wait_seconds):
+        raise psycopg2.pool.PoolError(
+            f"Timed out waiting {_connection_wait_seconds:g}s for a database connection"
+        )
+
+    try:
+        conn = pool.getconn()
+    except Exception:
+        _connection_slots.release()
+        raise
+
     log("Acquired connection from pool", "debug", "db")
     try:
         yield conn
@@ -128,6 +142,7 @@ def get_conn():
         raise
     finally:
         pool.putconn(conn)
+        _connection_slots.release()
         log("Released connection back to pool", "debug", "db")
 
 # This checks if the sql is safe, because we dont want sql injection

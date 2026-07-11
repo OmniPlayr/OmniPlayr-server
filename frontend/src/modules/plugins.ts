@@ -120,6 +120,9 @@ function injectPluginStyles() {
             [data-plugin-hooked] > :not(.__plugin-hook-wrapper):not([data-plugin-hooked]) {
                 display: none !important;
             }
+            .dashboard-hor > :not(.__plugin-hook-wrapper):not([data-plugin-hooked]) {
+                display: revert-layer !important;
+            }    
             #__plugin-error-container {
                 position: fixed;
                 top: 0;
@@ -201,7 +204,8 @@ export function registerTab(
 
     if (tab.url !== undefined) {
         const normalised = tab.url.startsWith('/') ? tab.url : '/' + tab.url;
-        if (registeredUrls.has(normalised)) {
+        const existingUrl = tabRegistry.find(existing => existing.id === id && existing.url === normalised);
+        if (registeredUrls.has(normalised) && !existingUrl) {
             console.error(`[plugins] blocked: "${id}" tried to register url "${normalised}" which is already taken`);
             return;
         }
@@ -232,11 +236,6 @@ export function registerPluginsMenuItem(
 
     if (!menuItem.view && !menuItem.function) {
         console.error(`[plugins] blocked: "${id}" menu item must have either a view or a function`);
-        return;
-    }
-
-    if (menuRegistry.find(m => m.id === id && m.label === menuItem.label && m.icon === menuItem.icon)) {
-        console.error(`[plugins] blocked: "${id}" menu item with the same label and icon already exists`);
         return;
     }
 

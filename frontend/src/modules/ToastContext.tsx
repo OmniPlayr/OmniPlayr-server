@@ -28,7 +28,6 @@ function ToastComponent({ toast: initialToast, onDismiss } : { toast: Toast; onD
         setTimeout(() => {
             if (!ref.current) return;
             ref.current.style.animation = 'none';
-            ref.current.remove();
             onDismiss();
         }, 300);
     };

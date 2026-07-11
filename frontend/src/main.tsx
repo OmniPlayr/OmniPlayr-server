@@ -26,6 +26,7 @@ import Shutdown from './Shutdown.tsx';
 import { generateCssVars } from './modules/customColor.ts';
 import MobileNotifications from './MobileNotifications.tsx';
 import { NotificationsProvider } from './modules/NotificationsContext';
+import { player } from './modules/player';
 import Updating from './Updating.tsx';
 import Failure from './Fail.tsx';
 import '@wokki20/jspt/dist/jspt.css';
@@ -98,9 +99,15 @@ async function loadPlugins(): Promise<void> {
         : {};
     const modules = { ...installedModules, ...localModules };
     const loaded = await Promise.all(Object.values(modules).map(m => (m as () => Promise<unknown>)()));
-    for (const mod of loaded) {
+    const initResults = await Promise.allSettled(loaded.map(async mod => {
         if (mod && typeof (mod as any).init === 'function') {
-            (mod as any).init();
+            await (mod as any).init();
+        }
+    }));
+
+    for (const result of initResults) {
+        if (result.status === 'rejected') {
+            console.error('[plugins] initialization failed:', result.reason);
         }
     }
     notifyPluginsLoaded();
@@ -162,17 +169,23 @@ function AppShell() {
         api("check_update").then((res: any) => {
             if (res?.update_available) setUpdateAvailable(true);
         }).catch(() => {});
-        initSafeMode().then(sm => {
+        const initializePluginsAndPlayer = async (sm: boolean) => {
             setSafeMode(sm);
             if (!sm) {
-                loadPlugins().catch(console.error).finally(() => setPluginsLoaded(true));
-            } else {
-                setPluginsLoaded(true);
+                try {
+                    await loadPlugins();
+                } catch (error) {
+                    console.error(error);
+                }
             }
-        }).catch(() => {
-            setSafeMode(false);
-            loadPlugins().catch(console.error).finally(() => setPluginsLoaded(true));
-        });
+
+            setPluginsLoaded(true);
+            void player.restoreCurrentTrackState();
+        };
+
+        initSafeMode()
+            .then(initializePluginsAndPlayer)
+            .catch(() => initializePluginsAndPlayer(false));
     }, [isAuth, accountId]);
     useEffect(() => {
         if (!showShell) return;
@@ -341,7 +354,7 @@ function AppShell() {
                                         {getRoutes().map(({ path, component: Component }) => (
                                             <Route key={path} path={path} element={<Component />} />
                                         ))}
-                                        {pluginsLoaded && <Route path="*" element={<Navigate to="/" />} />}
+                                        <Route path="*" element={pluginsLoaded ? <Navigate to="/" /> : null} />
                                     </Routes>
                                 )}
                             </div>

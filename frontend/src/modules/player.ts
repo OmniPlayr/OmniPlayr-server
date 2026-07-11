@@ -136,6 +136,7 @@ class AudioPlayer {
     private endAdvanceInProgress = false;
     private playbackFailureAdvancePending = false;
     private playbackFailureTimer: ReturnType<typeof setTimeout> | null = null;
+    private persistedTrackRestoreStarted = false;
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
     private fadeFrame: number | null = null;
@@ -195,7 +196,6 @@ class AudioPlayer {
         this.loadPersistedHistory();
         this.loadPersistedPlaybackState();
         this.initMediaControls();
-        this.restoreCurrentTrackState();
     }
 
     private initAudioGraph() {
@@ -335,7 +335,10 @@ class AudioPlayer {
         }
     }
 
-    private async restoreCurrentTrackState() {
+    async restoreCurrentTrackState() {
+        if (this.persistedTrackRestoreStarted) return;
+        this.persistedTrackRestoreStarted = true;
+
         if (!(getConfig<boolean>('history.persist_playback_state') ?? true)) return;
 
         try {
@@ -1235,7 +1238,7 @@ class AudioPlayer {
 
             this.updateMediaSessionMetadata();
 
-            if (this.ctx?.state === 'suspended') {
+            if (autoplay && this.ctx?.state === 'suspended') {
                 await this.ctx.resume();
             }
 

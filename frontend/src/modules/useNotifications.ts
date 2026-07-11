@@ -109,7 +109,16 @@ export function useNotifications(): UseNotificationsResult {
         return () => {
             cancelled = true;
             clearTimeout(reconnectTimeout);
-            ws?.close();
+            if (!ws) return;
+
+            if (ws.readyState === WebSocket.CONNECTING) {
+                ws.onmessage = null;
+                ws.onerror = null;
+                ws.onclose = null;
+                ws.onopen = () => ws.close();
+            } else {
+                ws.close();
+            }
         };
     }, [refreshKey]);
 
