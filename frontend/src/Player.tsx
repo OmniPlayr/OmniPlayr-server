@@ -4,9 +4,10 @@ import {
     Shuffle, SkipBack, SkipForward, Play, Pause, Loader,
     Repeat, Repeat1, Music, Volume, Volume2, VolumeX, Volume1, ChevronDown
 } from 'lucide-react';
-import { player, type TrackMetadata, type RepeatMode } from './modules/player';
+import { player, type TrackMetadata, type RepeatMode, type SyncedPlaybackInfo } from './modules/player';
 import { usePlugins } from './modules/usePlugins';
 import { useIsMobile } from './main';
+import i18n from './i18n';
 
 function formatTime(seconds: number): string {
     if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
@@ -25,6 +26,40 @@ function VolumeIcon({ volume, onClick }: { volume: number; onClick?: () => void 
 function RepeatIcon({ mode, className, onClick }: { mode: RepeatMode; className?: string; onClick?: () => void }) {
     if (mode === 'one') return <Repeat1 className={className} onClick={onClick} />;
     return <Repeat className={className} onClick={onClick} />;
+}
+
+function SyncedPlaybackBanner({ info }: { info: SyncedPlaybackInfo | null }) {
+    if (!info) return null;
+
+    return (
+        <div className="player-sync-banner">
+            <span className="player-sync-banner-text">
+                {i18n.t('player.sync.playing_on', { device: info.deviceLabel })}
+            </span>
+            <div className="player-sync-banner-actions">
+                <button
+                    type="button"
+                    className="player-sync-banner-switch"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void player.playSyncedPlaybackHere(true);
+                    }}
+                >
+                    {i18n.t('player.sync.switch_to_this_device')}
+                </button>
+                <button
+                    type="button"
+                    className="player-sync-banner-separate"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        void player.playSyncedPlaybackHere(false);
+                    }}
+                >
+                    {i18n.t('player.sync.play_separately')}
+                </button>
+            </div>
+        </div>
+    );
 }
 
 function extractAverageColor(img: HTMLImageElement): string {
@@ -232,6 +267,7 @@ function Player() {
     const [repeat, setRepeat] = useState<RepeatMode>('off');
     const [hasPrev, setHasPrev] = useState(false);
     const [hasNext, setHasNext] = useState(false);
+    const [syncedPlaybackInfo, setSyncedPlaybackInfo] = useState<SyncedPlaybackInfo | null>(() => player.syncedPlaybackInfo);
     const isMobile = useIsMobile();
     const analyserRef = useAudioAnalyser();
 
@@ -274,6 +310,7 @@ function Player() {
             setRepeat(player.repeat);
             setHasPrev(player.hasPrev);
             setHasNext(player.hasNext);
+            setSyncedPlaybackInfo(player.syncedPlaybackInfo);
 
             if (!isDragging.current) {
                 const frac = player.duration > 0 ? player.currentTime / player.duration : 0;
@@ -467,6 +504,7 @@ function Player() {
 
         return (
             <>
+                {!isFullscreen && <SyncedPlaybackBanner info={syncedPlaybackInfo} />}
                 <div
                     className="player-mini"
                     style={miniStyle}
@@ -533,7 +571,9 @@ function Player() {
                                 </span>
                             </div>
 
-                            <div className="player-fullscreen-empty-slot" />
+                            <div className="player-fullscreen-empty-slot">
+                                <SyncedPlaybackBanner info={syncedPlaybackInfo} />
+                            </div>
 
                             <div className="player-fullscreen-controls">
                                 <Shuffle
@@ -597,6 +637,7 @@ function Player() {
             data-source-type={player.currentSourceType}
             style={artGradient ? { backgroundImage: artGradient } : undefined}
         >
+            <SyncedPlaybackBanner info={syncedPlaybackInfo} />
             <div className='player-song-gradient' style={artGradient ? { ...artGradient2 } : undefined}></div>
             <div className="player-song-info">
                 <AlbumArt metadata={metadata} onColorChange={setAccentColor} />

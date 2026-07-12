@@ -14,6 +14,9 @@ prefetch_delay_ms = 1500
 
 [playback]
 emit_interval_seconds = 15
+account_sync_enabled = true
+account_sync_interval_seconds = 2
+account_sync_drift_seconds = 3
 
 [history]
 max_history_size = 100

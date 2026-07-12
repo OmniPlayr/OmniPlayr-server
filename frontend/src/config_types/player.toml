@@ -14,6 +14,9 @@ prefetch_delay_ms = "int <minmax [0, 10000] step [100]> # comment: Milliseconds 
 
 [playback]
 emit_interval_seconds = "int <minmax [1, 120] step [1]> # liveupdate:true # comment: Seconds to wait before sending another current playback update"
+account_sync_enabled = "bool # liveupdate:true # comment: Keep playback synced across devices on the same account"
+account_sync_interval_seconds = "int <minmax [1, 30] step [1]> # liveupdate:true # comment: Seconds between account playback sync checks"
+account_sync_drift_seconds = "float <minmax [1, 30] step [0.5]> # liveupdate:true # comment: Seconds of playback drift allowed before syncing position"
 
 [history]
 max_history_size = "int <minmax [0, 500] step [1]> # comment: How many tracks to keep in back-navigation history; 0 means unlimited"

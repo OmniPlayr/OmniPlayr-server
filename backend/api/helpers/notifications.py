@@ -216,6 +216,31 @@ async def notify(
     return row
 
 
+async def push_frontend_event(account_id: int, event: str, data: dict | None = None) -> None:
+    """Push a transient frontend event over the existing account websocket."""
+    await manager.send_to_user(
+        account_id,
+        {
+            "type": "frontend_event",
+            "event": event,
+            "data": data or {},
+        },
+    )
+
+
+def push_frontend_event_sync(account_id: int, event: str, data: dict | None = None) -> None:
+    """Schedule or run transient frontend-event delivery from synchronous code."""
+    coro = push_frontend_event(account_id, event, data)
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coro)
+    except RuntimeError:
+        if _main_loop is not None:
+            asyncio.run_coroutine_threadsafe(coro, _main_loop)
+        else:
+            asyncio.run(coro)
+
+
 async def notify_once(
     account_id: int,
     notification_key: str,

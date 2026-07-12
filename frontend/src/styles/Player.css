@@ -10,7 +10,62 @@
         padding-left: 10px;
         padding-right: 10px;
         margin-top: auto;
+        position: relative;
     }
+}
+
+.player-sync-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--clr-primary-a0);
+    color: #fff;
+    border-radius: 8px;
+    padding: 8px 10px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+.player > .player-sync-banner {
+    position: absolute;
+    right: 20px;
+    bottom: calc(100% + 10px);
+    z-index: 20;
+}
+
+.player-sync-banner-text {
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.player-sync-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.player-sync-banner button {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 9px;
+    border-radius: 7px;
+}
+
+.player-sync-banner-switch {
+    color: #fff;
+    background: transparent;
+}
+
+.player-sync-banner-separate {
+    color: var(--clr-primary-a0);
+    background: #fff;
 }
 
 .player-song-info {
@@ -247,6 +302,36 @@
     .player-song-gradient {
         display: none;
     }
+
+    .player-sync-banner {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: 142px;
+        z-index: 151;
+        justify-content: stretch;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 8px;
+        border-radius: 14px;
+        padding: 10px;
+    }
+
+    .player-sync-banner-text {
+        font-size: 12px;
+        white-space: normal;
+        line-height: 1.25;
+    }
+
+    .player-sync-banner-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .player-sync-banner button {
+        min-height: 32px;
+        padding: 7px 10px;
+    }
 }
 
 .player-mini {
@@ -449,7 +534,17 @@
     }
 
     .player-fullscreen-empty-slot {
-        height: 4px;
+        min-height: 4px;
+    }
+
+    .player-fullscreen-empty-slot .player-sync-banner {
+        position: static;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        z-index: auto;
+        width: 100%;
+        box-shadow: none;
     }
 
     .player-fullscreen-controls {

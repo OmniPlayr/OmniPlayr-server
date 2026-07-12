@@ -27,7 +27,7 @@ export interface SourcePlugin {
     getCurrentTime(): number;
     getDuration(): number;
     isPlaying(): boolean;
-    destroy(): void;
+    destroy(options?: { transferred?: boolean }): void;
     activate?(): void;
     setVolume?(fraction: number): void;
     setTransientVolume?(fraction: number): void;
@@ -58,7 +58,9 @@ export interface AudioOutputPluginCallbacks {
 }
 
 export interface AudioOutputPlugin {
+    supportsSourcePlayback?: boolean;
     listDevices(): AudioOutputDevice[];
+    canPlay?(request: AudioOutputPlaybackRequest): boolean | string;
     play(request: AudioOutputPlaybackRequest, callbacks: AudioOutputPluginCallbacks): Promise<void>;
     pause?(): void;
     resume?(): void;
@@ -75,6 +77,12 @@ export interface RegisteredAudioOutputDevice {
     device: AudioOutputDevice;
 }
 
+export interface SyncedPlaybackInfo {
+    deviceLabel: string;
+    deviceType: string | null;
+    isPlaying: boolean;
+}
+
 interface PlaybackTransferInfo {
     device: AudioOutputDevice;
     transferred_at: string;
@@ -83,6 +91,40 @@ interface PlaybackTransferInfo {
 interface PlaybackEmitResponse {
     status?: string;
     id?: number;
+}
+
+interface AccountPlaybackRow {
+    id?: number;
+    song_id?: string;
+    source_type?: string;
+    device_identifier?: string | null;
+    device_type?: string | null;
+    device_label?: string | null;
+    playback_status?: string | null;
+    playback_metadata?: {
+        started_on_device?: Partial<AudioOutputDevice>;
+        client_instance_id?: string;
+        current_time?: number;
+        shuffle?: boolean;
+        repeat?: boolean;
+        repeat_one?: boolean;
+        volume?: number;
+    } | null;
+    song_metadata?: {
+        title?: string | null;
+        artist?: string | null;
+        album?: string | null;
+        length?: number | null;
+        album_art?: string | null;
+        extra_data?: string | null;
+    } | null;
+}
+
+interface AccountDeviceRow {
+    id?: number | string | null;
+    identifier?: string | null;
+    type?: string | null;
+    status?: string | null;
 }
 
 export interface TrackMetadata {
@@ -132,6 +174,7 @@ const HISTORY_STORAGE_KEY = 'player_history';
 const PLAYBACK_STATE_STORAGE_KEY = 'player_playback_state';
 const CURRENT_TRACK_STORAGE_KEY = 'player_current_track';
 const OUTPUT_DEVICE_STORAGE_KEY = 'player_output_device';
+const CLIENT_INSTANCE_STORAGE_KEY = 'player_client_instance_id';
 const MIN_GAIN = 0.0001;
 const PLAYBACK_FAILURE_GRACE_MS = 0;
 const LOCAL_OUTPUT_PLUGIN_ID = 'core';
@@ -184,6 +227,19 @@ function buildAuthenticatedStreamUrl(baseUrl: string, sourceType: string, songId
     return `${baseUrl}/api/player/stream/${sourceType}:${encoded}?${params.toString()}`;
 }
 
+function isAbortError(error: unknown) {
+    return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function getClientInstanceId() {
+    let id = sessionStorage.getItem(CLIENT_INSTANCE_STORAGE_KEY);
+    if (id) return id;
+
+    id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(CLIENT_INSTANCE_STORAGE_KEY, id);
+    return id;
+}
+
 export function getVolumeStorage(): Storage | null {
     const mode = getConfig<string>('player.volume_persistence') ?? 'localStorage';
     if (mode === 'sessionStorage') return sessionStorage;
@@ -234,12 +290,21 @@ class AudioPlayer {
     private playbackEmitPending = false;
     private playbackStartedDevice: AudioOutputDevice = getLocalOutputDevice();
     private playbackTransfers: PlaybackTransferInfo[] = [];
+    private accountSyncInFlight = false;
+    private accountSyncApplying = false;
+    private accountSyncLastTrackKey: string | null = null;
+    private accountRemotePlayback: {
+        row: AccountPlaybackRow;
+        receivedAt: number;
+        targetDeviceId: number | null;
+    } | null = null;
 
     private pendingAutoplay = false;
     private endAdvanceInProgress = false;
     private playbackFailureAdvancePending = false;
     private playbackFailureTimer: ReturnType<typeof setTimeout> | null = null;
     private persistedTrackRestoreStarted = false;
+    private playbackTickInterval: ReturnType<typeof setInterval> | null = null;
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
     private fadeFrame: number | null = null;
@@ -300,9 +365,23 @@ class AudioPlayer {
         this.loadPersistedHistory();
         this.loadPersistedPlaybackState();
         this.initMediaControls();
+        this.initAccountPlaybackEvents();
         window.setInterval(() => {
             this.maybeEmitPlaybackStatus();
         }, 1000);
+        window.setInterval(() => {
+            void this.syncAccountPlayback();
+        }, Math.max(1, getConfig<number>('playback.account_sync_interval_seconds') ?? 2) * 1000);
+        this.startPlaybackTicker();
+    }
+
+    private startPlaybackTicker() {
+        if (this.playbackTickInterval) return;
+
+        this.playbackTickInterval = window.setInterval(() => {
+            if (!this.currentSongId || !this.isPlaying) return;
+            this.notify();
+        }, 500);
     }
 
     private initAudioGraph() {
@@ -492,10 +571,13 @@ class AudioPlayer {
     }
 
     private requestPlaybackStatusEmit() {
+        if (this.accountSyncApplying) return;
         void this.maybeEmitPlaybackStatus(true);
     }
 
     private async maybeEmitPlaybackStatus(force = false) {
+        if (this.accountSyncApplying) return;
+        if (this.isObservingRemotePlayback()) return;
         if (!this.currentSongId || !this.currentSourceType) return;
 
         if (this.playbackEmitInFlight) {
@@ -524,6 +606,7 @@ class AudioPlayer {
                     device_info: deviceInfo,
                     playback_status: this.buildPlaybackStatus(),
                     playback_metadata: {
+                        client_instance_id: getClientInstanceId(),
                         started_on_device: this.playbackStartedDevice,
                         expected_expiry: expectedExpiry,
                         volume: Math.round(this._volumeFraction * 100),
@@ -552,6 +635,231 @@ class AudioPlayer {
                 this.playbackEmitPending = false;
                 void this.maybeEmitPlaybackStatus(true);
             }
+        }
+    }
+
+    private isAccountSyncEnabled() {
+        return getConfig<boolean>('playback.account_sync_enabled') ?? true;
+    }
+
+    private isObservingRemotePlayback() {
+        return Boolean(this.accountRemotePlayback && !this.activePlugin && !this.activeOutputPlugin && !this.audio.src);
+    }
+
+    private isOwnPlaybackRow(row: AccountPlaybackRow) {
+        if (row.playback_metadata?.client_instance_id) {
+            return row.playback_metadata.client_instance_id === getClientInstanceId();
+        }
+
+        const localDevice = getLocalOutputDevice();
+
+        return (
+            row.device_identifier === localDevice.device_identifier &&
+            row.device_type === localDevice.device_type
+        );
+    }
+
+    private initAccountPlaybackEvents() {
+        window.addEventListener('omniplayr:frontend-event', event => {
+            const customEvent = event as CustomEvent<{ event?: string; data?: { playback?: AccountPlaybackRow } }>;
+            if (customEvent.detail?.event !== 'player.playback_updated') return;
+
+            const playback = customEvent.detail.data?.playback;
+            if (!playback?.song_id || !playback.source_type || this.isOwnPlaybackRow(playback)) return;
+
+            void this.applyAccountPlayback(playback);
+        });
+    }
+
+    private parsePlaybackExtra(row: AccountPlaybackRow): Record<string, unknown> | undefined {
+        const raw = row.song_metadata?.extra_data;
+        if (!raw) return undefined;
+
+        try {
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+                ? parsed as Record<string, unknown>
+                : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    private metadataFromPlaybackRow(row: AccountPlaybackRow): TrackMetadata | null {
+        const metadata = row.song_metadata;
+        if (!metadata) return null;
+
+        return {
+            title: metadata.title ?? null,
+            artist: metadata.artist ?? null,
+            album: metadata.album ?? null,
+            album_art: metadata.album_art ?? null,
+            duration: metadata.length ?? null,
+            genre: null,
+            year: null,
+            filename: null,
+        };
+    }
+
+    private async resolvePlaybackDeviceId(row: AccountPlaybackRow): Promise<number | null> {
+        if (!row.device_identifier || !row.device_type) return null;
+
+        try {
+            const response = await api('/plugin/devices/list') as { devices?: AccountDeviceRow[] };
+            const match = (response.devices ?? []).find(device => (
+                typeof device.id === 'number' &&
+                device.status !== 'unconnectable' &&
+                device.identifier === row.device_identifier &&
+                device.type === row.device_type
+            ));
+
+            return typeof match?.id === 'number' ? match.id : null;
+        } catch (error) {
+            this.reportPluginError('resolve playback device', error);
+            return null;
+        }
+    }
+
+    private async sendPlaybackCommandToDevice(targetDeviceId: number | null | undefined, type: string, payload: Record<string, unknown> = {}) {
+        if (targetDeviceId === null || targetDeviceId === undefined) return false;
+
+        await api(
+            `/plugin/device/${targetDeviceId}/command`,
+            { type, payload },
+            undefined,
+            true,
+            false,
+            'POST',
+        );
+        return true;
+    }
+
+    private sendRemotePlaybackCommand(type: string, payload: Record<string, unknown> = {}) {
+        return this.sendPlaybackCommandToDevice(this.accountRemotePlayback?.targetDeviceId, type, payload);
+    }
+
+    private getRemotePlaybackDeviceLabel(row: AccountPlaybackRow) {
+        return row.device_label
+            || row.playback_metadata?.started_on_device?.label
+            || row.device_type
+            || i18n.t('player.sync.device');
+    }
+
+    private seekToSeconds(seconds: number) {
+        if (!Number.isFinite(seconds) || seconds < 0) return;
+
+        const duration = this.duration;
+        if (duration > 0) {
+            this.seek(Math.max(0, Math.min(1, seconds / duration)));
+            return;
+        }
+
+        if (!this.activePlugin && !this.activeOutputPlugin) {
+            this.audio.currentTime = seconds;
+        }
+    }
+
+    private async applyAccountPlayback(row: AccountPlaybackRow) {
+        if (!row.song_id || !row.source_type) return;
+
+        const metadata = row.playback_metadata ?? {};
+        const targetTime = typeof metadata.current_time === 'number' ? metadata.current_time : 0;
+        const trackKey = `${row.source_type}:${row.song_id}`;
+        const currentKey = this.currentSongId && this.currentSourceType
+            ? `${this.currentSourceType}:${this.currentSongId}`
+            : null;
+        const driftThreshold = Math.max(1, getConfig<number>('playback.account_sync_drift_seconds') ?? 3);
+        const previousRemoteTime = this.accountRemotePlayback?.row.playback_metadata?.current_time;
+        const remoteTimeChanged = typeof previousRemoteTime === 'number'
+            ? Math.abs(targetTime - previousRemoteTime) >= driftThreshold
+            : false;
+        const drift = this.isObservingRemotePlayback()
+            ? 0
+            : Math.abs((this.currentTime || 0) - targetTime);
+        const statusMismatch = row.playback_status !== this.accountRemotePlayback?.row.playback_status;
+        const trackChanged = currentKey !== trackKey;
+        const previousVolume = this.accountRemotePlayback?.row.playback_metadata?.volume;
+        const volumeChanged = typeof metadata.volume === 'number'
+            && metadata.volume !== previousVolume
+            && Math.abs((metadata.volume / 100) - this._volumeFraction) > 0.001;
+
+        if (!trackChanged && !statusMismatch && !remoteTimeChanged && !volumeChanged && drift < driftThreshold) return;
+
+        this.accountSyncApplying = true;
+
+        try {
+            if (this.activePlugin) {
+                this.safelyDestroyPlugin(this.activePlugin);
+                this.activePlugin = null;
+            }
+            if (this.activeOutputPlugin) {
+                this.safelyStopOutputPlugin(this.activeOutputPlugin);
+                this.activeOutputPlugin = null;
+            }
+            this.audio.pause();
+            this.audio.removeAttribute('src');
+            this.audio.load();
+
+            if (typeof metadata.shuffle === 'boolean') this.shuffle = metadata.shuffle;
+            if (metadata.repeat_one) this.repeat = 'one';
+            else if (metadata.repeat) this.repeat = 'all';
+            else this.repeat = 'off';
+            if (typeof metadata.volume === 'number' && Number.isFinite(metadata.volume)) {
+                this._volumeFraction = Math.max(0, Math.min(1, metadata.volume / 100));
+            }
+
+            this.currentSongId = row.song_id;
+            this.currentSourceType = row.source_type;
+            this.currentExtra = this.parsePlaybackExtra(row) ?? null;
+            this.currentMetadata = this.metadataFromPlaybackRow(row);
+            this.currentSongFromNextQueue = false;
+            this.isLoading = row.playback_status === 'loading';
+            this.accountSyncLastTrackKey = trackKey;
+            this.accountRemotePlayback = {
+                row,
+                receivedAt: Date.now(),
+                targetDeviceId: await this.resolvePlaybackDeviceId(row),
+            };
+            this.updateMediaSessionMetadata();
+            this.notify();
+        } finally {
+            window.setTimeout(() => {
+                this.accountSyncApplying = false;
+            }, 100);
+        }
+    }
+
+    private async syncAccountPlayback() {
+        if (!this.isAccountSyncEnabled() || this.accountSyncInFlight || this.accountSyncApplying) return;
+        if (!localStorage.getItem('access_token') || !getAccount()) return;
+
+        this.accountSyncInFlight = true;
+
+        try {
+            const response = await api('/player/playback/list?all_info=true&limit=10') as {
+                playbacks?: AccountPlaybackRow[];
+            };
+            const playback = (response.playbacks ?? [])
+                .find(row => row.song_id && row.source_type && !this.isOwnPlaybackRow(row));
+
+            if (playback) {
+                await this.applyAccountPlayback(playback);
+            } else if (this.isObservingRemotePlayback()) {
+                this.accountRemotePlayback = null;
+                this.currentSongId = null;
+                this.currentSourceType = null;
+                this.currentExtra = null;
+                this.currentMetadata = null;
+                this.isLoading = false;
+                this.accountSyncLastTrackKey = null;
+                this.notify();
+            } else if (!this.currentSongId) {
+                this.accountSyncLastTrackKey = null;
+            }
+        } catch (error) {
+            this.reportPluginError('sync account playback', error);
+        } finally {
+            this.accountSyncInFlight = false;
         }
     }
 
@@ -694,7 +1002,7 @@ class AudioPlayer {
 
         navigator.mediaSession.setActionHandler('seekto', (details) => {
             if (details.seekTime !== undefined) {
-                this.audio.currentTime = details.seekTime;
+                this.seekToSeconds(details.seekTime);
             }
         });
     }
@@ -816,9 +1124,9 @@ class AudioPlayer {
         console.error(`[player] Plugin ${context} failed:`, error);
     }
 
-    private safelyDestroyPlugin(plugin: SourcePlugin) {
+    private safelyDestroyPlugin(plugin: SourcePlugin, options?: { transferred?: boolean }) {
         try {
-            Promise.resolve(plugin.destroy()).catch(error => {
+            Promise.resolve(plugin.destroy(options)).catch(error => {
                 this.reportPluginError('destroy', error);
             });
         } catch (error) {
@@ -1071,6 +1379,19 @@ class AudioPlayer {
     private async playOnSelectedOutput(request: Omit<AudioOutputPlaybackRequest, 'device'>): Promise<boolean> {
         const outputPlugin = this.getSelectedOutputPlugin();
         if (!outputPlugin) return false;
+        const playbackRequest = {
+            ...request,
+            device: this.selectedOutput.device,
+        };
+        const canPlay = outputPlugin.canPlay?.(playbackRequest);
+
+        if (canPlay === false) {
+            throw new Error('The selected output device cannot play this track.');
+        }
+
+        if (typeof canPlay === 'string') {
+            throw new Error(canPlay);
+        }
 
         this.audio.pause();
         this.audio.removeAttribute('src');
@@ -1082,10 +1403,7 @@ class AudioPlayer {
 
         this.activeOutputPlugin = outputPlugin;
         await outputPlugin.play(
-            {
-                ...request,
-                device: this.selectedOutput.device,
-            },
+            playbackRequest,
             {
                 onReady: () => {
                     this.cancelPendingPlaybackFailure();
@@ -1309,6 +1627,21 @@ class AudioPlayer {
     }
 
     toggleShuffle() {
+        if (this.isObservingRemotePlayback()) {
+            const nextShuffle = !this.shuffle;
+            void this.sendRemotePlaybackCommand('shuffle', { enabled: nextShuffle })
+                .then(sent => {
+                    if (!sent) return;
+                    this.shuffle = nextShuffle;
+                    if (this.accountRemotePlayback?.row.playback_metadata) {
+                        this.accountRemotePlayback.row.playback_metadata.shuffle = nextShuffle;
+                    }
+                    this.notify();
+                })
+                .catch(error => this.reportPluginError('remote shuffle', error));
+            return;
+        }
+
         this.shuffle = !this.shuffle;
 
         if (this.shuffle) {
@@ -1326,6 +1659,22 @@ class AudioPlayer {
     }
 
     cycleRepeat() {
+        if (this.isObservingRemotePlayback()) {
+            const nextRepeat = this.repeat === 'off' ? 'all' : this.repeat === 'all' ? 'one' : 'off';
+            void this.sendRemotePlaybackCommand('repeat', { mode: nextRepeat })
+                .then(sent => {
+                    if (!sent) return;
+                    this.repeat = nextRepeat;
+                    if (this.accountRemotePlayback?.row.playback_metadata) {
+                        this.accountRemotePlayback.row.playback_metadata.repeat = nextRepeat === 'all';
+                        this.accountRemotePlayback.row.playback_metadata.repeat_one = nextRepeat === 'one';
+                    }
+                    this.notify();
+                })
+                .catch(error => this.reportPluginError('remote repeat', error));
+            return;
+        }
+
         if (this.repeat === 'off') this.repeat = 'all';
         else if (this.repeat === 'all') this.repeat = 'one';
         else this.repeat = 'off';
@@ -1337,6 +1686,11 @@ class AudioPlayer {
     }
 
     async next(ignoreRepeatOne = false) {
+        if (this.isObservingRemotePlayback()) {
+            void this.sendRemotePlaybackCommand('next').catch(error => this.reportPluginError('remote next', error));
+            return;
+        }
+
         if (this.isTransitioning) return;
 
         if (!ignoreRepeatOne && this.repeat === 'one' && this.currentSongId) {
@@ -1382,6 +1736,11 @@ class AudioPlayer {
     }
 
     async prev() {
+        if (this.isObservingRemotePlayback()) {
+            void this.sendRemotePlaybackCommand('prev').catch(error => this.reportPluginError('remote previous', error));
+            return;
+        }
+
         if (this.isTransitioning) return;
 
         const threshold = getConfig<number>('navigation.prev_restart_threshold') ?? 3;
@@ -1424,6 +1783,11 @@ class AudioPlayer {
     }
 
     skip() {
+        if (this.isObservingRemotePlayback()) {
+            void this.sendRemotePlaybackCommand('next').catch(error => this.reportPluginError('remote skip', error));
+            return;
+        }
+
         this.cancelPauseFade();
         this.audio.pause();
         this.next().catch(error => {
@@ -1439,10 +1803,114 @@ class AudioPlayer {
         autoplay = true
     ) {
         this.cancelPendingPlaybackFailure();
+        this.accountRemotePlayback = null;
         const plugin = this.plugins.get(sourceType);
         this.stopEndWatcher();
 
         if (plugin) {
+            if (autoplay && this.getSelectedOutputPlugin()) {
+                const outputPlugin = this.getSelectedOutputPlugin();
+
+                if (this.activePlugin) {
+                    this.cancelPauseFade();
+                    this.safelyDestroyPlugin(this.activePlugin, { transferred: true });
+                    this.activePlugin = null;
+                }
+
+                this.isTransitioning = true;
+                this.isLoading = true;
+
+                if (this.currentSongId && !this.skipHistoryPush) {
+                    const includePriority = getConfig<boolean>('navigation.prev_include_priority_queue') ?? false;
+                    if (this.currentSongFromNextQueue || includePriority) {
+                        this.history.push({
+                            songId: this.currentSongId,
+                            sourceType: this.currentSourceType!,
+                            extra: this.currentExtra ?? undefined,
+                            fromNextQueue: this.currentSongFromNextQueue,
+                        });
+                        const maxSize = getConfig<number>('history.max_history_size') ?? 100;
+                        if (maxSize > 0 && this.history.length > maxSize) {
+                            this.history.splice(0, this.history.length - maxSize);
+                        }
+                        this.saveHistory();
+                    }
+                }
+
+                this.skipHistoryPush = false;
+                this.currentSongFromNextQueue = fromNextQueue;
+                this.currentSongId = songId;
+                this.currentSourceType = sourceType;
+                this.currentMetadata = null;
+                this.currentExtra = extra ?? null;
+                this.resetPlaybackEmitState(this.getIntendedPlaybackDevice());
+
+                this.notify();
+                this.notifyTrackChange();
+                this.requestPlaybackStatusEmit();
+
+                try {
+                    const canPlay = outputPlugin?.canPlay?.({
+                        songId,
+                        sourceType,
+                        streamUrl: '',
+                        contentType: null,
+                        metadata: null,
+                        extra,
+                        device: this.selectedOutput.device,
+                    });
+
+                    if (canPlay === false) throw new Error('The selected output device cannot play this track.');
+                    if (typeof canPlay === 'string') throw new Error(canPlay);
+
+                    const encoded = encodeURIComponent(songId);
+                    const media = await api(`/player/media/${sourceType}:${encoded}`) as {
+                        metadata?: TrackMetadata;
+                        stream_url?: string;
+                        content_type?: string | null;
+                    };
+
+                    this.currentMetadata = media.metadata ?? null;
+                    this.lastStreamUrl = media.stream_url ?? '';
+                    this.updateMediaSessionMetadata();
+                    this.isLoading = false;
+                    this.notify();
+
+                    await this.playOnSelectedOutput({
+                        songId,
+                        sourceType,
+                        streamUrl: this.lastStreamUrl,
+                        contentType: media.content_type ?? null,
+                        metadata: this.currentMetadata,
+                        extra,
+                    });
+
+                    this.saveCurrentTrackState();
+                    this.schedulePrefetch();
+                    this.requestPlaybackStatusEmit();
+                } catch (error) {
+                    if (outputPlugin?.canPlay) {
+                        console.warn('Selected output cannot play this track; falling back to this device.', error);
+                        this.selectedOutput = { pluginId: LOCAL_OUTPUT_PLUGIN_ID, device: getLocalOutputDevice() };
+                        this.saveSelectedOutputDevice();
+                        this.safelyStopOutputPlugin(this.activeOutputPlugin);
+                        this.activeOutputPlugin = null;
+                        this.skipHistoryPush = true;
+                        await this.playSong(songId, sourceType, extra, fromNextQueue, autoplay);
+                        return;
+                    }
+
+                    this.reportPluginError(`output playback for ${sourceType}:${songId}`, error);
+                    this.advanceAfterPlaybackFailure();
+                } finally {
+                    this.isLoading = false;
+                    this.isTransitioning = false;
+                    this.notify();
+                }
+
+                return;
+            }
+
             this.isTransitioning = true;
             this.isLoading = true;
 
@@ -1655,6 +2123,7 @@ class AudioPlayer {
                 try {
                     await this.audio.play();
                 } catch (error) {
+                    if (isAbortError(error)) return;
                     this.advanceAfterPlaybackFailure();
                     throw error;
                 }
@@ -1665,6 +2134,7 @@ class AudioPlayer {
             this.schedulePrefetch();
             this.requestPlaybackStatusEmit();
         } catch (error) {
+            if (isAbortError(error)) return;
             this.reportPluginError(`playback for ${sourceType}:${songId}`, error);
             this.advanceAfterPlaybackFailure();
         } finally {
@@ -1675,6 +2145,19 @@ class AudioPlayer {
     }
 
     togglePlay() {
+        if (this.isObservingRemotePlayback()) {
+            const nextType = this.isPlaying ? 'pause' : 'resume';
+            void this.sendRemotePlaybackCommand(nextType)
+                .then(sent => {
+                    if (!sent || !this.accountRemotePlayback) return;
+                    this.accountRemotePlayback.row.playback_status = nextType === 'pause' ? 'paused' : 'playing';
+                    this.accountRemotePlayback.receivedAt = Date.now();
+                    this.notify();
+                })
+                .catch(error => this.reportPluginError(`remote ${nextType}`, error));
+            return;
+        }
+
         if (this.activePlugin) {
             this.safelyActivatePlugin(this.activePlugin);
             if (this.isPlaying) {
@@ -1703,6 +2186,23 @@ class AudioPlayer {
     }
 
     seek(fraction: number) {
+        if (this.isObservingRemotePlayback()) {
+            const duration = this.duration;
+            const seconds = duration * Math.max(0, Math.min(1, fraction));
+            void this.sendRemotePlaybackCommand('seek', { seconds })
+                .then(sent => {
+                    if (!sent || !this.accountRemotePlayback) return;
+                    this.accountRemotePlayback.row.playback_metadata = {
+                        ...(this.accountRemotePlayback.row.playback_metadata ?? {}),
+                        current_time: seconds,
+                    };
+                    this.accountRemotePlayback.receivedAt = Date.now();
+                    this.notify();
+                })
+                .catch(error => this.reportPluginError('remote seek', error));
+            return;
+        }
+
         if (this.activePlugin) {
             this.safelySeekPlugin(this.activePlugin, this.activePlugin.getDuration() * Math.max(0, Math.min(1, fraction)));
             return;
@@ -1722,6 +2222,20 @@ class AudioPlayer {
         const f = Math.max(0, Math.min(1, fraction));
         this._volumeFraction = f;
 
+        if (this.isObservingRemotePlayback()) {
+            void this.sendRemotePlaybackCommand('volume', { fraction: f })
+                .then(sent => {
+                    if (!sent || !this.accountRemotePlayback) return;
+                    this.accountRemotePlayback.row.playback_metadata = {
+                        ...(this.accountRemotePlayback.row.playback_metadata ?? {}),
+                        volume: Math.round(f * 100),
+                    };
+                    this.notify();
+                })
+                .catch(error => this.reportPluginError('remote volume', error));
+            return;
+        }
+
         if (!this.gainNode || !this.ctx) return;
 
         this.applyOutputVolume(f);
@@ -1733,6 +2247,40 @@ class AudioPlayer {
         this.safelySetOutputPluginVolume(this.activeOutputPlugin, f);
         this.notify();
         this.requestPlaybackStatusEmit();
+    }
+
+    selectLocalOutputDevice() {
+        const previousPlugin = this.activeOutputPlugin;
+        this.selectedOutput = { pluginId: LOCAL_OUTPUT_PLUGIN_ID, device: getLocalOutputDevice() };
+        this.saveSelectedOutputDevice();
+        this.safelyStopOutputPlugin(previousPlugin);
+        this.activeOutputPlugin = null;
+        this.notify();
+    }
+
+    async playSyncedPlaybackHere(stopRemote = false) {
+        const remote = this.accountRemotePlayback;
+        if (!remote?.row.song_id || !remote.row.source_type) return;
+
+        const songId = remote.row.song_id;
+        const sourceType = remote.row.source_type;
+        const extra = this.parsePlaybackExtra(remote.row);
+        const currentTime = this.currentTime;
+        const shouldAutoplay = remote.row.playback_status === 'playing';
+        const targetDeviceId = remote.targetDeviceId;
+
+        this.selectLocalOutputDevice();
+
+        await this.playSong(songId, sourceType, extra, false, shouldAutoplay);
+
+        if (currentTime > 0 && this.duration > 0) {
+            this.seek(Math.max(0, Math.min(1, currentTime / this.duration)));
+        }
+
+        if (stopRemote) {
+            void this.sendPlaybackCommandToDevice(targetDeviceId, 'stop')
+                .catch(error => this.reportPluginError('remote stop after switch', error));
+        }
     }
 
     registerPlugin(sourceType: string, plugin: SourcePlugin | null) {
@@ -1816,11 +2364,21 @@ class AudioPlayer {
             if (this.lastStreamUrl && this.currentSongId && !this.audio.src) {
                 this.audio.src = this.lastStreamUrl;
             }
-        } else if (this.currentSongId && this.currentSourceType && this.lastStreamUrl) {
+        } else if (
+            this.currentSongId &&
+            this.currentSourceType &&
+            (this.lastStreamUrl || (this.activePlugin && this.getSelectedOutputPlugin()?.supportsSourcePlayback))
+        ) {
+            if (this.activePlugin && this.getSelectedOutputPlugin()?.supportsSourcePlayback) {
+                this.cancelPauseFade();
+                this.safelyDestroyPlugin(this.activePlugin, { transferred: true });
+                this.activePlugin = null;
+            }
+
             this.playOnSelectedOutput({
                 songId: this.currentSongId,
                 sourceType: this.currentSourceType,
-                streamUrl: this.lastStreamUrl,
+                streamUrl: this.lastStreamUrl || '',
                 contentType: null,
                 metadata: this.currentMetadata,
                 extra: this.currentExtra ?? undefined,
@@ -1840,21 +2398,47 @@ class AudioPlayer {
         return this.getOutputDeviceKey(this.selectedOutput.pluginId, this.selectedOutput.device);
     }
 
+    get syncedPlaybackInfo(): SyncedPlaybackInfo | null {
+        if (!this.isObservingRemotePlayback() || !this.accountRemotePlayback) return null;
+
+        return {
+            deviceLabel: this.getRemotePlaybackDeviceLabel(this.accountRemotePlayback.row),
+            deviceType: this.accountRemotePlayback.row.device_type ?? null,
+            isPlaying: this.accountRemotePlayback.row.playback_status === 'playing',
+        };
+    }
+
     get isPlaying() {
         if (this.isPauseRequested) return false;
         if (this.isPauseFadePending) return false;
+        if (this.isObservingRemotePlayback()) return this.accountRemotePlayback?.row.playback_status === 'playing';
         if (this.activePlugin) return this.activePlugin.isPlaying();
         if (this.activeOutputPlugin?.isPlaying) return this.activeOutputPlugin.isPlaying();
         return !this.audio.paused && !this.audio.ended;
     }
 
     get currentTime() {
+        if (this.isObservingRemotePlayback()) {
+            const metadata = this.accountRemotePlayback?.row.playback_metadata;
+            const base = typeof metadata?.current_time === 'number' ? metadata.current_time : 0;
+            const elapsed = this.accountRemotePlayback?.row.playback_status === 'playing'
+                ? (Date.now() - (this.accountRemotePlayback?.receivedAt ?? Date.now())) / 1000
+                : 0;
+            const duration = this.duration;
+            const current = Math.max(0, base + elapsed);
+            return duration > 0 ? Math.min(current, duration) : current;
+        }
         if (this.activePlugin) return this.activePlugin.getCurrentTime();
         if (this.activeOutputPlugin?.getCurrentTime) return this.activeOutputPlugin.getCurrentTime();
         return this.audio.currentTime;
     }
 
     get duration() {
+        if (this.isObservingRemotePlayback()) {
+            return this.currentMetadata?.duration
+                ?? this.accountRemotePlayback?.row.song_metadata?.length
+                ?? 0;
+        }
         if (this.activePlugin) return this.activePlugin.getDuration();
         if (this.activeOutputPlugin?.getDuration) return this.activeOutputPlugin.getDuration();
         return this.audio.duration || 0;

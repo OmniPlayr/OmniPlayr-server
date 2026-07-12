@@ -92,6 +92,13 @@ export function useNotifications(): UseNotificationsResult {
                         prev.map(n => n.id === msg.id ? { ...n, read: true } : n)
                     );
                     applyUnread(msg.unread_count ?? 0, msg.unread_display ?? '0');
+                } else if (msg.type === 'frontend_event') {
+                    window.dispatchEvent(new CustomEvent('omniplayr:frontend-event', {
+                        detail: {
+                            event: msg.event,
+                            data: msg.data ?? {},
+                        },
+                    }));
                 }
             };
 

@@ -211,6 +211,10 @@
 
     // --- Start Player translations
     "player.toast.playback_failed": "OmniPlayr kan dit nummer op dit moment niet afspelen",
+    "player.sync.device": "een ander apparaat",
+    "player.sync.playing_on": "Speelt af op {{device}}",
+    "player.sync.switch_to_this_device": "Overschakelen naar dit apparaat",
+    "player.sync.play_separately": "Apart afspelen",
     // --- End Player translations
 
     // --- Start Theme translations

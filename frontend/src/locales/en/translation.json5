@@ -211,6 +211,10 @@
 
     // --- Start Player translations
     "player.toast.playback_failed": "OmniPlayr cannot play this track at the moment",
+    "player.sync.device": "another device",
+    "player.sync.playing_on": "Playing on {{device}}",
+    "player.sync.switch_to_this_device": "Switch to this device",
+    "player.sync.play_separately": "Play separately",
     // --- End Player translations
 
     // --- Start Theme translations

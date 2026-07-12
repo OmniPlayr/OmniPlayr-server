@@ -5,6 +5,7 @@ from api.helpers.plugins import get_plugin
 from api.helpers.server import verify_auth, verify_token, get_token_user
 from api.helpers.log import log
 from api.helpers.player import emit_playback_status, get_user_playback, get_user_playbacks, PlaybackEvent
+from api.helpers.notifications import push_frontend_event_sync
 
 router = APIRouter()
 
@@ -81,6 +82,84 @@ def _with_request_ip_in_playback_metadata(playback_metadata: dict | None, reques
         next_metadata["transfers"] = next_transfers
 
     return next_metadata
+
+def _latest_transfer(playback_metadata: dict | None) -> dict | None:
+    if not isinstance(playback_metadata, dict):
+        return None
+
+    transfers = playback_metadata.get("transfers")
+    if not isinstance(transfers, list) or not transfers:
+        return None
+
+    latest = transfers[-1]
+    return latest if isinstance(latest, dict) else None
+
+def _same_transfer(left: dict | None, right: dict | None) -> bool:
+    if not left or not right:
+        return left is right
+
+    left_device = left.get("device") if isinstance(left.get("device"), dict) else {}
+    right_device = right.get("device") if isinstance(right.get("device"), dict) else {}
+
+    return (
+        left.get("transferred_at") == right.get("transferred_at")
+        and left_device.get("device_identifier") == right_device.get("device_identifier")
+        and left_device.get("device_type") == right_device.get("device_type")
+    )
+
+def _push_device_transfer_event_if_needed(
+    account_id: int,
+    previous_playback_metadata: dict | None,
+    playback_metadata: dict | None,
+) -> None:
+    latest_transfer = _latest_transfer(playback_metadata)
+    if not latest_transfer or _same_transfer(_latest_transfer(previous_playback_metadata), latest_transfer):
+        return
+
+    device = latest_transfer.get("device")
+    if not isinstance(device, dict):
+        return
+
+    push_frontend_event_sync(
+        account_id,
+        "player.device_transfer",
+        {
+            "target_device": device,
+            "transferred_at": latest_transfer.get("transferred_at"),
+        },
+    )
+
+def _push_playback_updated_event(
+    account_id: int,
+    playback_id: int | None,
+    song_id: str,
+    source_type: str,
+    device_info: dict | None,
+    playback_status: str,
+    playback_metadata: dict | None,
+    song_metadata: dict | None,
+) -> None:
+    if not playback_id or not isinstance(device_info, dict):
+        return
+
+    push_frontend_event_sync(
+        account_id,
+        "player.playback_updated",
+        {
+            "playback": {
+                "id": playback_id,
+                "song_id": song_id,
+                "source_type": source_type,
+                "device_identifier": device_info.get("device_identifier"),
+                "device_ip": device_info.get("device_ip"),
+                "device_type": device_info.get("device_type"),
+                "device_label": device_info.get("label"),
+                "playback_status": playback_status,
+                "playback_metadata": playback_metadata,
+                "song_metadata": song_metadata or {},
+            },
+        },
+    )
 
 # This is to get the metadata for a song, and its stream URL
 @router.get("/media/{source_type}:{song_id:path}")
@@ -261,12 +340,25 @@ def emit_playback_event(
     
     log("POST /player/playback/emit requested", "debug", "module.player")
     account_id = get_token_user(x_account_token)
+    if account_id is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     log(f"Playback emit request: account_id={account_id}", "debug", "module.player")
     request_ip = request.client.host if request.client else None
     device_info = _with_request_device_ip(playback["device_info"], request_ip)
     playback_metadata = _with_request_ip_in_playback_metadata(playback.get("playback_metadata"), request_ip)
+    previous_playback_metadata = None
+    playback_id = playback.get("id")
 
-    return emit_playback_status(
+    if isinstance(playback_id, int):
+        previous_playback = get_user_playback(account_id=account_id, id=playback_id)
+        previous_row = previous_playback.get("playback") if previous_playback.get("status") == "success" else None
+        if isinstance(previous_row, dict):
+            previous_metadata = previous_row.get("playback_metadata")
+            if isinstance(previous_metadata, dict):
+                previous_playback_metadata = previous_metadata
+
+    response = emit_playback_status(
         id=playback.get("id"),
         account_id=account_id,
         song_id=playback["song_id"],
@@ -276,6 +368,19 @@ def emit_playback_event(
         playback_metadata=playback_metadata,
         song_metadata=playback.get("song_metadata"),
     )
+    _push_device_transfer_event_if_needed(account_id, previous_playback_metadata, playback_metadata)
+    _push_playback_updated_event(
+        account_id=account_id,
+        playback_id=response.get("id") if isinstance(response, dict) else None,
+        song_id=playback["song_id"],
+        source_type=playback["source_type"],
+        device_info=device_info,
+        playback_status=playback.get("playback_status", "paused"),
+        playback_metadata=playback_metadata,
+        song_metadata=playback.get("song_metadata"),
+    )
+
+    return response
 
 @router.get("/playback/list")
 def get_playbacks(
