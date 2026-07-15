@@ -68,19 +68,40 @@ function serveFatalState(src) {
 }
 
 function proxyRequest(src, firstChunk) {
+    src.pause();
+
     const dst = net.createConnection({ port: VITE_PORT, host: '127.0.0.1' }, () => {
         dst.write(firstChunk);
         src.pipe(dst);
         dst.pipe(src);
+        src.resume();
     });
 
     src.on('error', () => dst.destroy());
     dst.on('error', () => src.destroy());
 }
 
-function handleHttpStream(src) {
-    src.once('data', firstChunk => {
-        const firstLine = firstChunk.toString('latin1', 0, Math.min(firstChunk.length, 2048)).split('\r\n')[0] || '';
+function handleHttpStream(src, initialChunk = null) {
+    let buffered = initialChunk || Buffer.alloc(0);
+
+    function processChunk(chunk) {
+        if (chunk.length) {
+            buffered = Buffer.concat([buffered, chunk]);
+        }
+
+        const firstLineEnd = buffered.indexOf('\r\n');
+
+        if (firstLineEnd === -1 && buffered.length < 8192) {
+            return;
+        }
+
+        src.off('data', processChunk);
+        src.pause();
+
+        const firstLine = buffered
+            .toString('latin1', 0, Math.min(buffered.length, 8192))
+            .split('\r\n')[0] || '';
+
         const [, requestPath] = firstLine.match(/^[A-Z]+\s+([^\s]+)\s+HTTP\/\d(?:\.\d)?$/) || [];
         const cleanPath = requestPath?.split('?')[0];
 
@@ -89,25 +110,43 @@ function handleHttpStream(src) {
             return;
         }
 
-        proxyRequest(src, firstChunk);
-    });
+        proxyRequest(src, buffered);
+    }
 
-    src.on('error', () => {});
+    src.on('data', processChunk);
+
+    if (buffered.length) {
+        processChunk(Buffer.alloc(0));
+    } else {
+        src.resume();
+    }
 }
 
 function handle(conn) {
     conn.once('readable', () => {
         const peek = conn.read(1);
-        if (!peek) { conn.destroy(); return; }
+
+        if (!peek) {
+            conn.destroy();
+            return;
+        }
 
         const isTLS = peek[0] === 0x16;
-        conn.unshift(peek);
 
-        const src = isTLS
-            ? new tls.TLSSocket(conn, { isServer: true, cert, key })
-            : conn;
+        if (isTLS) {
+            conn.unshift(peek);
 
-        handleHttpStream(src);
+            const src = new tls.TLSSocket(conn, {
+                isServer: true,
+                cert,
+                key,
+            });
+
+            handleHttpStream(src);
+            return;
+        }
+
+        handleHttpStream(conn, peek);
     });
 }
 
