@@ -9,7 +9,7 @@ import { ArrowRightToLine, X } from "lucide-react";
 import { makeToast } from "@wokki20/jspt";
 
 async function loadAccounts() {
-    return await api("get_accounts") as any[];
+    return await api("/accounts/") as any[];
 }
 
 function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) => void }) {
@@ -20,6 +20,7 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
 
     const [openPasswordPopup, setPasswordPopup] = useState<boolean>(false);
     const [password, setPassword] = useState('');
+    const [submittingLogin, setSubmittingLogin] = useState(false);
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
     const [openTwoFaPopup, setTwoFaPopup] = useState<boolean>(false);
@@ -30,16 +31,11 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
         setPassword(e.target.value);
     }
 
-    function handlePasswordKeyDown(e: any) {
-        if (e.key === 'Enter') {
-            loginWithPassword();
-        }
-    }
-
     function closePasswordPopup() {
         setPasswordPopup(false);
         setSelected(null);
         setPassword('');
+        setSubmittingLogin(false);
     }
 
     function closeTwoFaPopup() {
@@ -106,13 +102,40 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
         }
     }
 
-    async function loginWithPassword() {
-        if (twoFactorEnabled) {
-            try {
-                const response = await api("/accounts/verify_password", { user_id: selected, password: password });
-                if (response === "no_match") {
+    async function loginWithPassword(e?: React.FormEvent<HTMLFormElement>) {
+        e?.preventDefault();
+        if (submittingLogin) return;
+        if (!selected) return;
+
+        setSubmittingLogin(true);
+        try {
+            if (twoFactorEnabled) {
+                try {
+                    const response = await api("/accounts/verify_password", { user_id: selected, password: password });
+                    if (response === "no_match") {
+                        makeToast({
+                            message: t('login.error.wrong-password'),
+                            style: 'default-error',
+                            icon_left: 'circle-x',
+                            icon_left_type: 'lucide_icon',
+                            duration: 5000
+                        })
+                        return;
+                    }
+                } catch (err: any) {
+                    const status = err?.status ?? err?.response?.status;
+                    if (status === 401 || status === 403) {
+                        makeToast({
+                            message: t('login.error.wrong-password'),
+                            style: 'default-error',
+                            icon_left: 'circle-x',
+                            icon_left_type: 'lucide_icon',
+                            duration: 5000
+                        })
+                        return;
+                    }
                     makeToast({
-                        message: t('login.error.wrong-password'),
+                        message: 'Could not verify the password. Try again.',
                         style: 'default-error',
                         icon_left: 'circle-x',
                         icon_left_type: 'lucide_icon',
@@ -120,36 +143,50 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                     })
                     return;
                 }
-            } catch (err: any) {
-                const status = err?.status ?? err?.response?.status;
-                if (status === 401 || status === 403) {
-                    makeToast({
-                        message: t('login.error.wrong-password'),
-                        style: 'default-error',
-                        icon_left: 'circle-x',
-                        icon_left_type: 'lucide_icon',
-                        duration: 5000
-                    })
-                    return;
-                }
+
+                setPasswordPopup(false);
+                setUsingBackupCode(false);
+                response_2fa_ref.current.code = '';
+                response_2fa_ref.current.backup_code = '';
+                setTwoFaPopup(true);
                 return;
             }
-            setPasswordPopup(false);
-            setUsingBackupCode(false);
-            response_2fa_ref.current.code = '';
-            response_2fa_ref.current.backup_code = '';
-            setTwoFaPopup(true);
-            return;
-        }
 
-        const data = await api("/accounts/login", { user_id: selected, password: password }) as any;
-        storeAccount(data?.token);
-        window.history.pushState({}, '', '/');
-        window.dispatchEvent(new Event('account-switched'));
-        setPasswordPopup(false);
+            const selectedId = selected;
+            const data = await api("/accounts/login", { user_id: selectedId, password: password }) as any;
+            if (!data?.token) {
+                makeToast({
+                    message: t('login.error.wrong-password'),
+                    style: 'default-error',
+                    icon_left: 'circle-x',
+                    icon_left_type: 'lucide_icon',
+                    duration: 5000
+                });
+                return;
+            }
+            storeAccount(data.token);
+            setPasswordPopup(false);
+            setPassword('');
+            setFadingOut(true);
+            setTimeout(() => {
+                onAccountSelected(selectedId);
+            }, 600);
+        } catch (err: any) {
+            const status = err?.status ?? err?.response?.status;
+            makeToast({
+                message: status === 401 || status === 403 ? t('login.error.wrong-password') : 'Could not log in. Try again.',
+                style: 'default-error',
+                icon_left: 'circle-x',
+                icon_left_type: 'lucide_icon',
+                duration: 5000
+            });
+        } finally {
+            setSubmittingLogin(false);
+        }
     }
 
-    async function loginWithCode() {
+    async function loginWithCode(e?: React.FormEvent<HTMLFormElement>) {
+        e?.preventDefault();
         const data = await api("/accounts/login", {
             user_id: selected,
             password: password,
@@ -161,11 +198,16 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
             makeToast({ message: t('login.error.wrong-code'), style: 'default-error', icon_left: 'circle-x', icon_left_type: 'lucide_icon', duration: 5000 });
             return;
         }
+        const selectedId = selected;
         storeAccount(data?.token);
         setPassword('');
-        window.history.pushState({}, '', '/');
-        window.dispatchEvent(new Event('account-switched'));
         setTwoFaPopup(false);
+        if (selectedId) {
+            setFadingOut(true);
+            setTimeout(() => {
+                onAccountSelected(selectedId);
+            }, 600);
+        }
     }
 
     const { t } = useTranslation();
@@ -188,6 +230,14 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                         duration: 5000
                     })
                 }
+                setLoaded(true);
+                makeToast({
+                    message: 'Could not load accounts. Try refreshing or check the backend logs.',
+                    style: 'default-error',
+                    icon_left: 'circle-x',
+                    icon_left_type: 'lucide_icon',
+                    duration: 5000
+                })
             });
     }, []);
 
@@ -246,10 +296,10 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                     <div className='password-overlay-content'>
                         <div className='password-overlay-title'>{t('login.password.popup.title')}</div>
                         <div className='password-overlay-text'>{t('login.password.popup.text')}</div>
-                        <div className="password-overlay-input-container">
-                            <input type="password" className="password-overlay-input" autoComplete="current-password" id="user-password" name="user-password" placeholder={t('login.password.popup.placeholder')} value={password} onChange={handlePasswordChange} onKeyDown={handlePasswordKeyDown} autoFocus />
-                            <button className="password-overlay-button" onClick={loginWithPassword}><ArrowRightToLine className="password-overlay-button-icon" /></button>
-                        </div>
+                        <form className="password-overlay-input-container" onSubmit={loginWithPassword}>
+                            <input type="password" className="password-overlay-input" autoComplete="current-password" id="user-password" name="user-password" placeholder={t('login.password.popup.placeholder')} value={password} onChange={handlePasswordChange} autoFocus />
+                            <button type="submit" className="password-overlay-button" disabled={submittingLogin || !password}><ArrowRightToLine className="password-overlay-button-icon" /></button>
+                        </form>
                     </div>
                     <X className='password-overlay-close' onClick={closePasswordPopup} />
                 </div>
@@ -260,17 +310,16 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                         <div className='check-2fa-overlay-title'>{t('login.2fa.popup.title')}</div>
                         <div className='check-2fa-overlay-text'>{usingBackupCode ? t('login.2fa.popup.backup-text') : t('login.2fa.popup.text')}</div>
                         {usingBackupCode ? (
-                            <div className="check-2fa-popup-backup-group">
+                            <form className="check-2fa-popup-backup-group" onSubmit={loginWithCode}>
                                 <input
                                     type='text'
                                     className='check-2fa-backup-popup-input'
                                     placeholder={t('login.2fa.popup.backup-placeholder')}
                                     onChange={handleBackupCodeChange}
-                                    onKeyDown={handleBackupCodeKeyDown}
                                     autoFocus
                                 />
-                                <button className="check-2fa-popup-button" onClick={loginWithCode}><ArrowRightToLine className="check-2fa-popup-button-icon" /></button>
-                            </div>
+                                <button type="submit" className="check-2fa-popup-button"><ArrowRightToLine className="check-2fa-popup-button-icon" /></button>
+                            </form>
                         ) : (
                             <>
                                 <div className="check-2fa-popup-code-group">
@@ -290,7 +339,7 @@ function AccountSelect({ onAccountSelected }: { onAccountSelected: (id: string) 
                                         </Fragment>
                                     ))}
                                     <div className='check-2fa-code-popup-spacer'></div>
-                                    <button className="check-2fa-popup-button" onClick={loginWithCode}><ArrowRightToLine className="check-2fa-popup-button-icon" /></button>
+                                    <button className="check-2fa-popup-button" onClick={() => loginWithCode()}><ArrowRightToLine className="check-2fa-popup-button-icon" /></button>
                                 </div>
                                 <p className='check-2fa-overlay-use-backup' onClick={useBackupCode}>{t('login.2fa.popup.use-backup')}</p>
                             </>

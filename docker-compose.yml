@@ -11,6 +11,7 @@ services:
       - ./frontend/scripts:/app/scripts
       - ./frontend/src/config:/app/src/config
       - ./backend/certs:/app/certs
+      - ./logs:/app/logs:ro
     container_name: omniplayr_frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"

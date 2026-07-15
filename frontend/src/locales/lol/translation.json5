@@ -201,8 +201,12 @@
     // --- Start Fail page translations
     "fail.title": "Bakend faild 2 start",
     "fail.subtitle": "An unexpektid errur occurd wile bootin teh servur.",
+    "fail.backend_start_failed": "Teh bakend faild 2 start.",
     "fail.subtitle2": "Teh sistim cud not komplet startup. Plz tri agin latr.",
     "fail.subtitle3": "If teh problim persists, plz kontakt support.",
+    "fail.error_code": "Errur coed: {{code}}",
+    "fail.stage": "Staeg: {{stage}}",
+    "fail.created_at": "Reportd at: {{time}}",
     // --- End Fail page translations
 
     // --- Start Account Select translations
@@ -211,6 +215,7 @@
 
     // --- Start Player translations
     "player.toast.playback_failed": "OmniPlayr cannot play dis track rite now",
+    "player.toast.server_sync_failed": "OmniPlayr cud not sync wif teh servur",
     "player.sync.device": "anothr devies",
     "player.sync.playing_on": "Playin on {{device}}",
     "player.sync.switch_to_this_device": "Switch 2 dis devies",

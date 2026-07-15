@@ -201,8 +201,12 @@
     // --- Start Fail page translations
     "fail.title": "Backend failed to start",
     "fail.subtitle": "An unexpected error occurred while booting the server.",
+    "fail.backend_start_failed": "The backend failed to start.",
     "fail.subtitle2": "The system could not complete startup. Please try again later.",
     "fail.subtitle3": "If the problem persists, please contact support.",
+    "fail.error_code": "Error code: {{code}}",
+    "fail.stage": "Stage: {{stage}}",
+    "fail.created_at": "Reported at: {{time}}",
     // --- End Fail page translations
 
     // --- Start Account Select translations
@@ -211,6 +215,7 @@
 
     // --- Start Player translations
     "player.toast.playback_failed": "OmniPlayr cannot play this track at the moment",
+    "player.toast.server_sync_failed": "OmniPlayr could not sync with the server",
     "player.sync.device": "another device",
     "player.sync.playing_on": "Playing on {{device}}",
     "player.sync.switch_to_this_device": "Switch to this device",

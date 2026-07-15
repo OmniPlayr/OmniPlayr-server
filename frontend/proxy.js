@@ -11,6 +11,7 @@ const CERT_FILE = path.join(CERT_DIR, 'frontend.crt');
 const KEY_FILE = path.join(CERT_DIR, 'frontend.key');
 const CA_FILE = path.join(CERT_DIR, 'ca.crt');
 const CA_KEY_FILE = path.join(CERT_DIR, 'ca.key');
+const FATAL_STATE_FILE = process.env.FATAL_STATE_FILE || '/app/logs/backend-fatal.json';
 
 function ensureCerts() {
     if (fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE)) return;
@@ -34,6 +35,66 @@ function ensureCerts() {
     console.log('Frontend certificate generated');
 }
 
+function response(status, statusText, headers, body) {
+    const payload = Buffer.isBuffer(body) ? body : Buffer.from(body);
+    const lines = [
+        `HTTP/1.1 ${status} ${statusText}`,
+        `Content-Length: ${payload.length}`,
+        ...Object.entries(headers).map(([name, value]) => `${name}: ${value}`),
+        '',
+        '',
+    ];
+    return Buffer.concat([Buffer.from(lines.join('\r\n')), payload]);
+}
+
+function serveFatalState(src) {
+    try {
+        const body = fs.existsSync(FATAL_STATE_FILE)
+            ? fs.readFileSync(FATAL_STATE_FILE)
+            : Buffer.from(JSON.stringify({ active: false }));
+        src.end(response(200, 'OK', {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+        }, body));
+    } catch (err) {
+        src.end(response(500, 'Internal Server Error', {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+        }, JSON.stringify({
+            active: false,
+            error: err.message,
+        })));
+    }
+}
+
+function proxyRequest(src, firstChunk) {
+    const dst = net.createConnection({ port: VITE_PORT, host: '127.0.0.1' }, () => {
+        dst.write(firstChunk);
+        src.pipe(dst);
+        dst.pipe(src);
+    });
+
+    src.on('error', () => dst.destroy());
+    dst.on('error', () => src.destroy());
+}
+
+function handleHttpStream(src) {
+    src.once('data', firstChunk => {
+        const firstLine = firstChunk.toString('latin1', 0, Math.min(firstChunk.length, 2048)).split('\r\n')[0] || '';
+        const [, requestPath] = firstLine.match(/^[A-Z]+\s+([^\s]+)\s+HTTP\/\d(?:\.\d)?$/) || [];
+        const cleanPath = requestPath?.split('?')[0];
+
+        if (cleanPath === '/omniplayr-fatal-state.json') {
+            serveFatalState(src);
+            return;
+        }
+
+        proxyRequest(src, firstChunk);
+    });
+
+    src.on('error', () => {});
+}
+
 function handle(conn) {
     conn.once('readable', () => {
         const peek = conn.read(1);
@@ -46,12 +107,7 @@ function handle(conn) {
             ? new tls.TLSSocket(conn, { isServer: true, cert, key })
             : conn;
 
-        const dst = net.createConnection({ port: VITE_PORT, host: '127.0.0.1' });
-
-        src.pipe(dst);
-        dst.pipe(src);
-        src.on('error', () => dst.destroy());
-        dst.on('error', () => src.destroy());
+        handleHttpStream(src);
     });
 }
 

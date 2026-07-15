@@ -201,8 +201,12 @@
     // --- Start Fail page translations
     "fail.title": "Backend kon niet starten",
     "fail.subtitle": "Er is een onverwachte fout opgetreden tijdens het opstarten van de server.",
+    "fail.backend_start_failed": "De backend kon niet starten.",
     "fail.subtitle2": "Het systeem kon het opstarten niet voltooien. Probeer het later opnieuw.",
     "fail.subtitle3": "Als het probleem aanhoudt, neem dan contact op met de ondersteuning.",
+    "fail.error_code": "Foutcode: {{code}}",
+    "fail.stage": "Fase: {{stage}}",
+    "fail.created_at": "Gemeld om: {{time}}",
     // --- End Fail page translations
 
     // --- Start Account Select translations
@@ -211,6 +215,7 @@
 
     // --- Start Player translations
     "player.toast.playback_failed": "OmniPlayr kan dit nummer op dit moment niet afspelen",
+    "player.toast.server_sync_failed": "OmniPlayr kon niet synchroniseren met de server",
     "player.sync.device": "een ander apparaat",
     "player.sync.playing_on": "Speelt af op {{device}}",
     "player.sync.switch_to_this_device": "Overschakelen naar dit apparaat",

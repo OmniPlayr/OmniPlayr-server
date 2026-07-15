@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend/certs:/app/certs
+      - ./logs:/app/logs:ro
       - ./frontend/vite.config.ts:/app/vite.config.ts
     container_name: omniplayr_frontend
     extra_hosts:

@@ -15,6 +15,8 @@ import subprocess
 import secrets
 import string
 import socket
+import urllib.parse
+import urllib.request
 
 SETUP_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SETUP_DIR)
@@ -23,6 +25,17 @@ connected_clients: set = set()
 log_history: list = []
 
 pending_questions: dict = {}
+
+ERROR_CODES = {
+    "OP-SETUP-BUILD-001": "Build failed",
+    "OP-SETUP-DB-001": "Database failed to start",
+    "OP-SETUP-DB-002": "Database did not become ready",
+    "OP-SETUP-BACKEND-001": "Backend failed to start",
+    "OP-SETUP-BACKEND-002": "Backend did not become ready",
+    "OP-SETUP-FRONTEND-001": "Frontend failed to start",
+}
+
+BACKEND_FATAL_STATE_FILE = os.path.join(PROJECT_DIR, "logs", "backend-fatal.json")
 
 async def broadcast(message: dict):
     payload = json.dumps(message)
@@ -74,6 +87,42 @@ async def run_cmd(args: list) -> bool:
     return proc.returncode == 0
 
 
+async def wait_for_backend(timeout_seconds: int = 45) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    url = "http://127.0.0.1:8224/api/info/safe-mode"
+
+    while time.monotonic() < deadline:
+        try:
+            await asyncio.to_thread(
+                lambda: urllib.request.urlopen(url, timeout=2).close()
+            )
+            return True
+        except Exception:
+            await asyncio.sleep(2)
+
+    return False
+
+
+async def redirect_to_failure(code: str, message: str | None = None):
+    label = message or ERROR_CODES.get(code, "Startup failed")
+    await set_stage("error", label)
+    await log(f"{label}. Error code: {code}", "error")
+
+    await log("Starting frontend failure page...", "info")
+    await run_cmd(["docker", "compose", "up", "-d", "frontend-init"])
+    await run_cmd(["docker", "compose", "up", "-d", "--no-deps", "frontend"])
+
+    query = urllib.parse.urlencode({
+        "code": code,
+        "message": label,
+    })
+    await broadcast({
+        "type": "redirect",
+        "port": 8223,
+        "path": f"/failure?{query}",
+    })
+
+
 def _generate_password(length: int = 32) -> str:
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
@@ -116,6 +165,12 @@ def _images_exist() -> bool:
 
 async def run_install(force_rebuild: bool = False):
     await asyncio.sleep(1.0)
+    try:
+        os.remove(BACKEND_FATAL_STATE_FILE)
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        await log(f"Could not clear previous backend fatal state: {exc}", "warn")
 
     if force_rebuild:
         await set_stage("pulling", "Pulling Docker images...")
@@ -131,7 +186,7 @@ async def run_install(force_rebuild: bool = False):
         ok = await run_cmd(["docker", "compose", "build", "--no-cache", "--progress=plain"])
         if not ok:
             await log("Build step failed. Check the logs above.", "error")
-            await set_stage("error", "Build failed")
+            await redirect_to_failure("OP-SETUP-BUILD-001")
             return
     else:
         await set_stage("building", "Using existing images...")
@@ -145,7 +200,7 @@ async def run_install(force_rebuild: bool = False):
     ok = await run_cmd(["docker", "compose", "up", "-d", "db"])
     if not ok:
         await log("Failed to start database container.", "error")
-        await set_stage("error", "DB start failed")
+        await redirect_to_failure("OP-SETUP-DB-001")
         return
 
     await log("Waiting for Postgres to be ready...", "info")
@@ -164,7 +219,7 @@ async def run_install(force_rebuild: bool = False):
         await asyncio.sleep(2)
     else:
         await log("Postgres did not become ready in time.", "error")
-        await set_stage("error", "DB not ready")
+        await redirect_to_failure("OP-SETUP-DB-002")
         return
 
     await set_progress(80)
@@ -172,7 +227,13 @@ async def run_install(force_rebuild: bool = False):
     ok = await run_cmd(["docker", "compose", "up", "-d", "backend"])
     if not ok:
         await log("Failed to start backend container.", "error")
-        await set_stage("error", "Backend start failed")
+        await redirect_to_failure("OP-SETUP-BACKEND-001")
+        return
+
+    await log("Waiting for backend API to become ready...", "info")
+    if not await wait_for_backend():
+        await log("Backend API did not become ready in time.", "error")
+        await redirect_to_failure("OP-SETUP-BACKEND-002")
         return
 
     await set_progress(90)
@@ -180,7 +241,7 @@ async def run_install(force_rebuild: bool = False):
     ok = await run_cmd(["docker", "compose", "up", "-d", "frontend"])
     if not ok:
         await log("Failed to start frontend container.", "error")
-        await set_stage("error", "Frontend start failed")
+        await redirect_to_failure("OP-SETUP-FRONTEND-001")
         return
 
     await set_progress(100)

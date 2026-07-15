@@ -31,6 +31,7 @@ export interface SourcePlugin {
     activate?(): void;
     setVolume?(fraction: number): void;
     setTransientVolume?(fraction: number): void;
+    allowOutputPlayback?: boolean;
 }
 
 export interface AudioOutputDevice {
@@ -93,12 +94,26 @@ interface PlaybackEmitResponse {
     id?: number;
 }
 
+interface PlaybackQueueItem {
+    songId: string;
+    sourceType: string;
+    extra?: Record<string, unknown>;
+}
+
+interface PlaybackQueueMetadata {
+    name?: string | null;
+    priority?: PlaybackQueueItem[];
+    next?: PlaybackQueueItem[];
+    original?: PlaybackQueueItem[];
+}
+
 interface AccountPlaybackRow {
     id?: number;
     song_id?: string;
     source_type?: string;
     device_identifier?: string | null;
     device_type?: string | null;
+    device_ip?: string | null;
     device_label?: string | null;
     playback_status?: string | null;
     playback_metadata?: {
@@ -109,6 +124,7 @@ interface AccountPlaybackRow {
         repeat?: boolean;
         repeat_one?: boolean;
         volume?: number;
+        queue?: PlaybackQueueMetadata;
     } | null;
     song_metadata?: {
         title?: string | null;
@@ -178,6 +194,7 @@ const CLIENT_INSTANCE_STORAGE_KEY = 'player_client_instance_id';
 const MIN_GAIN = 0.0001;
 const PLAYBACK_FAILURE_GRACE_MS = 0;
 const LOCAL_OUTPUT_PLUGIN_ID = 'core';
+const SERVER_SYNC_TOAST_COOLDOWN_MS = 15000;
 
 function getHostProvidedDeviceInfo(): Partial<AudioOutputDevice> | null {
     const host = globalThis as typeof globalThis & {
@@ -293,6 +310,7 @@ class AudioPlayer {
     private accountSyncInFlight = false;
     private accountSyncApplying = false;
     private accountSyncLastTrackKey: string | null = null;
+    private lastServerSyncToastAt = 0;
     private accountRemotePlayback: {
         row: AccountPlaybackRow;
         receivedAt: number;
@@ -570,6 +588,45 @@ class AudioPlayer {
         };
     }
 
+    private buildQueueMetadata(): PlaybackQueueMetadata {
+        return {
+            name: this.nextQueueName,
+            priority: this.priorityQueue,
+            next: this.nextQueueItems,
+            original: this.nextQueueOriginal,
+        };
+    }
+
+    private queueItemsEqual(a: PlaybackQueueItem[] = [], b: QueueItem[] = []) {
+        if (a.length !== b.length) return false;
+
+        return a.every((item, index) => {
+            const other = b[index];
+            return item.songId === other.songId
+                && item.sourceType === other.sourceType
+                && JSON.stringify(item.extra ?? null) === JSON.stringify(other.extra ?? null);
+        });
+    }
+
+    private isPlaybackQueueEqual(queue?: PlaybackQueueMetadata) {
+        if (!queue) return true;
+
+        return (queue.name ?? null) === this.nextQueueName
+            && this.queueItemsEqual(queue.priority, this.priorityQueue)
+            && this.queueItemsEqual(queue.next, this.nextQueueItems)
+            && this.queueItemsEqual(queue.original, this.nextQueueOriginal);
+    }
+
+    private applyPlaybackQueue(queue?: PlaybackQueueMetadata) {
+        if (!queue) return;
+
+        this.nextQueueName = queue.name ?? null;
+        this.priorityQueue = [...(queue.priority ?? [])];
+        this.nextQueueItems = [...(queue.next ?? [])];
+        this.nextQueueOriginal = [...(queue.original ?? [])];
+        this.schedulePrefetch();
+    }
+
     private requestPlaybackStatusEmit() {
         if (this.accountSyncApplying) return;
         void this.maybeEmitPlaybackStatus(true);
@@ -615,6 +672,7 @@ class AudioPlayer {
                         repeat: this.repeat === 'all',
                         repeat_one: this.repeat === 'one',
                         current_time: Math.round(this.currentTime || 0),
+                        queue: this.buildQueueMetadata(),
                     },
                     song_metadata: this.buildSongMetadata(),
                 },
@@ -628,13 +686,56 @@ class AudioPlayer {
                 this.playbackEmitId = response.id;
             }
         } catch (error) {
-            this.reportPluginError('emit playback status', error);
+            this.reportServerSyncError('emit playback status', error);
         } finally {
             this.playbackEmitInFlight = false;
             if (this.playbackEmitPending) {
                 this.playbackEmitPending = false;
                 void this.maybeEmitPlaybackStatus(true);
             }
+        }
+    }
+
+    private async emitObservedPlaybackStatus() {
+        const remote = this.accountRemotePlayback;
+        const row = remote?.row;
+        if (!row?.song_id || !row.source_type) return;
+        if (!row.device_identifier || !row.device_type) return;
+
+        const metadata = {
+            ...(row.playback_metadata ?? {}),
+            current_time: Math.round(this.currentTime || 0),
+        };
+
+        try {
+            const response = await api(
+                '/player/playback/emit',
+                {
+                    id: row.id,
+                    song_id: row.song_id,
+                    source_type: row.source_type,
+                    device_info: {
+                        device_identifier: row.device_identifier,
+                        device_type: row.device_type,
+                        device_ip: row.device_ip ?? undefined,
+                        label: row.device_label ?? undefined,
+                    },
+                    playback_status: row.playback_status ?? 'paused',
+                    playback_metadata: metadata,
+                    song_metadata: row.song_metadata ?? undefined,
+                },
+                undefined,
+                false,
+                false,
+                'POST'
+            ) as PlaybackEmitResponse;
+
+            if (response?.status === 'success' && typeof response.id === 'number') {
+                row.id = response.id;
+            }
+            row.playback_metadata = metadata;
+        } catch (error) {
+            this.reportServerSyncError('emit observed playback status', error);
         }
     }
 
@@ -779,11 +880,33 @@ class AudioPlayer {
         const statusMismatch = row.playback_status !== this.accountRemotePlayback?.row.playback_status;
         const trackChanged = currentKey !== trackKey;
         const previousVolume = this.accountRemotePlayback?.row.playback_metadata?.volume;
-        const volumeChanged = typeof metadata.volume === 'number'
-            && metadata.volume !== previousVolume
-            && Math.abs((metadata.volume / 100) - this._volumeFraction) > 0.001;
+        const metadataVolume = typeof metadata.volume === 'number' && Number.isFinite(metadata.volume)
+            ? metadata.volume
+            : null;
+        const volumeChanged = metadataVolume !== null
+            && metadataVolume !== previousVolume
+            && Math.abs((metadataVolume / 100) - this._volumeFraction) > 0.001;
+        const queueChanged = !this.isPlaybackQueueEqual(metadata.queue);
 
-        if (!trackChanged && !statusMismatch && !remoteTimeChanged && !volumeChanged && drift < driftThreshold) return;
+        if (!trackChanged && !statusMismatch && !remoteTimeChanged && !volumeChanged && !queueChanged && drift < driftThreshold) return;
+
+        if (!trackChanged && !statusMismatch && !remoteTimeChanged && !queueChanged && volumeChanged && drift < driftThreshold) {
+            const nextMetadata = {
+                ...(this.accountRemotePlayback?.row.playback_metadata ?? {}),
+                ...metadata,
+            };
+            this.accountRemotePlayback = {
+                row: {
+                    ...(this.accountRemotePlayback?.row ?? row),
+                    ...row,
+                    playback_metadata: nextMetadata,
+                },
+                receivedAt: this.accountRemotePlayback?.receivedAt ?? Date.now(),
+                targetDeviceId: this.accountRemotePlayback?.targetDeviceId ?? await this.resolvePlaybackDeviceId(row),
+            };
+            this.applyVolumeFraction(metadataVolume / 100, { emit: false });
+            return;
+        }
 
         this.accountSyncApplying = true;
 
@@ -805,8 +928,9 @@ class AudioPlayer {
             else if (metadata.repeat) this.repeat = 'all';
             else this.repeat = 'off';
             if (typeof metadata.volume === 'number' && Number.isFinite(metadata.volume)) {
-                this._volumeFraction = Math.max(0, Math.min(1, metadata.volume / 100));
+                this.applyVolumeFraction(metadata.volume / 100, { emit: false, notify: false });
             }
+            this.applyPlaybackQueue(metadata.queue);
 
             this.currentSongId = row.song_id;
             this.currentSourceType = row.source_type;
@@ -821,6 +945,7 @@ class AudioPlayer {
                 targetDeviceId: await this.resolvePlaybackDeviceId(row),
             };
             this.updateMediaSessionMetadata();
+            if (trackChanged) this.notifyTrackChange();
             this.notify();
         } finally {
             window.setTimeout(() => {
@@ -989,6 +1114,9 @@ class AudioPlayer {
 
         navigator.mediaSession.setActionHandler('play', () => {
             if (this.isTransitioning) return;
+            if (this.activePlugin) {
+                this.safelyActivatePlugin(this.activePlugin);
+            }
             this.resumePlayback();
         });
 
@@ -1124,6 +1252,22 @@ class AudioPlayer {
         console.error(`[player] Plugin ${context} failed:`, error);
     }
 
+    private reportServerSyncError(context: string, error: unknown) {
+        console.warn(`[player] Server sync ${context} failed:`, error);
+
+        const now = Date.now();
+        if (now - this.lastServerSyncToastAt < SERVER_SYNC_TOAST_COOLDOWN_MS) return;
+
+        this.lastServerSyncToastAt = now;
+        createToast({
+            id: `player-sync-failed-${now}`,
+            message: i18n.t('player.toast.server_sync_failed'),
+            duration: 5000,
+            type: 'info',
+            dismissable: true,
+        });
+    }
+
     private safelyDestroyPlugin(plugin: SourcePlugin, options?: { transferred?: boolean }) {
         try {
             Promise.resolve(plugin.destroy(options)).catch(error => {
@@ -1212,6 +1356,24 @@ class AudioPlayer {
         } catch (error) {
             this.reportPluginError('set output volume', error);
         }
+    }
+
+    private applyVolumeFraction(fraction: number, options: { emit?: boolean; notify?: boolean; persist?: boolean } = {}) {
+        const f = Math.max(0, Math.min(1, fraction));
+        this._volumeFraction = f;
+
+        this.applyOutputVolume(f);
+
+        if (options.persist ?? true) {
+            const storage = getVolumeStorage();
+            storage?.setItem(VOLUME_STORAGE_KEY, String(f));
+        }
+
+        if (this.activePlugin) this.safelySetPluginVolume(this.activePlugin, f);
+        this.safelySetOutputPluginVolume(this.activeOutputPlugin, f);
+
+        if (options.notify ?? true) this.notify();
+        if (options.emit ?? true) this.requestPlaybackStatusEmit();
     }
 
     private safelyPausePlugin(plugin: SourcePlugin) {
@@ -1345,6 +1507,7 @@ class AudioPlayer {
 
         this.endCheckInterval = setInterval(() => {
             if (!this.currentSongId) return;
+            if (!this.isPlaying) return;
 
             const duration = this.duration;
             const time = this.currentTime;
@@ -1489,6 +1652,7 @@ class AudioPlayer {
 
         const durationMs = Math.max(0, getConfig<number>('volume.pause_fade_ms') ?? 350);
         const nonce = ++this.fadeNonce;
+        const pauseAt = this.currentTime;
         this.isPauseFadePending = true;
         this.isPauseRequested = true;
         this.syncMediaSessionState();
@@ -1522,10 +1686,14 @@ class AudioPlayer {
                 }
 
                 this.fadeFrame = null;
-                if (this.activePlugin) this.safelyPausePlugin(this.activePlugin);
-                this.safelySetPluginTransientVolume(this.activePlugin, this._volumeFraction);
+                const plugin = this.activePlugin;
+                if (plugin) {
+                    this.safelyPausePlugin(plugin);
+                    this.safelySeekPlugin(plugin, pauseAt);
+                }
                 this.isPauseFadePending = false;
                 this.notify();
+                this.requestPlaybackStatusEmit();
             };
 
             this.fadeFrame = requestAnimationFrame(step);
@@ -1547,15 +1715,16 @@ class AudioPlayer {
 
         this.gainNode.gain.cancelScheduledValues(now);
         this.gainNode.gain.setValueAtTime(Math.max(this.gainNode.gain.value, MIN_GAIN), now);
-        this.gainNode.gain.linearRampToValueAtTime(MIN_GAIN, now + durationMs / 1000);
+        this.gainNode.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
 
         window.setTimeout(() => {
             if (nonce !== this.fadeNonce) return;
 
             this.audio.pause();
+            this.audio.currentTime = pauseAt;
             this.isPauseFadePending = false;
-            this.applyOutputVolume();
             this.notify();
+            this.requestPlaybackStatusEmit();
         }, durationMs);
     }
 
@@ -1569,6 +1738,7 @@ class AudioPlayer {
         }
 
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     setNextQueue(name: string | null, items: QueueItem[]) {
@@ -1591,6 +1761,7 @@ class AudioPlayer {
         }
 
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     appendToNextQueue(items: QueueItem[]) {
@@ -1607,6 +1778,7 @@ class AudioPlayer {
         }
 
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     clearNextQueue() {
@@ -1618,12 +1790,14 @@ class AudioPlayer {
         this.prefetchController = null;
 
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     clearPriorityQueue() {
         this.priorityQueue = [];
         this.schedulePrefetch();
         this.notify();
+        this.requestPlaybackStatusEmit();
     }
 
     toggleShuffle() {
@@ -1746,8 +1920,14 @@ class AudioPlayer {
         const threshold = getConfig<number>('navigation.prev_restart_threshold') ?? 3;
         const hasPrevSong = this.history.length > 0;
 
-        if (this.audio.currentTime > threshold || !hasPrevSong) {
-            this.audio.currentTime = 0;
+        if (this.currentTime > threshold || !hasPrevSong) {
+            if (this.activePlugin) {
+                this.safelySeekPlugin(this.activePlugin, 0);
+            } else if (this.activeOutputPlugin) {
+                this.safelySeekOutputPlugin(this.activeOutputPlugin, 0);
+            } else {
+                this.audio.currentTime = 0;
+            }
             this.notify();
             return;
         }
@@ -1808,8 +1988,10 @@ class AudioPlayer {
         this.stopEndWatcher();
 
         if (plugin) {
-            if (autoplay && this.getSelectedOutputPlugin()) {
-                const outputPlugin = this.getSelectedOutputPlugin();
+            const selectedOutputPlugin = this.getSelectedOutputPlugin();
+
+            if (autoplay && plugin.allowOutputPlayback && selectedOutputPlugin?.supportsSourcePlayback) {
+                const outputPlugin = selectedOutputPlugin;
 
                 if (this.activePlugin) {
                     this.cancelPauseFade();
@@ -1919,13 +2101,14 @@ class AudioPlayer {
                 this.activeOutputPlugin = null;
             }
 
+            this.lastStreamUrl = null;
+            this.audio.pause();
+            this.audio.removeAttribute('src');
+            this.audio.load();
+
             if (this.activePlugin && this.activePlugin !== plugin) {
                 this.cancelPauseFade();
                 this.safelyDestroyPlugin(this.activePlugin);
-            }
-
-            if (!this.plugins.has(this.currentSourceType ?? '')) {
-                this.audio.pause();
             }
 
             this.activePlugin = plugin;
@@ -2220,33 +2403,23 @@ class AudioPlayer {
 
     setVolume(fraction: number) {
         const f = Math.max(0, Math.min(1, fraction));
-        this._volumeFraction = f;
 
         if (this.isObservingRemotePlayback()) {
+            this.applyVolumeFraction(f, { emit: false, notify: false });
+            if (this.accountRemotePlayback) {
+                this.accountRemotePlayback.row.playback_metadata = {
+                    ...(this.accountRemotePlayback.row.playback_metadata ?? {}),
+                    volume: Math.round(f * 100),
+                };
+            }
+            this.notify();
+            void this.emitObservedPlaybackStatus();
             void this.sendRemotePlaybackCommand('volume', { fraction: f })
-                .then(sent => {
-                    if (!sent || !this.accountRemotePlayback) return;
-                    this.accountRemotePlayback.row.playback_metadata = {
-                        ...(this.accountRemotePlayback.row.playback_metadata ?? {}),
-                        volume: Math.round(f * 100),
-                    };
-                    this.notify();
-                })
                 .catch(error => this.reportPluginError('remote volume', error));
             return;
         }
 
-        if (!this.gainNode || !this.ctx) return;
-
-        this.applyOutputVolume(f);
-
-        const storage = getVolumeStorage();
-        storage?.setItem(VOLUME_STORAGE_KEY, String(f));
-
-        if (this.activePlugin) this.safelySetPluginVolume(this.activePlugin, f);
-        this.safelySetOutputPluginVolume(this.activeOutputPlugin, f);
-        this.notify();
-        this.requestPlaybackStatusEmit();
+        this.applyVolumeFraction(f);
     }
 
     selectLocalOutputDevice() {
@@ -2289,6 +2462,11 @@ class AudioPlayer {
         } else {
             this.plugins.set(sourceType, plugin);
         }
+    }
+
+    activateSource(sourceType: string) {
+        const plugin = this.plugins.get(sourceType);
+        if (plugin) this.safelyActivatePlugin(plugin);
     }
 
     registerOutputPlugin(pluginId: string, plugin: AudioOutputPlugin | null) {
@@ -2367,9 +2545,9 @@ class AudioPlayer {
         } else if (
             this.currentSongId &&
             this.currentSourceType &&
-            (this.lastStreamUrl || (this.activePlugin && this.getSelectedOutputPlugin()?.supportsSourcePlayback))
+            (this.lastStreamUrl || (this.activePlugin?.allowOutputPlayback && this.getSelectedOutputPlugin()?.supportsSourcePlayback))
         ) {
-            if (this.activePlugin && this.getSelectedOutputPlugin()?.supportsSourcePlayback) {
+            if (this.activePlugin?.allowOutputPlayback && this.getSelectedOutputPlugin()?.supportsSourcePlayback) {
                 this.cancelPauseFade();
                 this.safelyDestroyPlugin(this.activePlugin, { transferred: true });
                 this.activePlugin = null;

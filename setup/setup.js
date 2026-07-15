@@ -182,7 +182,11 @@ function connect() {
             if (!gotSetupStateFromHttp) goToStep(msg.step + 1);
         }
         if (msg.type === 'redirect') {
-            window.location.href = msg.url;
+            if (msg.port && msg.path) {
+                window.location.href = `${location.protocol}//${location.hostname}:${msg.port}${msg.path}`;
+            } else {
+                window.location.href = msg.url;
+            }
         }
     };
 

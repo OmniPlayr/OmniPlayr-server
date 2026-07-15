@@ -240,6 +240,16 @@
     color: var(--clr-text-a30);
 }
 
+.player-option-disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.player-option-disabled .option-icon,
+.player-option-disabled .volume-slider {
+    cursor: default;
+}
+
 .volume-slider {
     width: 80px;
     height: 5px;

@@ -188,12 +188,19 @@ def get_media_info(source_type: str, song_id: str, request: Request, auth=Depend
     except PermissionError as e:
         log(f"Permission error for song_id={song_id!r}: {e}", "debug", "module.player")
         raise HTTPException(status_code=403, detail=str(e))
+    except NotImplementedError as e:
+        log(f"Media metadata unsupported for song_id={song_id!r}: {e}", "debug", "module.player")
+        raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
         log(f"Unexpected error fetching metadata for song_id={song_id!r}: {e}", "error", "module.player")
         raise HTTPException(status_code=500, detail=str(e))
 
-    file_size = plugin.get_file_size(song_id, account_id)
-    content_type = plugin.get_content_type(song_id, account_id)
+    try:
+        file_size = plugin.get_file_size(song_id, account_id)
+        content_type = plugin.get_content_type(song_id, account_id)
+    except NotImplementedError as e:
+        log(f"Media stream metadata unsupported for song_id={song_id!r}: {e}", "debug", "module.player")
+        raise HTTPException(status_code=501, detail=str(e))
     stream_url = _build_stream_url(request, source_type, song_id)
     log(f"Media info ready: song_id={song_id!r} file_size={file_size} content_type={content_type!r}", "debug", "module.player")
     return {
@@ -239,6 +246,9 @@ def stream_media(
     except PermissionError as e:
         log(f"Permission error song_id={song_id!r}: {e}", "debug", "module.player")
         raise HTTPException(status_code=403, detail=str(e))
+    except NotImplementedError as e:
+        log(f"Stream metadata unsupported for song_id={song_id!r}: {e}", "debug", "module.player")
+        raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
         log(f"Unexpected error getting stream meta for song_id={song_id!r}: {e}", "error", "module.player")
         raise HTTPException(status_code=500, detail=str(e))
@@ -318,6 +328,9 @@ def stream_media(
     except PermissionError as e:
         log(f"Permission error on stream open song_id={song_id!r}: {e}", "debug", "module.player")
         raise HTTPException(status_code=403, detail=str(e))
+    except NotImplementedError as e:
+        log(f"Stream unsupported for song_id={song_id!r}: {e}", "debug", "module.player")
+        raise HTTPException(status_code=501, detail=str(e))
     except Exception as e:
         log(f"Unexpected error opening stream for song_id={song_id!r}: {e}", "error", "module.player")
         raise HTTPException(status_code=500, detail=str(e))

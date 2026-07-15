@@ -25,6 +25,7 @@ import { usePlugins } from './modules/usePlugins';
 import { setNavigate } from './modules/navigate';
 import { useSearchParams } from "react-router-dom";
 import api from './modules/api.ts';
+import { getConfig } from './modules/config.ts';
 import Header from './Header.tsx';
 import Settings from './Settings.tsx';
 import { initSafeMode } from './modules/safeMode';
@@ -87,6 +88,34 @@ function isTokenValid(): boolean {
 
 async function loadAccount() {
     return await api("get_account", undefined, { account_id: "me" }) as any;
+}
+
+type BackendFatalState = {
+    active?: boolean;
+    code?: string;
+    message?: string;
+    stage?: string | null;
+    details?: string;
+    created_at?: string;
+};
+
+const FAILURE_STATE_STORAGE_KEY = 'omniplayr_backend_failure_state';
+
+async function readBackendFatalState(): Promise<BackendFatalState | null> {
+    try {
+        const res = await fetch(`/omniplayr-fatal-state.json?ts=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return null;
+        return await res.json() as BackendFatalState;
+    } catch {
+        return null;
+    }
+}
+
+function buildFailureUrl(state: BackendFatalState): string {
+    const params = new URLSearchParams();
+    if (state.code) params.set('code', state.code);
+    if (state.message) params.set('message', state.message);
+    return `/failure${params.toString() ? `?${params.toString()}` : ''}`;
 }
 
 async function loadPlugins(): Promise<void> {
@@ -193,6 +222,57 @@ function AppShell() {
     const [safeMode, setSafeMode] = useState(false);
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [pluginsLoaded, setPluginsLoaded] = useState(false);
+
+    useEffect(() => {
+        if (location.pathname === '/failure' || location.pathname === '/shutdown' || location.pathname === '/updating') return;
+
+        let stopped = false;
+        let misses = 0;
+
+        const checkBackend = async () => {
+            const baseUrl = getConfig<string>("api.apiUrl") ?? "";
+
+            try {
+                const res = await fetch(`${baseUrl}/api/info/safe-mode`, { cache: 'no-store' });
+                if (res.ok) {
+                    misses = 0;
+                    return;
+                }
+                throw new Error(`Backend health check failed: ${res.status}`);
+            } catch {
+                misses += 1;
+            }
+
+            const fatalState = await readBackendFatalState();
+            if (stopped) return;
+
+            if (fatalState?.active) {
+                sessionStorage.setItem(FAILURE_STATE_STORAGE_KEY, JSON.stringify(fatalState));
+                navigate(buildFailureUrl(fatalState), { replace: true });
+                return;
+            }
+
+            if (misses >= 3) {
+                const unreachableState: BackendFatalState = {
+                    active: true,
+                    code: 'OP-BACKEND-RUNTIME-UNREACHABLE-001',
+                    message: 'Backend is unreachable',
+                    details: 'The frontend could not reach the backend API, and no backend fatal report was available. The backend may have been stopped, killed, or disconnected before it could write a crash report.',
+                    created_at: new Date().toISOString(),
+                };
+                sessionStorage.setItem(FAILURE_STATE_STORAGE_KEY, JSON.stringify(unreachableState));
+                navigate(buildFailureUrl(unreachableState), { replace: true });
+            }
+        };
+
+        const intervalId = window.setInterval(checkBackend, 5000);
+        void checkBackend();
+
+        return () => {
+            stopped = true;
+            window.clearInterval(intervalId);
+        };
+    }, [location.pathname, navigate]);
 
     const [activeTabId, setActiveTabId] = useState<string | null>(() =>
         resolveActiveTabFromPath(location.pathname)

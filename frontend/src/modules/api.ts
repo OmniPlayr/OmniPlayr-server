@@ -24,16 +24,21 @@ function fetchRoutes(): Promise<Map<string, RouteInfo>> {
         .then((routes) => {
             _routeMap = new Map(routes.map((r) => [r.name, r]));
             return _routeMap;
+        })
+        .catch((error) => {
+            _routeMap = null;
+            _routePromise = null;
+            throw error;
         });
     return _routePromise;
 }
 
-fetchRoutes();
+void fetchRoutes().catch(() => {});
 
 export function invalidateRouteCache() {
     _routeMap = null;
     _routePromise = null;
-    fetchRoutes();
+    void fetchRoutes().catch(() => {});
 }
 
 function replaceUrlParams(url: string, params?: object): string {

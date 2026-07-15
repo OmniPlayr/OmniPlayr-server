@@ -12,6 +12,7 @@ from api.helpers.config import load_configs, get_config
 from api.helpers.plugins import load_plugins, get_plugin_router, get_backend_plugin_reload_dirs
 from api.helpers.config_watcher import start_config_watcher
 from api.helpers.log import log, setup_exception_hook, setup_thread_exception_hook, setup_asyncio_exception_handler, log_exception
+from api.helpers.fatal_error import clear_fatal_state, record_startup_exception
 from api.helpers.notifications import notify_sync, set_main_loop
 from api.helpers.account import list_accounts
 from api.helpers.diagnostics import start_diagnostics
@@ -81,38 +82,76 @@ def _notify_admins():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    loop = asyncio.get_event_loop()
-    set_main_loop(loop)
-    setup_asyncio_exception_handler(loop)
+    try:
+        loop = asyncio.get_event_loop()
+        set_main_loop(loop)
+        setup_asyncio_exception_handler(loop)
 
-    # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
-    start_config_watcher()
+        # This watches config.json and syncs new keys into config.local.json, so if you updated it will update the version and things.
+        start_config_watcher()
 
-    # This loads the config files
-    load_configs()
+        try:
+            # This loads the config files
+            load_configs()
+        except Exception as exc:
+            record_startup_exception("config", exc)
+            log_exception(exc, "Fatal backend startup error: configuration failed", "main")
+            raise
 
-    startup_signature = verify_startup_signature()
-    log(f"Startup signature verification status: {startup_signature.get('status')}", "info", "main")
+        try:
+            startup_signature = verify_startup_signature()
+            log(f"Startup signature verification status: {startup_signature.get('status')}", "info", "main")
+        except Exception as exc:
+            record_startup_exception("signature", exc)
+            log_exception(exc, "Fatal backend startup error: update verification failed", "main")
+            raise
 
-    # This sets up the database, but needs to be after the configs are loaded, because the database also logs, and else you are going to get a lot of duplicate logs (I think)
-    await init_db_when_ready()
-    # This loads the plugins
-    if _is_safe_mode():
-        log("Safe mode is active, plugins are disabled", "warning", "main")
-    else:
-        load_plugins()
+        try:
+            # This sets up the database, but needs to be after the configs are loaded, because the database also logs, and else you are going to get a lot of duplicate logs (I think)
+            await init_db_when_ready()
+        except Exception as exc:
+            record_startup_exception("database", exc)
+            log_exception(exc, "Fatal backend startup error: database failed", "main")
+            raise
 
-    # This sets the /api/plugin prefix for plugins
-    app.include_router(get_plugin_router(), prefix="/api/plugin")
+        try:
+            # This loads the plugins
+            if _is_safe_mode():
+                log("Safe mode is active, plugins are disabled", "warning", "main")
+            else:
+                load_plugins()
+        except Exception as exc:
+            record_startup_exception("plugins", exc)
+            log_exception(exc, "Fatal backend startup error: plugin loading failed", "main")
+            raise
 
-    start_diagnostics(get_config('diagnostics.interval_seconds', 600))
+        # This sets the /api/plugin prefix for plugins
+        app.include_router(get_plugin_router(), prefix="/api/plugin")
 
-    start_https_proxy()
+        try:
+            start_diagnostics(get_config('diagnostics.interval_seconds', 600))
+        except Exception as exc:
+            record_startup_exception("diagnostics", exc)
+            log_exception(exc, "Fatal backend startup error: diagnostics failed", "main")
+            raise
 
-    log("Server started", "info", "main")
+        try:
+            start_https_proxy()
+        except Exception as exc:
+            record_startup_exception("proxy", exc)
+            log_exception(exc, "Fatal backend startup error: HTTPS proxy failed", "main")
+            raise
 
-    # This sends a notification to admins that the server has started and that the update has been applied
-    asyncio.get_running_loop().create_task(_delayed_startup_notifications())
+        clear_fatal_state()
+        log("Server started", "info", "main")
+
+        # This sends a notification to admins that the server has started and that the update has been applied
+        asyncio.get_running_loop().create_task(_delayed_startup_notifications())
+    except Exception as exc:
+        if not os.path.exists("logs/backend-fatal.json"):
+            record_startup_exception("unknown", exc)
+            log_exception(exc, "Fatal backend startup error", "main")
+        raise
     yield
 
 

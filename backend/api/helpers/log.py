@@ -218,6 +218,16 @@ def setup_exception_hook() -> None:
         if tb_text:
             msg = f"{msg}\n{tb_text}"
         log(msg, level="critical", source="excepthook")
+        try:
+            from api.helpers.fatal_error import record_fatal_state
+            record_fatal_state(
+                "OP-BACKEND-RUNTIME-UNHANDLED-001",
+                "Backend stopped because of an unhandled exception",
+                exc_value,
+                "runtime",
+            )
+        except Exception:
+            pass
         _original(exc_type, exc_value, exc_tb)
 
     sys.excepthook = _hook

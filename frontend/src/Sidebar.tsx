@@ -13,7 +13,7 @@ import { makeToast } from '@wokki20/jspt';
 import { useTranslation } from 'react-i18next';
 
 async function loadAccounts() {
-    return await api("get_accounts") as any[];
+    return await api("/accounts/") as any[];
 }
 
 function openAccountSelect() {
