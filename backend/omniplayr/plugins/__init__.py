@@ -88,7 +88,7 @@ from api.helpers.plugin_functions import (
     mark_plugin_loaded,
     remove_plugin,
 )
-from api.helpers.plugin_installer import fetch_plugin_info, install_local_plugin, install_plugin
+from api.helpers.plugin_installer import fetch_plugin_info, install_plugin
 from api.helpers.plugins import PluginBase, api, get_backend_plugin_dir, get_plugin, get_plugin_router, load_plugins, register
 from api.helpers.server import create_access_token, get_token_user, match_account, parse_interval, verify_auth, verify_token
 from api.helpers.updater import apply_update, check_for_updates

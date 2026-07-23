@@ -170,7 +170,7 @@ function shouldResolveEval(typeData: TomlObject): boolean {
     return JSON.stringify(typeData).includes('"eval"');
 }
 
-export function loadConfigs(): void {
+function loadConfigs(): void {
     _loadedConfigs = {};
 
     const configs = import.meta.glob("/src/config/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
@@ -212,56 +212,6 @@ export interface FlatConfigItem {
     step: number | null;
     in_values: string[] | null;
     file: string;
-}
-
-export function flattenConfigs(): FlatConfigItem[] {
-    const results: FlatConfigItem[] = [];
-
-    const types = import.meta.glob("/src/config_types/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
-    const defaults = import.meta.glob("/src/config_defaults/*.toml", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
-
-    for (const [typePath, typeRaw] of Object.entries(types)) {
-        const stem = stemFromPath(typePath);
-        const typeData = toml.parse(typeRaw) as TomlObject;
-
-        const defaultPath = `/src/config_defaults/${stem}.toml`;
-        const defaultData = defaultPath in defaults ? (toml.parse(defaults[defaultPath]) as TomlObject) : {};
-        const configData = _loadedConfigs[stem] ?? {};
-
-        function walk(prefix: string, typeNode: TomlObject, configNode: TomlObject, defaultNode: TomlObject) {
-            for (const [key, val] of Object.entries(typeNode)) {
-                const fullKey = prefix ? `${prefix}.${key}` : key;
-
-                if (typeof val === "object" && !Array.isArray(val)) {
-                    walk(
-                        fullKey,
-                        val as TomlObject,
-                        (configNode[key] ?? {}) as TomlObject,
-                        (defaultNode[key] ?? {}) as TomlObject
-                    );
-                } else if (typeof val === "string") {
-                    const parsed = parseTypeString(val);
-                    results.push({
-                        key: fullKey,
-                        type: parsed.baseType,
-                        value: configNode[key] ?? null,
-                        default: defaultNode[key] ?? null,
-                        comment: parsed.comment ?? null,
-                        liveupdate: parsed.liveupdate,
-                        min: parsed.minmax ? parsed.minmax[0] : null,
-                        max: parsed.minmax ? parsed.minmax[1] : null,
-                        step: parsed.step ?? null,
-                        in_values: parsed.inValues ?? null,
-                        file: stem,
-                    });
-                }
-            }
-        }
-
-        walk("", typeData, configData, defaultData);
-    }
-
-    return results;
 }
 
 export function getConfig<T = TomlValue>(keyPath: string, defaultValue?: T): T | undefined {

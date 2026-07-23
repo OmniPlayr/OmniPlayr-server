@@ -52,13 +52,6 @@ def get_uptime_seconds() -> float:
     """Return backend process uptime in seconds."""
     return time.monotonic() - _start_time
 
-
-def reset_error_counts() -> None:
-    """Reset all diagnostic error counters to zero."""
-    for key in _error_counts:
-        _error_counts[key] = 0
-
-
 def _check_cpu() -> None:
     usage = psutil.cpu_percent(interval=1)
     if usage >= _CPU_CRIT:

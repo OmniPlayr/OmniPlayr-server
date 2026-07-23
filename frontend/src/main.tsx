@@ -127,10 +127,6 @@ async function loadPlugins(): Promise<void> {
             './local-plugins/*/frontend/index.{ts,tsx}',
             './local-plugins/frontend/index.{ts,tsx}',
             './local-plugins/index.{ts,tsx}',
-            './local-frontend-plugins/*/index.{ts,tsx}',
-            './local-frontend-plugins/*/frontend/index.{ts,tsx}',
-            './local-frontend-plugins/frontend/index.{ts,tsx}',
-            './local-frontend-plugins/index.{ts,tsx}',
         ])
         : {};
 

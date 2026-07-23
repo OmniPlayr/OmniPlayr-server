@@ -35,12 +35,6 @@ function fetchRoutes(): Promise<Map<string, RouteInfo>> {
 
 void fetchRoutes().catch(() => {});
 
-export function invalidateRouteCache() {
-    _routeMap = null;
-    _routePromise = null;
-    void fetchRoutes().catch(() => {});
-}
-
 function replaceUrlParams(url: string, params?: object): string {
     if (!params) return url;
     return url.replace(/\{(\w+)\}/g, (_, key) => {

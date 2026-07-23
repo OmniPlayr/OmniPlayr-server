@@ -45,7 +45,7 @@ export default defineConfig({
       buildStart() {
         const dirNames = process.env.NODE_ENV === 'production'
           ? ['plugins']
-          : ['plugins', 'local-plugins', 'local-frontend-plugins']
+          : ['plugins', 'local-plugins']
         for (const dirName of dirNames) {
           const dir = path.resolve(__dirname, 'src', dirName)
           if (!fs.existsSync(dir)) {

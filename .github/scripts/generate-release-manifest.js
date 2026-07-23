@@ -88,7 +88,6 @@ function shouldSkip(relativePath, isDirectory = false) {
 
   if (relativePath.startsWith('frontend/src/')) {
     const srcChild = parts[2];
-    if (srcChild === 'local-frontend-plugins') return true;
     if (srcChild === 'local-plugins') return true;
     if (srcChild === 'plugins') return true;
     if (isDirectory && relativePath === 'frontend/src/config') return false;

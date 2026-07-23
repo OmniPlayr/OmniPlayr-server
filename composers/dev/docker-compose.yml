@@ -12,6 +12,7 @@ services:
       - ./frontend/src/config:/app/src/config
       - ./backend/certs:/app/certs
       - ./logs:/app/logs:ro
+      - ${OMNIPLAYR_LOCAL_PLUGINS:-./frontend/src/plugins}:/external-plugins
     container_name: omniplayr_frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -28,7 +29,7 @@ services:
 
   frontend-init:
     image: alpine
-    command: sh -c "mkdir -p /files/src/plugins /files/src/local-plugins /files/src/local-frontend-plugins"
+    command: sh -c "mkdir -p /files/src/plugins /files/src/local-plugins"
     volumes:
       - ./frontend:/files
 
