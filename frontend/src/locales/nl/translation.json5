@@ -145,7 +145,7 @@
 
     "sidebar.tab.home": "Startpagina",
     "sidebar.tab.settings": "Instellingen",
-    "sidebar.devmode": "Ontwikkelaarsmodus",
+    "sidebar.development": "Dev",
 
     // --- End sidebar translations
 

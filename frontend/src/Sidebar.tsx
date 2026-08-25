@@ -1,6 +1,6 @@
 import './styles/Sidebar.css';
 import defaultPfp from "./assets/images/default-pfp-dark.svg";
-import { Settings, House, ChevronDown, ArrowRightToLine, X } from 'lucide-react';
+import { Settings, House, ChevronDown, ArrowRightToLine, X, Command } from 'lucide-react';
 import { isDev } from './modules/dev';
 import api from './modules/api';
 import { Fragment, useEffect, useRef, useState } from 'react';
@@ -70,9 +70,12 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
     const [openPasswordPopup, setPasswordPopup] = useState(false);
     const [openTwoFaPopup, setTwoFaPopup] = useState(false);
     const [usingBackupCode, setUsingBackupCode] = useState(false);
+    const [showShortcuts, setShowShortcuts] = useState(false);
     const twoFaInputsRef = useRef<HTMLDivElement>(null);
     const twoFaCodeRef = useRef('');
     const backupCodeRef = useRef('');
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+    const modifierKey = isMac ? "Meta" : "Control";
 
     const { t } = useTranslation();
 
@@ -90,6 +93,38 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
         const unsub = onPluginsLoaded(() => setTabs(getTabs()));
         return unsub;
     }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === modifierKey) {
+                setShowShortcuts(true);
+            }
+
+            if ((isMac ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "h") {
+                e.preventDefault();
+                handleTabChange("__home");
+            }
+
+            if ((isMac ? e.metaKey : e.ctrlKey) && e.key === ",") {
+                e.preventDefault();
+                onTabChange("__settings");
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === modifierKey) {
+                setShowShortcuts(false);
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("keyup", handleKeyUp);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("keyup", handleKeyUp);
+        };
+    }, [isMac, modifierKey]);
 
     function handleTabChange(tabId: string | null) {
         onTabChange(tabId);
@@ -257,6 +292,7 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
             <div className={`sidebar${isOpen ? " sidebar--open" : ""}`} data-component="Sidebar">
                 <div className="sidebar-header">
                     <p className="sidebar-title">{t("system_name")}</p>
+                    {isDev() && <div className="sidebar-version" onClick={showDevPopup}>{t("sidebar.development")}</div>}
                 </div>
                 <div className="sidebar-library-list">
 
@@ -266,9 +302,21 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                         <div
                             className={`sidebar-tab${activeTabId === '__home' ? ' active' : ''}`}
                             onClick={() => handleTabChange('__home')}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleTabChange('__home');
+                                }
+                            }}
                         >
                             <House className="tab-icon" />
                             <p className="tab-text">{t("sidebar.tab.home")}</p>
+                            {showShortcuts && (
+                                <span className="sidebar-shortcut">
+                                    {isMac ? <Command size={13} /> : "Ctrl"} + H
+                                </span>
+                            )}
                         </div>
                         {tabs.map(tab => {
                             const Icon: any = tab.icon;
@@ -277,18 +325,40 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                                     key={tab.id}
                                     className={`sidebar-tab${activeTabId === tab.id ? ' active' : ''}`}
                                     onClick={() => handleTabChange(tab.id)}
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            handleTabChange(tab.id);
+                                        }
+                                    }}
                                 >
                                     <Icon className="tab-icon" />
                                     <p className="tab-text">{tab.label}</p>
                                 </div>
                             );
                         })}
-                        <div className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`} onClick={() => onTabChange("__settings")}>
+                        <div
+                            className={`sidebar-tab${activeTabId === "__settings" ? ' active' : ''}`}
+                            onClick={() => onTabChange("__settings")}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    onTabChange("__settings");
+                                }
+                            }}
+                        >
                             <Settings className="tab-icon" />
                             <p className="tab-text">{t("sidebar.tab.settings")}</p>
                             {(settingsBadgeCount ?? 0) > 0 && (
                                 <span className="update-badge">
                                     {(settingsBadgeCount ?? 0) > 9 ? "9+" : settingsBadgeCount}
+                                </span>
+                            )}
+                            {showShortcuts && (
+                                <span className="sidebar-shortcut">
+                                    {isMac ? <Command size={13} /> : "Ctrl"} + ,
                                 </span>
                             )}
                         </div>
@@ -318,7 +388,6 @@ function Sidebar({ account, activeTabId, onTabChange, isOpen, onClose, settingsB
                             </>
                         }
                     </div>
-                    {isDev() && <p className="sidebar-dev" onClick={showDevPopup}>{t("sidebar.devmode")}</p>}
                 </div>
             </div>
             {openPasswordPopup && (

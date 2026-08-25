@@ -28,6 +28,46 @@
     font-weight: 600;
 }
 
+.sidebar-version {
+    background-color: var(--clr-popup-a10);
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--clr-text-a50);
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.sidebar-version:hover {
+    background-color: var(--clr-popup-a20);
+}
+
+.sidebar-shortcut {
+    background-color: var(--clr-popup-a10);
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--clr-text-a50);
+    margin-left: auto;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.sidebar-tab:has(.update-badge) .sidebar-shortcut {
+    margin-left: 0px;
+}
+
+.sidebar-tab.active .sidebar-shortcut {
+    background-color: var(--clr-popup-a20);
+}
+
+.sidebar-tab.active:hover .sidebar-shortcut {
+    background-color: var(--clr-popup-a10);
+}
+
 .sidebar-footer {
     margin-top: auto;
     display: flex;
@@ -124,14 +164,6 @@
 .sidebar-tab:hover {
     background-color: var(--clr-popup-a20);
     border: 1px solid var(--clr-popup-a30);
-}
-
-.sidebar-dev {
-    color: var(--clr-text-a30);
-    font-size: 12px;
-    padding-top: 5px;
-    user-select: none;
-    cursor: pointer;
 }
 
 .user-switch-account {
@@ -270,6 +302,7 @@
     align-items: center;
     justify-content: center;
     margin-left: auto;
+    flex-shrink: 0;
 }
 
 .dev-popup {

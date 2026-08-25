@@ -41,7 +41,6 @@ from api.helpers.diagnostics import (
     get_error_counts,
     get_uptime_seconds,
     record_error,
-    reset_error_counts,
     run_diagnostics,
     start_diagnostics,
 )

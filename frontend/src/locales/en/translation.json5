@@ -145,7 +145,7 @@
 
     "sidebar.tab.home": "Home",
     "sidebar.tab.settings": "Settings",
-    "sidebar.devmode": "Dev Mode",
+    "sidebar.development": "Dev",
 
     // --- End sidebar translations
 

@@ -145,7 +145,7 @@
 
     "sidebar.tab.home": "Port",
     "sidebar.tab.settings": "Ship Rules",
-    "sidebar.devmode": "Shipwright Mode",
+    "sidebar.development": "Dev",
 
     // --- End sidebar translations
 
