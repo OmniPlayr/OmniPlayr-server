@@ -32,6 +32,7 @@ export interface SourcePlugin {
     setVolume?(fraction: number): void;
     setTransientVolume?(fraction: number): void;
     allowOutputPlayback?: boolean;
+    onSimulatedPlayback?(simulation: PluginPlaybackSimulation): void | Promise<void>;
 }
 
 export interface AudioOutputDevice {
@@ -153,6 +154,19 @@ export interface TrackMetadata {
     year: string | null;
     filename: string | null;
 }
+
+export interface PluginPlaybackSimulation {
+    active: boolean;
+    songId: string;
+    sourceType: string;
+    isPlaying: boolean;
+    currentTime: number;
+    duration: number;
+    metadata: TrackMetadata;
+    extra: Record<string, unknown>;
+}
+
+type DeveloperPlaybackSimulation = PluginPlaybackSimulation;
 
 export interface QueueItem {
     songId: string;
@@ -323,6 +337,7 @@ class AudioPlayer {
     private playbackFailureTimer: ReturnType<typeof setTimeout> | null = null;
     private persistedTrackRestoreStarted = false;
     private playbackTickInterval: ReturnType<typeof setInterval> | null = null;
+    private developerSimulation: Omit<DeveloperPlaybackSimulation, 'active'> | null = null;
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
     private fadeFrame: number | null = null;
@@ -344,6 +359,9 @@ class AudioPlayer {
 
     constructor() {
         this.audio.crossOrigin = 'anonymous';
+        window.addEventListener('omniplayr:developer-playback-simulation', event => {
+            this.applyDeveloperPlaybackSimulation((event as CustomEvent<DeveloperPlaybackSimulation>).detail);
+        });
 
         for (const event of ['timeupdate', 'play', 'pause', 'ended', 'loadedmetadata', 'waiting', 'playing']) {
             this.audio.addEventListener(event, () => this.notify());
@@ -361,6 +379,7 @@ class AudioPlayer {
         this.audio.addEventListener('playing', () => this.cancelPendingPlaybackFailure());
 
         this.audio.addEventListener('ended', () => {
+            if (this.developerSimulation) return;
             this.clearCurrentTrackState();
             this.next().catch(error => {
                 this.reportPluginError('advance native audio to next track', error);
@@ -368,7 +387,7 @@ class AudioPlayer {
         });
 
         this.audio.addEventListener('error', () => {
-            if (!this.activePlugin && this.currentMetadata) {
+            if (!this.developerSimulation && !this.activePlugin && this.currentMetadata) {
                 this.advanceAfterPlaybackFailure();
             }
         });
@@ -628,12 +647,12 @@ class AudioPlayer {
     }
 
     private requestPlaybackStatusEmit() {
-        if (this.accountSyncApplying) return;
+        if (this.developerSimulation || this.accountSyncApplying) return;
         void this.maybeEmitPlaybackStatus(true);
     }
 
     private async maybeEmitPlaybackStatus(force = false) {
-        if (this.accountSyncApplying) return;
+        if (this.developerSimulation || this.accountSyncApplying) return;
         if (this.isObservingRemotePlayback()) return;
         if (!this.currentSongId || !this.currentSourceType) return;
 
@@ -861,7 +880,7 @@ class AudioPlayer {
     }
 
     private async applyAccountPlayback(row: AccountPlaybackRow) {
-        if (!row.song_id || !row.source_type) return;
+        if (this.developerSimulation || !row.song_id || !row.source_type) return;
 
         const metadata = row.playback_metadata ?? {};
         const targetTime = typeof metadata.current_time === 'number' ? metadata.current_time : 0;
@@ -955,7 +974,7 @@ class AudioPlayer {
     }
 
     private async syncAccountPlayback() {
-        if (!this.isAccountSyncEnabled() || this.accountSyncInFlight || this.accountSyncApplying) return;
+        if (this.developerSimulation || !this.isAccountSyncEnabled() || this.accountSyncInFlight || this.accountSyncApplying) return;
         if (!localStorage.getItem('access_token') || !getAccount()) return;
 
         this.accountSyncInFlight = true;
@@ -1246,6 +1265,117 @@ class AudioPlayer {
 
     private notifyTrackChange() {
         this.trackListeners.forEach(cb => cb(this.currentSongId, this.currentSourceType));
+    }
+
+    private notifyPluginSimulation(simulation: PluginPlaybackSimulation) {
+        const payload: PluginPlaybackSimulation = {
+            ...simulation,
+            metadata: { ...simulation.metadata },
+            extra: { ...simulation.extra },
+        };
+        const plugin = this.plugins.get(payload.sourceType);
+
+        if (plugin?.onSimulatedPlayback) {
+            try {
+                Promise.resolve(plugin.onSimulatedPlayback(payload)).catch(error => {
+                    this.reportPluginError(`simulated playback for ${payload.sourceType}`, error);
+                });
+            } catch (error) {
+                this.reportPluginError(`simulated playback for ${payload.sourceType}`, error);
+            }
+        }
+
+        window.dispatchEvent(new CustomEvent('omniplayr:plugin-test-playback', { detail: payload }));
+    }
+
+    private applyDeveloperPlaybackSimulation(simulation: DeveloperPlaybackSimulation) {
+        if (!simulation?.active) {
+            const previous = this.developerSimulation;
+            if (!previous) return;
+
+            this.notifyPluginSimulation({ ...previous, active: false });
+            this.developerSimulation = null;
+            this.currentSongId = null;
+            this.currentSourceType = null;
+            this.currentExtra = null;
+            this.currentMetadata = null;
+            this.isLoading = false;
+            this.accountRemotePlayback = null;
+            this.updateMediaSessionMetadata();
+            this.syncMediaSessionState();
+            this.notifyTrackChange();
+            this.notify();
+            return;
+        }
+
+        if (!this.developerSimulation) {
+            this.cancelPauseFade();
+            this.cancelPendingPlaybackFailure();
+            this.audio.pause();
+            this.audio.removeAttribute('src');
+            this.audio.load();
+
+            if (this.activePlugin) {
+                this.safelyDestroyPlugin(this.activePlugin);
+                this.activePlugin = null;
+            }
+            if (this.activeOutputPlugin) {
+                this.safelyStopOutputPlugin(this.activeOutputPlugin);
+                this.activeOutputPlugin = null;
+            }
+
+            this.accountRemotePlayback = null;
+            this.isPauseRequested = false;
+            this.isPauseFadePending = false;
+        }
+
+        const previousSimulation = this.developerSimulation;
+        const previousKey = this.currentSongId && this.currentSourceType
+            ? `${this.currentSourceType}:${this.currentSongId}`
+            : null;
+        const songId = simulation.songId || 'developer-simulated-track';
+        const sourceType = simulation.sourceType || 'demo';
+        const nextKey = `${sourceType}:${songId}`;
+
+        const nextSimulation: Omit<DeveloperPlaybackSimulation, 'active'> = {
+            songId,
+            sourceType,
+            isPlaying: Boolean(simulation.isPlaying),
+            currentTime: Math.max(0, Number(simulation.currentTime) || 0),
+            duration: Math.max(0, Number(simulation.duration) || 0),
+            metadata: {
+                title: simulation.metadata?.title ?? null,
+                artist: simulation.metadata?.artist ?? null,
+                album: simulation.metadata?.album ?? null,
+                album_art: simulation.metadata?.album_art ?? null,
+                duration: Math.max(0, Number(simulation.duration) || 0),
+                genre: simulation.metadata?.genre ?? null,
+                year: simulation.metadata?.year ?? null,
+                filename: simulation.metadata?.filename ?? null,
+            },
+            extra: simulation.extra && typeof simulation.extra === 'object' && !Array.isArray(simulation.extra)
+                ? { ...simulation.extra }
+                : {},
+        };
+
+        if (previousSimulation && previousSimulation.sourceType !== sourceType) {
+            this.notifyPluginSimulation({ ...previousSimulation, active: false });
+        }
+
+        this.developerSimulation = nextSimulation;
+        this.currentSongId = songId;
+        this.currentSourceType = sourceType;
+        this.currentExtra = { ...nextSimulation.extra };
+        this.currentMetadata = { ...nextSimulation.metadata };
+        this.isLoading = false;
+        this.isPauseRequested = !nextSimulation.isPlaying;
+        this.isPauseFadePending = false;
+
+        if (previousKey !== nextKey) this.notifyTrackChange();
+        this.notifyPluginSimulation({ ...nextSimulation, active: true });
+        this.updateMediaSessionMetadata();
+        this.syncMediaSessionState();
+        this.notify();
     }
 
     private reportPluginError(context: string, error: unknown) {
@@ -1860,6 +1990,11 @@ class AudioPlayer {
     }
 
     async next(ignoreRepeatOne = false) {
+        if (this.developerSimulation) {
+            window.dispatchEvent(new Event('omniplayr:developer-simulation-next'));
+            return;
+        }
+
         if (this.isObservingRemotePlayback()) {
             void this.sendRemotePlaybackCommand('next').catch(error => this.reportPluginError('remote next', error));
             return;
@@ -1910,6 +2045,11 @@ class AudioPlayer {
     }
 
     async prev() {
+        if (this.developerSimulation) {
+            window.dispatchEvent(new Event('omniplayr:developer-simulation-prev'));
+            return;
+        }
+
         if (this.isObservingRemotePlayback()) {
             void this.sendRemotePlaybackCommand('prev').catch(error => this.reportPluginError('remote previous', error));
             return;
@@ -1963,6 +2103,11 @@ class AudioPlayer {
     }
 
     skip() {
+        if (this.developerSimulation) {
+            window.dispatchEvent(new Event('omniplayr:developer-simulation-next'));
+            return;
+        }
+
         if (this.isObservingRemotePlayback()) {
             void this.sendRemotePlaybackCommand('next').catch(error => this.reportPluginError('remote skip', error));
             return;
@@ -1982,6 +2127,8 @@ class AudioPlayer {
         fromNextQueue = false,
         autoplay = true
     ) {
+        if (this.developerSimulation) return;
+
         this.cancelPendingPlaybackFailure();
         this.accountRemotePlayback = null;
         const plugin = this.plugins.get(sourceType);
@@ -2328,6 +2475,15 @@ class AudioPlayer {
     }
 
     togglePlay() {
+        if (this.developerSimulation) {
+            this.developerSimulation.isPlaying = !this.developerSimulation.isPlaying;
+            this.isPauseRequested = !this.developerSimulation.isPlaying;
+            this.syncMediaSessionState();
+            this.notify();
+            window.dispatchEvent(new Event('omniplayr:developer-simulation-toggle'));
+            return;
+        }
+
         if (this.isObservingRemotePlayback()) {
             const nextType = this.isPlaying ? 'pause' : 'resume';
             void this.sendRemotePlaybackCommand(nextType)
@@ -2369,6 +2525,15 @@ class AudioPlayer {
     }
 
     seek(fraction: number) {
+        if (this.developerSimulation) {
+            this.developerSimulation.currentTime = this.developerSimulation.duration * Math.max(0, Math.min(1, fraction));
+            this.notify();
+            window.dispatchEvent(new CustomEvent('omniplayr:developer-simulation-seek', {
+                detail: { currentTime: this.developerSimulation.currentTime },
+            }));
+            return;
+        }
+
         if (this.isObservingRemotePlayback()) {
             const duration = this.duration;
             const seconds = duration * Math.max(0, Math.min(1, fraction));
@@ -2587,6 +2752,7 @@ class AudioPlayer {
     }
 
     get isPlaying() {
+        if (this.developerSimulation) return this.developerSimulation.isPlaying;
         if (this.isPauseRequested) return false;
         if (this.isPauseFadePending) return false;
         if (this.isObservingRemotePlayback()) return this.accountRemotePlayback?.row.playback_status === 'playing';
@@ -2596,6 +2762,7 @@ class AudioPlayer {
     }
 
     get currentTime() {
+        if (this.developerSimulation) return this.developerSimulation.currentTime;
         if (this.isObservingRemotePlayback()) {
             const metadata = this.accountRemotePlayback?.row.playback_metadata;
             const base = typeof metadata?.current_time === 'number' ? metadata.current_time : 0;
@@ -2612,6 +2779,7 @@ class AudioPlayer {
     }
 
     get duration() {
+        if (this.developerSimulation) return this.developerSimulation.duration;
         if (this.isObservingRemotePlayback()) {
             return this.currentMetadata?.duration
                 ?? this.accountRemotePlayback?.row.song_metadata?.length

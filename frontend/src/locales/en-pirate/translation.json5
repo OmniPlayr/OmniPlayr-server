@@ -103,6 +103,8 @@
     "settings.devoptions.network_info.desc": "Show request timings, transfer totals, speeds, and session network activity.",
     "settings.devoptions.console_info": "Console",
     "settings.devoptions.console_info.desc": "Show console logs, warnings, errors, and debug messages.",
+    "settings.devoptions.playback_data": "Playback Data",
+    "settings.devoptions.playback_data.desc": "Modify or simulate playback data.",
 
     // --- End settings translations
 
@@ -503,4 +505,8 @@
     "settings.language.system": "Use system tongue",
     "settings.language.system.desc": "Use the tongue set on yer device.",
     // --- End Language translations
+
+    // --- Start Info Bar translations
+    "info-bar.nothing-playing": "Nothing currently playing",
+    // --- End Info Bar translations
 }

@@ -103,6 +103,8 @@
     "settings.devoptions.network_info.desc": "Show request timingz, transfurr totalz, speedz, n seshun netwurk aktivitee.",
     "settings.devoptions.console_info": "Console",
     "settings.devoptions.console_info.desc": "Show console logz, warningz, errorz, n debug messagez.",
+    "settings.devoptions.playback_data": "Playback Data",
+    "settings.devoptions.playback_data.desc": "Modify or simulate playback data.",
 
     // --- End settings translations
 
@@ -503,4 +505,8 @@
     "settings.language.system": "Uze sistim langwij",
     "settings.language.system.desc": "Uze teh langwij set on ur devies.",
     // --- End Language translations
+
+    // --- Start Info Bar translations
+    "info-bar.nothing-playing": "Nothing currently playing",
+    // --- End Info Bar translations
 }

@@ -7,7 +7,7 @@ import '../styles/settings/DeveloperOptions.css'
 
 const DEV_OPTIONS_EVENT = 'omniplayr-dev-options-change'
 
-type DevOptionKey = 'show_info_tabs' | 'audio_info' | 'network_info' | 'console_info'
+type DevOptionKey = 'show_info_tabs' | 'audio_info' | 'network_info' | 'console_info' | 'playback_data'
 
 function getDevOption(key: DevOptionKey) {
     return localStorage.getItem(`dev_options_${key}`) === 'true'
@@ -106,6 +106,13 @@ function DeveloperOptions() {
                     optionKey='console_info'
                     title={t('settings.devoptions.console_info')}
                     description={t('settings.devoptions.console_info.desc')}
+                    disabled={!showInfoTabs}
+                />
+
+                <DeveloperToggle
+                    optionKey='playback_data'
+                    title={t('settings.devoptions.playback_data')}
+                    description={t('settings.devoptions.playback_data.desc')}
                     disabled={!showInfoTabs}
                 />
             </div>

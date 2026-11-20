@@ -1,20 +1,22 @@
 // Parser Action
 // @devonly.all
 import { useEffect, useRef, useState } from 'react';
-import type { ComponentType, PointerEvent } from 'react';
+import type { ChangeEvent, ComponentType, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../styles/DeveloperContext.css';
+import '../styles/DeveloperPlaybackData.css';
 
 const FLOOR_DB = -60;
 const CEIL_DB = 0;
 const DEV_OPTIONS_EVENT = 'omniplayr-dev-options-change';
 const WINDOW_POSITION_KEY_PREFIX = 'omniplayr-dev-window-position';
 const WINDOW_SIZE = { width: 320, height: 520 };
+const PLAYBACK_WINDOW_SIZE = { width: 460, height: 440 };
 const WINDOW_GAP = 10;
 
 type BandKey = 'overall' | 'bass' | 'mid' | 'treble';
 type PanelPosition = { x: number; y: number };
-type DevWindowKey = 'audio_info' | 'network_info' | 'console_info';
+type DevWindowKey = 'audio_info' | 'network_info' | 'console_info' | "playback_data";
 type NetworkEntry = {
     id: number;
     method: string;
@@ -344,9 +346,14 @@ function getWindowPositionKey(key: DevWindowKey) {
     return `${WINDOW_POSITION_KEY_PREFIX}-${key}`;
 }
 
+function getWindowSize(key: DevWindowKey) {
+    return key === 'playback_data' ? PLAYBACK_WINDOW_SIZE : WINDOW_SIZE;
+}
+
 function clampPosition(position: PanelPosition, size = WINDOW_SIZE): PanelPosition {
-    const maxX = Math.max(0, window.innerWidth - size.width - WINDOW_GAP);
-    const maxY = Math.max(0, window.innerHeight - 40);
+    const maxX = Math.max(WINDOW_GAP, window.innerWidth - size.width - WINDOW_GAP);
+    const availableHeight = Math.max(1, window.innerHeight - WINDOW_GAP * 2);
+    const maxY = Math.max(WINDOW_GAP, window.innerHeight - Math.min(size.height, availableHeight) - WINDOW_GAP);
 
     return {
         x: Math.max(WINDOW_GAP, Math.min(maxX, position.x)),
@@ -355,23 +362,24 @@ function clampPosition(position: PanelPosition, size = WINDOW_SIZE): PanelPositi
 }
 
 function getSavedPosition(key: DevWindowKey, fallback: PanelPosition): PanelPosition {
+    const size = getWindowSize(key);
     try {
         const saved = localStorage.getItem(getWindowPositionKey(key));
-        if (!saved) return fallback;
+        if (!saved) return clampPosition(fallback, size);
         const parsed = JSON.parse(saved) as PanelPosition;
-        if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return fallback;
-        return clampPosition(parsed);
+        if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return clampPosition(fallback, size);
+        return clampPosition(parsed, size);
     } catch {
-        return fallback;
+        return clampPosition(fallback, size);
     }
 }
 
-function rectsOverlap(a: PanelPosition, b: PanelPosition, size = WINDOW_SIZE) {
+function rectsOverlap(a: PanelPosition, b: PanelPosition, aSize = WINDOW_SIZE, bSize = WINDOW_SIZE) {
     return (
-        a.x < b.x + size.width &&
-        a.x + size.width > b.x &&
-        a.y < b.y + size.height &&
-        a.y + size.height > b.y
+        a.x < b.x + bSize.width &&
+        a.x + aSize.width > b.x &&
+        a.y < b.y + bSize.height &&
+        a.y + aSize.height > b.y
     );
 }
 
@@ -381,32 +389,36 @@ function resolveWindowOverlap(
     windows: DevWindowDefinition[],
     positions: Record<DevWindowKey, PanelPosition>,
 ) {
+    const movingSize = getWindowSize(key);
     const occupied = windows
         .filter((windowDef) => windowDef.key !== key)
-        .map((windowDef) => positions[windowDef.key])
-        .filter(Boolean);
+        .map((windowDef) => ({
+            position: positions[windowDef.key],
+            size: getWindowSize(windowDef.key),
+        }))
+        .filter((item) => Boolean(item.position));
 
-    let next = clampPosition(position);
-    if (!occupied.some((other) => rectsOverlap(next, other))) return next;
+    let next = clampPosition(position, movingSize);
+    if (!occupied.some((other) => rectsOverlap(next, other.position, movingSize, other.size))) return next;
 
     const candidates: PanelPosition[] = [];
     for (const other of occupied) {
         candidates.push(
-            { x: other.x + WINDOW_SIZE.width + WINDOW_GAP, y: other.y },
-            { x: other.x - WINDOW_SIZE.width - WINDOW_GAP, y: other.y },
-            { x: other.x, y: other.y + WINDOW_SIZE.height + WINDOW_GAP },
-            { x: other.x, y: other.y - WINDOW_SIZE.height - WINDOW_GAP },
+            { x: other.position.x + other.size.width + WINDOW_GAP, y: other.position.y },
+            { x: other.position.x - movingSize.width - WINDOW_GAP, y: other.position.y },
+            { x: other.position.x, y: other.position.y + other.size.height + WINDOW_GAP },
+            { x: other.position.x, y: other.position.y - movingSize.height - WINDOW_GAP },
         );
     }
 
-    for (const candidate of candidates.map((candidate) => clampPosition(candidate))) {
-        if (!occupied.some((other) => rectsOverlap(candidate, other))) return candidate;
+    for (const candidate of candidates.map((candidate) => clampPosition(candidate, movingSize))) {
+        if (!occupied.some((other) => rectsOverlap(candidate, other.position, movingSize, other.size))) return candidate;
     }
 
-    for (let y = WINDOW_GAP + 30; y < window.innerHeight; y += WINDOW_SIZE.height + WINDOW_GAP) {
-        for (let x = WINDOW_GAP; x < window.innerWidth; x += WINDOW_SIZE.width + WINDOW_GAP) {
-            next = clampPosition({ x, y });
-            if (!occupied.some((other) => rectsOverlap(next, other))) return next;
+    for (let y = WINDOW_GAP; y < window.innerHeight; y += movingSize.height + WINDOW_GAP) {
+        for (let x = WINDOW_GAP; x < window.innerWidth; x += movingSize.width + WINDOW_GAP) {
+            next = clampPosition({ x, y }, movingSize);
+            if (!occupied.some((other) => rectsOverlap(next, other.position, movingSize, other.size))) return next;
         }
     }
 
@@ -856,7 +868,500 @@ function ConsoleInfoWindow() {
     );
 }
 
+
+type PlaybackDraft = {
+    presetId: string;
+    title: string;
+    artist: string;
+    album: string;
+    songId: string;
+    sourceType: string;
+    albumArt: string;
+    duration: number;
+    currentTime: number;
+    genre: string;
+    year: string;
+    extraJson: string;
+};
+
+const PLAYBACK_PRESETS: PlaybackDraft[] = [
+    {
+        presetId: 'spotify-plugin-test',
+        title: 'Midnight City',
+        artist: 'M83',
+        album: 'Hurry Up, We Are Dreaming',
+        songId: '1eyzqe2QqGZUmfcPZtrIyt',
+        sourceType: 'spotify',
+        albumArt: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=640&auto=format&fit=crop&q=85',
+        duration: 244,
+        currentTime: 0,
+        genre: 'Electronic',
+        year: '2011',
+        extraJson: JSON.stringify({
+            provider: 'spotify',
+            spotify: {
+                track_id: '1eyzqe2QqGZUmfcPZtrIyt',
+                uri: 'spotify:track:1eyzqe2QqGZUmfcPZtrIyt',
+                external_urls: { spotify: 'https://open.spotify.com/track/1eyzqe2QqGZUmfcPZtrIyt' },
+                is_local: false,
+                explicit: false,
+                popularity: 78,
+                preview_url: null,
+                artists: [{ name: 'M83' }],
+                album: { name: 'Hurry Up, We Are Dreaming' },
+            },
+        }, null, 2),
+    },
+    {
+        presetId: 'midnight-circuit',
+        title: 'Midnight Circuit',
+        artist: 'Signal Bloom',
+        album: 'Electric Dreams',
+        songId: 'demo-midnight-circuit-02',
+        sourceType: 'youtube',
+        albumArt: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=640&auto=format&fit=crop&q=85',
+        duration: 224,
+        currentTime: 0,
+        genre: 'Electronic',
+        year: '2025',
+        extraJson: JSON.stringify({ provider: 'youtube', video_id: 'demo-midnight-circuit-02' }, null, 2),
+    },
+    {
+        presetId: 'blue-hour',
+        title: 'Blue Hour',
+        artist: 'Static Echo',
+        album: 'Below the Surface',
+        songId: 'demo-blue-hour-03',
+        sourceType: 'soundcloud',
+        albumArt: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=640&auto=format&fit=crop&q=85',
+        duration: 183,
+        currentTime: 0,
+        genre: 'Alternative',
+        year: '2024',
+        extraJson: JSON.stringify({ provider: 'soundcloud', permalink: 'https://soundcloud.com/demo/blue-hour' }, null, 2),
+    },
+    {
+        presetId: 'neon-skies',
+        title: 'Neon Skies',
+        artist: 'Parallel Lines',
+        album: 'City Lights',
+        songId: 'demo-neon-skies-04',
+        sourceType: 'local',
+        albumArt: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=640&auto=format&fit=crop&q=85',
+        duration: 207,
+        currentTime: 0,
+        genre: 'Synthwave',
+        year: '2026',
+        extraJson: JSON.stringify({ provider: 'local', filename: 'neon-skies-demo.mp3' }, null, 2),
+    },
+];
+
+function getNextPlaybackPreset(currentPresetId: string) {
+    const currentIndex = PLAYBACK_PRESETS.findIndex((preset) => preset.presetId === currentPresetId);
+    const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % PLAYBACK_PRESETS.length;
+    return PLAYBACK_PRESETS[nextIndex];
+}
+
+function getPreviousPlaybackPreset(currentPresetId: string) {
+    const currentIndex = PLAYBACK_PRESETS.findIndex((preset) => preset.presetId === currentPresetId);
+    const previousIndex = currentIndex < 0 ? PLAYBACK_PRESETS.length - 1 : (currentIndex - 1 + PLAYBACK_PRESETS.length) % PLAYBACK_PRESETS.length;
+    return PLAYBACK_PRESETS[previousIndex];
+}
+
+function formatPlaybackTime(seconds: number) {
+    const safeSeconds = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+    const minutes = Math.floor(safeSeconds / 60);
+    const remainingSeconds = safeSeconds % 60;
+    return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function parsePluginExtra(value: string): Record<string, unknown> | null {
+    try {
+        const parsed = JSON.parse(value);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+        return parsed as Record<string, unknown>;
+    } catch {
+        return null;
+    }
+}
+
+function PlaybackDataWindow() {
+    const [track, setTrack] = useState<PlaybackDraft>(() => ({ ...PLAYBACK_PRESETS[0] }));
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [simulationActive, setSimulationActive] = useState(false);
+    const [autoChangeTracks, setAutoChangeTracks] = useState(false);
+    const [autoChangeSeconds, setAutoChangeSeconds] = useState(15);
+    const [showPayload, setShowPayload] = useState(false);
+
+    useEffect(() => {
+        if (!isPlaying) return;
+
+        const interval = window.setInterval(() => {
+            setTrack((current) => {
+                const duration = Math.max(1, current.duration);
+                const nextTime = Math.min(current.currentTime + 1, duration);
+                const shouldAdvance = autoChangeTracks && (
+                    nextTime >= autoChangeSeconds || nextTime >= duration
+                );
+
+                if (shouldAdvance) {
+                    return { ...getNextPlaybackPreset(current.presetId), currentTime: 0 };
+                }
+
+                return { ...current, currentTime: nextTime };
+            });
+        }, 1000);
+
+        return () => window.clearInterval(interval);
+    }, [isPlaying, autoChangeTracks, autoChangeSeconds]);
+
+    useEffect(() => {
+        if (isPlaying && !autoChangeTracks && track.duration > 0 && track.currentTime >= track.duration) {
+            setIsPlaying(false);
+        }
+    }, [track.currentTime, track.duration, isPlaying, autoChangeTracks]);
+
+    useEffect(() => {
+        const extra = parsePluginExtra(track.extraJson);
+        if (simulationActive && !extra) return;
+
+        window.dispatchEvent(new CustomEvent('omniplayr:developer-playback-simulation', {
+            detail: {
+                active: simulationActive,
+                songId: track.songId,
+                sourceType: track.sourceType,
+                isPlaying,
+                currentTime: track.currentTime,
+                duration: track.duration,
+                metadata: {
+                    title: track.title || null,
+                    artist: track.artist || null,
+                    album: track.album || null,
+                    album_art: track.albumArt || null,
+                    duration: track.duration,
+                    genre: track.genre || null,
+                    year: track.year || null,
+                    filename: null,
+                },
+                extra: extra ?? {},
+            },
+        }));
+    }, [simulationActive, track, isPlaying]);
+
+    useEffect(() => {
+        const handleNext = () => {
+            setTrack((current) => ({ ...getNextPlaybackPreset(current.presetId), currentTime: 0 }));
+        };
+        const handlePrevious = () => {
+            setTrack((current) => ({ ...getPreviousPlaybackPreset(current.presetId), currentTime: 0 }));
+        };
+        const handleToggle = () => setIsPlaying((current) => !current);
+        const handleSeek = (event: Event) => {
+            const currentTime = (event as CustomEvent<{ currentTime: number }>).detail?.currentTime;
+            if (!Number.isFinite(currentTime)) return;
+            setTrack((current) => ({ ...current, currentTime: Math.max(0, Math.min(current.duration, currentTime)) }));
+        };
+
+        window.addEventListener('omniplayr:developer-simulation-next', handleNext);
+        window.addEventListener('omniplayr:developer-simulation-prev', handlePrevious);
+        window.addEventListener('omniplayr:developer-simulation-toggle', handleToggle);
+        window.addEventListener('omniplayr:developer-simulation-seek', handleSeek);
+
+        return () => {
+            window.removeEventListener('omniplayr:developer-simulation-next', handleNext);
+            window.removeEventListener('omniplayr:developer-simulation-prev', handlePrevious);
+            window.removeEventListener('omniplayr:developer-simulation-toggle', handleToggle);
+            window.removeEventListener('omniplayr:developer-simulation-seek', handleSeek);
+        };
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            window.dispatchEvent(new CustomEvent('omniplayr:developer-playback-simulation', {
+                detail: { active: false },
+            }));
+        };
+    }, []);
+
+    const progress = track.duration > 0
+        ? Math.min(100, Math.max(0, (track.currentTime / track.duration) * 100))
+        : 0;
+
+    function loadPreset(presetId: string) {
+        const preset = PLAYBACK_PRESETS.find((item) => item.presetId === presetId);
+        if (!preset) return;
+        setTrack({ ...preset, currentTime: 0 });
+    }
+
+    function updateTextField(
+        field: 'title' | 'artist' | 'album' | 'songId' | 'sourceType' | 'albumArt' | 'genre' | 'year',
+        value: string,
+    ) {
+        setTrack((current) => ({ ...current, [field]: value, presetId: 'custom' }));
+    }
+
+    function advanceTrack() {
+        setTrack((current) => ({ ...getNextPlaybackPreset(current.presetId), currentTime: 0 }));
+    }
+
+    function startSimulation() {
+        if (!parsePluginExtra(track.extraJson)) return;
+        setSimulationActive(true);
+        setIsPlaying(true);
+    }
+
+    function resetSimulation() {
+        setTrack({ ...PLAYBACK_PRESETS[0] });
+        setIsPlaying(false);
+        setSimulationActive(false);
+        setAutoChangeTracks(false);
+        setAutoChangeSeconds(15);
+        setShowPayload(false);
+    }
+
+    function handleArtworkUpload(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.currentTarget.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => updateTextField('albumArt', String(reader.result ?? ''));
+        reader.readAsDataURL(file);
+        event.currentTarget.value = '';
+    }
+
+    const pluginExtra = parsePluginExtra(track.extraJson);
+    const extraMetadataInvalid = pluginExtra === null;
+
+    const simulatedPayload = {
+        song_id: track.songId,
+        source_type: track.sourceType,
+        playback_status: isPlaying ? 'playing' : 'paused',
+        extra: pluginExtra,
+        playback_metadata: {
+            current_time: Math.floor(track.currentTime),
+            duration: track.duration,
+            simulated: true,
+        },
+        song_metadata: {
+            title: track.title,
+            artist: track.artist,
+            album: track.album,
+            length: track.duration,
+            album_art: track.albumArt,
+            genre: track.genre,
+            year: track.year,
+        },
+    };
+
+    return (
+        <div className="playback-sim-content">
+            <div className="developer-info-grid">
+                <span>{simulationActive ? 'Simulation connected to player' : 'Preview only'}</span>
+                <span>{isPlaying ? 'Status: playing' : 'Status: paused'}</span>
+                <span>Source plugin: {track.sourceType || 'not set'}</span>
+                <span>{autoChangeTracks ? `Auto change: every ${autoChangeSeconds}s` : 'Auto change: off'}</span>
+            </div>
+
+            <div className="audio-info-separator"></div>
+
+            <div className="playback-sim-preview">
+                <div className="playback-sim-artwork">
+                    {track.albumArt ? <img src={track.albumArt} alt="Album artwork" /> : <span>No artwork</span>}
+                </div>
+                <div className="playback-sim-track-info">
+                    <strong title={track.title}>{track.title || 'Untitled track'}</strong>
+                    <span title={track.artist}>{track.artist || 'Unknown artist'}</span>
+                    <small title={track.album}>{track.album || 'Unknown album'}</small>
+                    <small>{simulationActive ? 'Player data is simulated' : 'Not applied to player'}</small>
+                </div>
+            </div>
+
+            <div className="playback-sim-timeline">
+                <div className="playback-sim-progress">
+                    <span style={{ width: `${progress}%` }}></span>
+                </div>
+                <input
+                    aria-label="Simulated playback position"
+                    className="playback-sim-range"
+                    type="range"
+                    min="0"
+                    max={Math.max(1, track.duration)}
+                    value={Math.min(track.currentTime, Math.max(1, track.duration))}
+                    onChange={(event) => {
+                        const currentTime = Number(event.currentTarget.value);
+                        setTrack((current) => ({ ...current, currentTime }));
+                    }}
+                />
+                <div className="playback-sim-time-row">
+                    <span>{formatPlaybackTime(track.currentTime)}</span>
+                    <span>{formatPlaybackTime(track.duration)}</span>
+                </div>
+            </div>
+
+            <div className="playback-sim-controls">
+                <button type="button" onClick={() => setTrack((current) => ({ ...current, currentTime: 0 }))}>Restart</button>
+                <button type="button" className="audio-info-start" onClick={startSimulation} disabled={extraMetadataInvalid}>
+                    {isPlaying ? 'Restart simulation' : 'Start simulation'}
+                </button>
+                <button type="button" onClick={advanceTrack}>Next</button>
+            </div>
+
+            <div className="playback-sim-controls">
+                <button type="button" onClick={() => setIsPlaying(false)} disabled={!isPlaying}>Pause</button>
+                <button type="button" onClick={() => setSimulationActive((active) => !active)} disabled={extraMetadataInvalid}>
+                    {simulationActive ? 'Remove from player' : 'Apply to player'}
+                </button>
+                <button type="button" onClick={() => setIsPlaying(true)}>Resume</button>
+            </div>
+
+            <div className="audio-info-separator"></div>
+
+            <label className="playback-sim-field">
+                <span>Song preset</span>
+                <select
+                    className="playback-sim-input"
+                    value={track.presetId}
+                    onChange={(event) => loadPreset(event.currentTarget.value)}
+                >
+                    <option value="custom">Custom data</option>
+                    {PLAYBACK_PRESETS.map((preset) => (
+                        <option value={preset.presetId} key={preset.presetId}>
+                            {preset.sourceType}: {preset.title} - {preset.artist}
+                        </option>
+                    ))}
+                </select>
+            </label>
+
+            <div className="playback-sim-section">
+                <div className="audio-info-label">Automatic song changes</div>
+                <label className="playback-sim-toggle">
+                    <input
+                        type="checkbox"
+                        checked={autoChangeTracks}
+                        onChange={(event) => {
+                            const enabled = event.currentTarget.checked;
+                            setAutoChangeTracks(enabled);
+                            if (enabled) startSimulation();
+                        }}
+                    />
+                    <span>Auto-play demo playlist silently</span>
+                </label>
+                <div className="playback-sim-auto-row">
+                    <span>Change every</span>
+                    <select
+                        className="playback-sim-input playback-sim-interval"
+                        value={autoChangeSeconds}
+                        disabled={!autoChangeTracks}
+                        onChange={(event) => setAutoChangeSeconds(Number(event.currentTarget.value))}
+                    >
+                        <option value="5">5 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="15">15 seconds</option>
+                        <option value="30">30 seconds</option>
+                        <option value="60">60 seconds</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className="audio-info-separator"></div>
+
+            <div className="audio-info-label">Track metadata</div>
+            <div className="playback-sim-field-grid">
+                <label className="playback-sim-field">
+                    <span>Title</span>
+                    <input className="playback-sim-input" value={track.title} onChange={(event) => updateTextField('title', event.currentTarget.value)} />
+                </label>
+                <label className="playback-sim-field">
+                    <span>Artist</span>
+                    <input className="playback-sim-input" value={track.artist} onChange={(event) => updateTextField('artist', event.currentTarget.value)} />
+                </label>
+                <label className="playback-sim-field">
+                    <span>Album</span>
+                    <input className="playback-sim-input" value={track.album} onChange={(event) => updateTextField('album', event.currentTarget.value)} />
+                </label>
+                <label className="playback-sim-field">
+                    <span>Song ID</span>
+                    <input className="playback-sim-input" value={track.songId} onChange={(event) => updateTextField('songId', event.currentTarget.value)} />
+                </label>
+                <label className="playback-sim-field">
+                    <span>Source type</span>
+                    <input className="playback-sim-input" value={track.sourceType} onChange={(event) => updateTextField('sourceType', event.currentTarget.value)} />
+                </label>
+                <label className="playback-sim-field">
+                    <span>Genre</span>
+                    <input className="playback-sim-input" value={track.genre} onChange={(event) => updateTextField('genre', event.currentTarget.value)} />
+                </label>
+                <label className="playback-sim-field">
+                    <span>Year</span>
+                    <input className="playback-sim-input" value={track.year} onChange={(event) => updateTextField('year', event.currentTarget.value)} />
+                </label>
+                <label className="playback-sim-field">
+                    <span>Duration in seconds</span>
+                    <input
+                        className="playback-sim-input"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={track.duration}
+                        onChange={(event) => {
+                            const duration = Math.max(1, Number(event.currentTarget.value) || 1);
+                            setTrack((current) => ({
+                                ...current,
+                                duration,
+                                currentTime: Math.min(current.currentTime, duration),
+                                presetId: 'custom',
+                            }));
+                        }}
+                    />
+                </label>
+            </div>
+
+            <label className="playback-sim-field">
+                <span>Album art URL</span>
+                <input className="playback-sim-input" value={track.albumArt} onChange={(event) => updateTextField('albumArt', event.currentTarget.value)} placeholder="https://..." />
+            </label>
+            <label className="playback-sim-upload">
+                <span>Upload album artwork</span>
+                <input type="file" accept="image/*" onChange={handleArtworkUpload} />
+            </label>
+
+            <div className="audio-info-separator"></div>
+
+            <div className="audio-info-label">Plugin metadata</div>
+            <label className="playback-sim-field">
+                <span>Extra metadata (JSON)</span>
+                <textarea
+                    className="playback-sim-input playback-sim-json-input"
+                    rows={7}
+                    spellCheck={false}
+                    value={track.extraJson}
+                    onChange={(event) => setTrack((current) => ({ ...current, extraJson: event.currentTarget.value, presetId: 'custom' }))}
+                />
+            </label>
+            {extraMetadataInvalid ? (
+                <div className="playback-sim-error">Enter a valid JSON object before applying the simulation.</div>
+            ) : (
+                <small className="playback-sim-hint">Passed to player.currentExtra, the source plugin simulation hook, and the omniplayr:plugin-test-playback event. The normal plugin play method is not called.</small>
+            )}
+
+            <button type="button" className="audio-info-reset audio-info-reset-all" onClick={() => setShowPayload((visible) => !visible)}>
+                {showPayload ? 'Hide playback data' : 'Show playback data'}
+            </button>
+            {showPayload && <pre className="playback-sim-json">{JSON.stringify(simulatedPayload, null, 2)}</pre>}
+
+            <button type="button" className="audio-info-reset audio-info-reset-all" onClick={resetSimulation}>Reset simulator</button>
+        </div>
+    );
+}
+
 const DEV_WINDOWS: DevWindowDefinition[] = [
+    {
+        key: 'playback_data',
+        titleKey: 'Playback data',
+        enabledKey: 'playback_data',
+        defaultPosition: { x: 1010, y: 40 },
+        Component: PlaybackDataWindow,
+    },
     {
         key: 'audio_info',
         titleKey: 'developer.info.audio.title',
@@ -1006,7 +1511,7 @@ function DeveloperContext() {
             [drag.key]: clampPosition({
                 x: event.clientX - drag.offset.x,
                 y: event.clientY - drag.offset.y,
-            }),
+            }, getWindowSize(drag.key)),
         }));
     }
 
@@ -1036,18 +1541,20 @@ function DeveloperContext() {
         <>
             <DeveloperTabs windows={enabledWindows} openWindows={openWindows} onOpen={openWindow} />
 
-            {enabledWindows
-                .filter((windowDef) => openWindows[windowDef.key])
-                .map((windowDef) => {
-                    const position = positions[windowDef.key] ?? windowDef.defaultPosition;
-                    const WindowContent = windowDef.Component;
+            {enabledWindows.map((windowDef) => {
+                const position = positions[windowDef.key] ?? windowDef.defaultPosition;
+                const WindowContent = windowDef.Component;
 
-                    return (
-                        <div
-                            className="audio-info"
-                            key={windowDef.key}
-                            style={{ left: `${position.x}px`, top: `${position.y}px` }}
-                        >
+                return (
+                    <div
+                        className={`audio-info${windowDef.key === 'playback_data' ? ' playback-sim-window' : ''}`}
+                        key={windowDef.key}
+                        style={{
+                            left: `${position.x}px`,
+                            top: `${position.y}px`,
+                            display: openWindows[windowDef.key] ? undefined : 'none',
+                        }}
+                    >
                             <div
                                 className="audio-info-header"
                                 onPointerDown={(event) => startDrag(windowDef.key, event)}
@@ -1066,9 +1573,9 @@ function DeveloperContext() {
                             </div>
 
                             <WindowContent />
-                        </div>
-                    );
-                })}
+                    </div>
+                );
+            })}
         </>
     );
 }

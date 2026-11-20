@@ -103,6 +103,8 @@
     "settings.devoptions.network_info.desc": "Toon requesttimings, overdrachtstotalen, snelheden en netwerkactiviteit voor deze sessie.",
     "settings.devoptions.console_info": "Console",
     "settings.devoptions.console_info.desc": "Toon consolelogs, waarschuwingen, fouten en debugberichten.",
+    "settings.devoptions.playback_data": "Afspeel Data",
+    "settings.devoptions.playback_data.desc": "Simuleer of pas afspeel data aan.",
 
     // --- End settings translations
 
@@ -502,4 +504,8 @@
     "settings.language.system": "Systeemtaal gebruiken",
     "settings.language.system.desc": "Gebruik de taal die op je apparaat is ingesteld.",
     // --- End Language translations
+
+    // --- Start Info Bar translations
+    "info-bar.nothing-playing": "Niks aan het afspelen",
+    // --- End Info Bar translations
 }

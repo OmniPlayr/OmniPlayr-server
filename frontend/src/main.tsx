@@ -40,6 +40,7 @@ import '@wokki20/jspt/dist/jspt.css';
 import { useIsMobile } from './modules/useIsMobile';
 import DeveloperContext from './modules/DeveloperContext';
 import './styles/index.css';
+import Infobar from './Infobar.tsx';
 
 export { useIsMobile } from './modules/useIsMobile';
 declare global {
@@ -485,6 +486,9 @@ function AppShell() {
                                     </Routes>
                                 )}
                             </div>
+                            {!isMobile && (
+                                <Infobar/>
+                            )}
                         </div>
                         {!isMobile && (
                             <Player />
