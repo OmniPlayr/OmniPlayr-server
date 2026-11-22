@@ -1,3 +1,6 @@
+// Parser Action
+// @devonly.look-for-start
+
 import { getConfig } from './config';
 import { getAccount } from './account';
 import { createToast } from './ToastContext';
@@ -33,6 +36,7 @@ export interface SourcePlugin {
     setTransientVolume?(fraction: number): void;
     allowOutputPlayback?: boolean;
     onSimulatedPlayback?(simulation: PluginPlaybackSimulation): void | Promise<void>;
+    getMetadata?(songId: string, extra: Record<string, unknown> | undefined): Promise<TrackMetadata | null> | TrackMetadata | null;
 }
 
 export interface AudioOutputDevice {
@@ -166,12 +170,15 @@ export interface PluginPlaybackSimulation {
     extra: Record<string, unknown>;
 }
 
+// @devonly.start
 type DeveloperPlaybackSimulation = PluginPlaybackSimulation;
+// @devonly.end
 
 export interface QueueItem {
     songId: string;
     sourceType: string;
     extra?: Record<string, unknown>;
+    metadata?: TrackMetadata | null;
 }
 
 interface HistoryItem extends QueueItem {
@@ -209,6 +216,9 @@ const MIN_GAIN = 0.0001;
 const PLAYBACK_FAILURE_GRACE_MS = 0;
 const LOCAL_OUTPUT_PLUGIN_ID = 'core';
 const SERVER_SYNC_TOAST_COOLDOWN_MS = 15000;
+const QUEUE_METADATA_PRELOAD_COUNT = 10;
+const QUEUE_METADATA_CONCURRENCY = 5;
+const QUEUE_METADATA_CACHE_LIMIT = 500;
 
 function getHostProvidedDeviceInfo(): Partial<AudioOutputDevice> | null {
     const host = globalThis as typeof globalThis & {
@@ -304,6 +314,12 @@ class AudioPlayer {
     private history: HistoryItem[] = [];
     private currentSongFromNextQueue = false;
 
+    private queueMetadataCache = new Map<string, TrackMetadata>();
+    private queueMetadataFailed = new Set<string>();
+    private queueMetadataInFlight = new Map<string, Promise<boolean>>();
+    private queueMetadataActive = 0;
+    private queueMetadataWaiters: (() => void)[] = [];
+
     private prefetchCache = new Map<string, PrefetchEntry>();
     private prefetchController: AbortController | null = null;
     private _volumeFraction = 1;
@@ -337,7 +353,9 @@ class AudioPlayer {
     private playbackFailureTimer: ReturnType<typeof setTimeout> | null = null;
     private persistedTrackRestoreStarted = false;
     private playbackTickInterval: ReturnType<typeof setInterval> | null = null;
+    // @devonly.start
     private developerSimulation: Omit<DeveloperPlaybackSimulation, 'active'> | null = null;
+    // @devonly.end
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
     private fadeFrame: number | null = null;
@@ -359,9 +377,29 @@ class AudioPlayer {
 
     constructor() {
         this.audio.crossOrigin = 'anonymous';
+        // @devonly.start
         window.addEventListener('omniplayr:developer-playback-simulation', event => {
             this.applyDeveloperPlaybackSimulation((event as CustomEvent<DeveloperPlaybackSimulation>).detail);
         });
+        window.addEventListener('omniplayr:developer-playback-queue', event => {
+            const detail = (event as CustomEvent<{
+                name?: string | null;
+                items?: QueueItem[];
+            }>).detail;
+
+            if (!Array.isArray(detail?.items)) return;
+
+            const items = detail.items.filter(item =>
+                item &&
+                typeof item.songId === 'string' &&
+                item.songId.trim().length > 0 &&
+                typeof item.sourceType === 'string' &&
+                item.sourceType.trim().length > 0
+            );
+
+            this.setNextQueue(detail.name ?? 'Developer simulation', items);
+        });
+        // @devonly.end
 
         for (const event of ['timeupdate', 'play', 'pause', 'ended', 'loadedmetadata', 'waiting', 'playing']) {
             this.audio.addEventListener(event, () => this.notify());
@@ -379,7 +417,9 @@ class AudioPlayer {
         this.audio.addEventListener('playing', () => this.cancelPendingPlaybackFailure());
 
         this.audio.addEventListener('ended', () => {
+            // @devonly.start
             if (this.developerSimulation) return;
+            // @devonly.end
             this.clearCurrentTrackState();
             this.next().catch(error => {
                 this.reportPluginError('advance native audio to next track', error);
@@ -387,7 +427,10 @@ class AudioPlayer {
         });
 
         this.audio.addEventListener('error', () => {
-            if (!this.developerSimulation && !this.activePlugin && this.currentMetadata) {
+            // @devonly.start
+            if (this.developerSimulation) return;
+            // @devonly.end
+            if (!this.activePlugin && this.currentMetadata) {
                 this.advanceAfterPlaybackFailure();
             }
         });
@@ -607,12 +650,136 @@ class AudioPlayer {
         };
     }
 
+    private getQueueItemKey(item: QueueItem) {
+        return `${item.sourceType}:${item.songId}`;
+    }
+
+    private stripQueueItems(items: QueueItem[]): PlaybackQueueItem[] {
+        return items.map(item => ({
+            songId: item.songId,
+            sourceType: item.sourceType,
+            extra: item.extra,
+        }));
+    }
+
+    private storeQueueMetadata(key: string, metadata: TrackMetadata) {
+        this.queueMetadataCache.delete(key);
+        this.queueMetadataCache.set(key, metadata);
+
+        if (this.queueMetadataCache.size > QUEUE_METADATA_CACHE_LIMIT) {
+            const oldest = this.queueMetadataCache.keys().next().value;
+            if (oldest !== undefined) this.queueMetadataCache.delete(oldest);
+        }
+    }
+
+    private attachMetadata<T extends QueueItem>(item: T): T {
+        const metadata = item.metadata ?? this.queueMetadataCache.get(this.getQueueItemKey(item)) ?? null;
+
+        return { ...item, metadata };
+    }
+
+    private async acquireQueueMetadataSlot() {
+        if (this.queueMetadataActive < QUEUE_METADATA_CONCURRENCY) {
+            this.queueMetadataActive++;
+            return;
+        }
+
+        await new Promise<void>(resolve => this.queueMetadataWaiters.push(resolve));
+    }
+
+    private releaseQueueMetadataSlot() {
+        const next = this.queueMetadataWaiters.shift();
+
+        if (next) next();
+        else this.queueMetadataActive--;
+    }
+
+    private fetchQueueItemMetadata(item: QueueItem, key: string): Promise<boolean> {
+        const promise = (async () => {
+            await this.acquireQueueMetadataSlot();
+
+            try {
+                const plugin = this.plugins.get(item.sourceType);
+                let metadata: TrackMetadata | null | undefined;
+
+                if (plugin?.getMetadata) {
+                    metadata = await plugin.getMetadata(item.songId, item.extra);
+                } else {
+                    const encoded = encodeURIComponent(item.songId);
+                    const media = await api(`/player/media/${item.sourceType}:${encoded}`) as {
+                        metadata?: TrackMetadata;
+                    };
+                    metadata = media?.metadata;
+                }
+
+                if (metadata) {
+                    this.storeQueueMetadata(key, metadata);
+                    return true;
+                }
+
+                console.warn(`[player] Queue metadata for ${key} came back without metadata`);
+                this.queueMetadataFailed.add(key);
+                return false;
+            } catch (error) {
+                console.warn(`[player] Queue metadata fetch for ${key} failed:`, error);
+                this.queueMetadataFailed.add(key);
+                return false;
+            } finally {
+                this.releaseQueueMetadataSlot();
+                this.queueMetadataInFlight.delete(key);
+            }
+        })();
+
+        this.queueMetadataInFlight.set(key, promise);
+
+        return promise;
+    }
+
+    private async requestQueueMetadata(items: QueueItem[]) {
+        const waits: Promise<boolean>[] = [];
+
+        for (const item of items) {
+            const key = this.getQueueItemKey(item);
+
+            if (this.queueMetadataCache.has(key) || this.queueMetadataFailed.has(key)) continue;
+
+            const inFlight = this.queueMetadataInFlight.get(key);
+
+            if (inFlight) {
+                waits.push(inFlight);
+                continue;
+            }
+
+            if (item.metadata) {
+                this.storeQueueMetadata(key, item.metadata);
+                continue;
+            }
+
+            const plugin = this.plugins.get(item.sourceType);
+            if (plugin && !plugin.getMetadata) continue;
+
+            waits.push(this.fetchQueueItemMetadata(item, key));
+        }
+
+        if (waits.length === 0) return;
+
+        const results = await Promise.all(waits);
+
+        if (results.some(Boolean)) this.notify();
+    }
+
+    private hydrateQueueMetadata() {
+        const upcoming = [...this.priorityQueue, ...this.nextQueueItems].slice(0, QUEUE_METADATA_PRELOAD_COUNT);
+
+        void this.requestQueueMetadata(upcoming);
+    }
+
     private buildQueueMetadata(): PlaybackQueueMetadata {
         return {
             name: this.nextQueueName,
-            priority: this.priorityQueue,
-            next: this.nextQueueItems,
-            original: this.nextQueueOriginal,
+            priority: this.stripQueueItems(this.priorityQueue),
+            next: this.stripQueueItems(this.nextQueueItems),
+            original: this.stripQueueItems(this.nextQueueOriginal),
         };
     }
 
@@ -647,12 +814,18 @@ class AudioPlayer {
     }
 
     private requestPlaybackStatusEmit() {
-        if (this.developerSimulation || this.accountSyncApplying) return;
+        // @devonly.start
+        if (this.developerSimulation) return;
+        // @devonly.end
+        if (this.accountSyncApplying) return;
         void this.maybeEmitPlaybackStatus(true);
     }
 
     private async maybeEmitPlaybackStatus(force = false) {
-        if (this.developerSimulation || this.accountSyncApplying) return;
+        // @devonly.start
+        if (this.developerSimulation) return;
+        // @devonly.end
+        if (this.accountSyncApplying) return;
         if (this.isObservingRemotePlayback()) return;
         if (!this.currentSongId || !this.currentSourceType) return;
 
@@ -880,7 +1053,10 @@ class AudioPlayer {
     }
 
     private async applyAccountPlayback(row: AccountPlaybackRow) {
-        if (this.developerSimulation || !row.song_id || !row.source_type) return;
+        // @devonly.start
+        if (this.developerSimulation) return;
+        // @devonly.end
+        if (!row.song_id || !row.source_type) return;
 
         const metadata = row.playback_metadata ?? {};
         const targetTime = typeof metadata.current_time === 'number' ? metadata.current_time : 0;
@@ -974,7 +1150,10 @@ class AudioPlayer {
     }
 
     private async syncAccountPlayback() {
-        if (this.developerSimulation || !this.isAccountSyncEnabled() || this.accountSyncInFlight || this.accountSyncApplying) return;
+        // @devonly.start
+        if (this.developerSimulation) return;
+        // @devonly.end
+        if (!this.isAccountSyncEnabled() || this.accountSyncInFlight || this.accountSyncApplying) return;
         if (!localStorage.getItem('access_token') || !getAccount()) return;
 
         this.accountSyncInFlight = true;
@@ -1022,9 +1201,9 @@ class AudioPlayer {
                 wasPlaying: this.isPlaying,
                 fromNextQueue: this.currentSongFromNextQueue,
 
-                priorityQueue: this.priorityQueue,
-                nextQueueItems: this.nextQueueItems,
-                nextQueueOriginal: this.nextQueueOriginal,
+                priorityQueue: this.stripQueueItems(this.priorityQueue),
+                nextQueueItems: this.stripQueueItems(this.nextQueueItems),
+                nextQueueOriginal: this.stripQueueItems(this.nextQueueOriginal),
 
                 streamUrl: null,
             };
@@ -1157,6 +1336,10 @@ class AudioPlayer {
     private updateMediaSessionMetadata() {
         if (!('mediaSession' in navigator) || !this.currentMetadata) return;
 
+        if (this.currentSongId && this.currentSourceType) {
+            this.storeQueueMetadata(`${this.currentSourceType}:${this.currentSongId}`, this.currentMetadata);
+        }
+
         navigator.mediaSession.metadata = new MediaMetadata({
             title: this.currentMetadata.title ?? undefined,
             artist: this.currentMetadata.artist ?? undefined,
@@ -1184,6 +1367,8 @@ class AudioPlayer {
     }
 
     private schedulePrefetch() {
+        this.hydrateQueueMetadata();
+
         this.prefetchController?.abort();
         this.prefetchController = null;
 
@@ -1267,6 +1452,7 @@ class AudioPlayer {
         this.trackListeners.forEach(cb => cb(this.currentSongId, this.currentSourceType));
     }
 
+    // @devonly.start
     private notifyPluginSimulation(simulation: PluginPlaybackSimulation) {
         const payload: PluginPlaybackSimulation = {
             ...simulation,
@@ -1287,7 +1473,9 @@ class AudioPlayer {
 
         window.dispatchEvent(new CustomEvent('omniplayr:plugin-test-playback', { detail: payload }));
     }
+    // @devonly.end
 
+    // @devonly.start
     private applyDeveloperPlaybackSimulation(simulation: DeveloperPlaybackSimulation) {
         if (!simulation?.active) {
             const previous = this.developerSimulation;
@@ -1295,6 +1483,7 @@ class AudioPlayer {
 
             this.notifyPluginSimulation({ ...previous, active: false });
             this.developerSimulation = null;
+            this.currentSongFromNextQueue = false;
             this.currentSongId = null;
             this.currentSourceType = null;
             this.currentExtra = null;
@@ -1363,6 +1552,7 @@ class AudioPlayer {
         }
 
         this.developerSimulation = nextSimulation;
+        this.currentSongFromNextQueue = false;
         this.currentSongId = songId;
         this.currentSourceType = sourceType;
         this.currentExtra = { ...nextSimulation.extra };
@@ -1377,6 +1567,7 @@ class AudioPlayer {
         this.syncMediaSessionState();
         this.notify();
     }
+    // @devonly.end
 
     private reportPluginError(context: string, error: unknown) {
         console.error(`[player] Plugin ${context} failed:`, error);
@@ -1858,8 +2049,8 @@ class AudioPlayer {
         }, durationMs);
     }
 
-    addToQueue(songId: string, sourceType: string, extra?: Record<string, unknown>) {
-        this.priorityQueue.push({ songId, sourceType, extra });
+    addToQueue(songId: string, sourceType: string, extra?: Record<string, unknown>, metadata?: TrackMetadata | null) {
+        this.priorityQueue.push({ songId, sourceType, extra, metadata });
 
         if (!this.currentSongId && !this.isTransitioning) {
             this.startNext('start queued track');
@@ -1990,10 +2181,12 @@ class AudioPlayer {
     }
 
     async next(ignoreRepeatOne = false) {
+        // @devonly.start
         if (this.developerSimulation) {
             window.dispatchEvent(new Event('omniplayr:developer-simulation-next'));
             return;
         }
+        // @devonly.end
 
         if (this.isObservingRemotePlayback()) {
             void this.sendRemotePlaybackCommand('next').catch(error => this.reportPluginError('remote next', error));
@@ -2045,10 +2238,12 @@ class AudioPlayer {
     }
 
     async prev() {
+        // @devonly.start
         if (this.developerSimulation) {
             window.dispatchEvent(new Event('omniplayr:developer-simulation-prev'));
             return;
         }
+        // @devonly.end
 
         if (this.isObservingRemotePlayback()) {
             void this.sendRemotePlaybackCommand('prev').catch(error => this.reportPluginError('remote previous', error));
@@ -2103,10 +2298,12 @@ class AudioPlayer {
     }
 
     skip() {
+        // @devonly.start
         if (this.developerSimulation) {
             window.dispatchEvent(new Event('omniplayr:developer-simulation-next'));
             return;
         }
+        // @devonly.end
 
         if (this.isObservingRemotePlayback()) {
             void this.sendRemotePlaybackCommand('next').catch(error => this.reportPluginError('remote skip', error));
@@ -2127,7 +2324,9 @@ class AudioPlayer {
         fromNextQueue = false,
         autoplay = true
     ) {
+        // @devonly.start
         if (this.developerSimulation) return;
+        // @devonly.end
 
         this.cancelPendingPlaybackFailure();
         this.accountRemotePlayback = null;
@@ -2475,6 +2674,7 @@ class AudioPlayer {
     }
 
     togglePlay() {
+        // @devonly.start
         if (this.developerSimulation) {
             this.developerSimulation.isPlaying = !this.developerSimulation.isPlaying;
             this.isPauseRequested = !this.developerSimulation.isPlaying;
@@ -2483,6 +2683,7 @@ class AudioPlayer {
             window.dispatchEvent(new Event('omniplayr:developer-simulation-toggle'));
             return;
         }
+        // @devonly.end
 
         if (this.isObservingRemotePlayback()) {
             const nextType = this.isPlaying ? 'pause' : 'resume';
@@ -2525,6 +2726,7 @@ class AudioPlayer {
     }
 
     seek(fraction: number) {
+        // @devonly.start
         if (this.developerSimulation) {
             this.developerSimulation.currentTime = this.developerSimulation.duration * Math.max(0, Math.min(1, fraction));
             this.notify();
@@ -2533,6 +2735,7 @@ class AudioPlayer {
             }));
             return;
         }
+        // @devonly.end
 
         if (this.isObservingRemotePlayback()) {
             const duration = this.duration;
@@ -2733,6 +2936,20 @@ class AudioPlayer {
         this.notify();
     }
 
+    async getQueueWithMetadata() {
+        const priority = [...this.priorityQueue];
+        const next = [...this.nextQueueItems];
+        const history = [...this.history];
+
+        await this.requestQueueMetadata([...priority, ...next, ...history]);
+
+        return {
+            priority: priority.map(item => this.attachMetadata(item)),
+            next: next.map(item => this.attachMetadata(item)),
+            history: history.map(item => this.attachMetadata(item)),
+        };
+    }
+
     get selectedOutputDevice() {
         return this.selectedOutput;
     }
@@ -2752,7 +2969,9 @@ class AudioPlayer {
     }
 
     get isPlaying() {
+        // @devonly.start
         if (this.developerSimulation) return this.developerSimulation.isPlaying;
+        // @devonly.end
         if (this.isPauseRequested) return false;
         if (this.isPauseFadePending) return false;
         if (this.isObservingRemotePlayback()) return this.accountRemotePlayback?.row.playback_status === 'playing';
@@ -2762,7 +2981,9 @@ class AudioPlayer {
     }
 
     get currentTime() {
+        // @devonly.start
         if (this.developerSimulation) return this.developerSimulation.currentTime;
+        // @devonly.end
         if (this.isObservingRemotePlayback()) {
             const metadata = this.accountRemotePlayback?.row.playback_metadata;
             const base = typeof metadata?.current_time === 'number' ? metadata.current_time : 0;
@@ -2779,7 +3000,9 @@ class AudioPlayer {
     }
 
     get duration() {
+        // @devonly.start
         if (this.developerSimulation) return this.developerSimulation.duration;
+        // @devonly.end
         if (this.isObservingRemotePlayback()) {
             return this.currentMetadata?.duration
                 ?? this.accountRemotePlayback?.row.song_metadata?.length
@@ -2808,15 +3031,21 @@ class AudioPlayer {
     }
 
     get getPriorityQueue() {
-        return [...this.priorityQueue];
+        void this.requestQueueMetadata(this.priorityQueue);
+
+        return this.priorityQueue.map(item => this.attachMetadata(item));
     }
 
     get getNextQueue() {
-        return [...this.nextQueueItems];
+        void this.requestQueueMetadata(this.nextQueueItems);
+
+        return this.nextQueueItems.map(item => this.attachMetadata(item));
     }
 
     get getHistory() {
-        return [...this.history];
+        void this.requestQueueMetadata(this.history);
+
+        return this.history.map(item => this.attachMetadata(item));
     }
 
     get hasPrev() {

@@ -12,6 +12,7 @@ import AccountSelect from './AccountSelect.tsx';
 import Dashboard from './Dashboard.tsx';
 import {Player} from './Player.tsx';
 import Sidebar from './Sidebar.tsx';
+import Infobar from './Infobar.tsx';
 import BottomNav from './BottomNav.tsx';
 import { getAccount } from './modules/account.ts';
 import {
@@ -40,7 +41,6 @@ import '@wokki20/jspt/dist/jspt.css';
 import { useIsMobile } from './modules/useIsMobile';
 import DeveloperContext from './modules/DeveloperContext';
 import './styles/index.css';
-import Infobar from './Infobar.tsx';
 
 export { useIsMobile } from './modules/useIsMobile';
 declare global {

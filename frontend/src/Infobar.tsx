@@ -3,6 +3,7 @@ import { player, type TrackMetadata } from './modules/player';
 import './styles/Infobar.css';
 import { Music } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { getInfoBars, onPluginsLoaded, on, type Infobar } from './modules/plugins';
 
 type Layer = {
     id: number;
@@ -98,6 +99,19 @@ function AlbumArt({
 function Infobar() {
     const [metadata, setMetadata] = useState<TrackMetadata | null>(null);
     const { t } = useTranslation();
+    const [openedInfobar, setOpenedInfobar] = useState<{ id: string; barId: string } | null>(() => {
+        return JSON.parse(localStorage.getItem('infobar:opened') || 'null');
+    });
+    useEffect(() => {
+        return on('infobar:updated', setOpenedInfobar);
+    }, []);
+    const [infoBars, setinfoBars] = useState<Infobar[]>([]);
+    
+    useEffect(() => {
+        setinfoBars(getInfoBars());
+        const unsub = onPluginsLoaded(() => setinfoBars(getInfoBars()));
+        return unsub;
+    }, []);
 
     useEffect(() => {
             return player.subscribe(() => {
@@ -106,25 +120,41 @@ function Infobar() {
         }, []);
     return (
         <>
-            <div className="info-bar" data-component="Infobar">
-                <div className="ib-song">
-                    <AlbumArt metadata={metadata} />
-                    <div className="ib-song-info">
-                        {metadata ? (
-                        <>
-                            {metadata?.title ? (
-                                <span className="ib-song-title">{metadata.title}</span>
+            <div className="info-bar-container">
+                <div className="info-bar" data-component="Infobar">
+                    <div className="ib-song">
+                        <AlbumArt metadata={metadata} />
+                        <div className="ib-song-info">
+                            {metadata ? (
+                            <>
+                                {metadata?.title ? (
+                                    <span className="ib-song-title">{metadata.title}</span>
+                                ) : (
+                                    <span className="ib-song-title">{metadata?.filename}</span>
+                                )}
+                                <span className="ib-song-artist">{[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}</span>
+                            </>
                             ) : (
-                                <span className="ib-song-title">{metadata?.filename}</span>
+                            <>
+                                <span className="ib-song-title ib-song-nothing-playing">{t('info-bar.nothing-playing')}</span>
+                            </>
                             )}
-                            <span className="ib-song-artist">{[metadata?.artist, metadata?.album].filter(Boolean).join(' · ')}</span>
-                        </>
-                        ) : (
-                        <>
-                            <span className="ib-song-title ib-song-nothing-playing">{t('info-bar.nothing-playing')}</span>
-                        </>
-                        )}
+                        </div>
                     </div>
+                    <div className="ib-song-more-info">
+
+                    </div>
+                </div>
+
+                <div className="info-bar-overlay-container">
+                    {infoBars.map(({ id, barId, view: View }) => (
+                        <div
+                            className={`info-bar-overlay${openedInfobar?.id === id && openedInfobar?.barId === barId ? ' open' : ''}`}
+                            key={`${id}:${barId}`}
+                        >
+                            <View />
+                        </div>
+                    ))}
                 </div>
             </div>
         </>

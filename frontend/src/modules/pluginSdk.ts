@@ -75,6 +75,9 @@ export {
     registerPluginsMenuItem,
     registerRoute,
     registerTab,
+    registerInfobar,
+    toggleInfoBar,
+    currentInfobar,
 } from './plugins';
 export type {
     PluginConfig,

@@ -884,6 +884,29 @@ type PlaybackDraft = {
     extraJson: string;
 };
 
+type PlaybackQueueItem = {
+    id: number;
+    track: PlaybackDraft;
+};
+
+function serializePlaybackQueue(queue: PlaybackQueueItem[]) {
+    return queue.map(({ id, track }) => ({
+        queue_id: id,
+        song_id: track.songId,
+        source_type: track.sourceType,
+        extra: parsePluginExtra(track.extraJson) ?? {},
+        song_metadata: {
+            title: track.title || null,
+            artist: track.artist || null,
+            album: track.album || null,
+            length: track.duration,
+            album_art: track.albumArt || null,
+            genre: track.genre || null,
+            year: track.year || null,
+        },
+    }));
+}
+
 const PLAYBACK_PRESETS: PlaybackDraft[] = [
     {
         presetId: 'spotify-plugin-test',
@@ -987,39 +1010,53 @@ function parsePluginExtra(value: string): Record<string, unknown> | null {
 
 function PlaybackDataWindow() {
     const [track, setTrack] = useState<PlaybackDraft>(() => ({ ...PLAYBACK_PRESETS[0] }));
+    const [queue, setQueue] = useState<PlaybackQueueItem[]>([]);
+    const [queuePresetId, setQueuePresetId] = useState(PLAYBACK_PRESETS[0].presetId);
+    const [selectedQueueId, setSelectedQueueId] = useState<number | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [simulationActive, setSimulationActive] = useState(false);
     const [autoChangeTracks, setAutoChangeTracks] = useState(false);
     const [autoChangeSeconds, setAutoChangeSeconds] = useState(15);
     const [showPayload, setShowPayload] = useState(false);
 
+    const queueRef = useRef<PlaybackQueueItem[]>([]);
+    const nextQueueIdRef = useRef(1);
+
+    function commitQueue(nextQueue: PlaybackQueueItem[]) {
+        queueRef.current = nextQueue;
+        setQueue(nextQueue);
+    }
+
     useEffect(() => {
         if (!isPlaying) return;
 
         const interval = window.setInterval(() => {
-            setTrack((current) => {
-                const duration = Math.max(1, current.duration);
-                const nextTime = Math.min(current.currentTime + 1, duration);
-                const shouldAdvance = autoChangeTracks && (
-                    nextTime >= autoChangeSeconds || nextTime >= duration
-                );
-
-                if (shouldAdvance) {
-                    return { ...getNextPlaybackPreset(current.presetId), currentTime: 0 };
-                }
-
-                return { ...current, currentTime: nextTime };
-            });
+            setTrack((current) => ({
+                ...current,
+                currentTime: Math.min(current.currentTime + 1, Math.max(1, current.duration)),
+            }));
         }, 1000);
 
         return () => window.clearInterval(interval);
-    }, [isPlaying, autoChangeTracks, autoChangeSeconds]);
+    }, [isPlaying]);
 
     useEffect(() => {
-        if (isPlaying && !autoChangeTracks && track.duration > 0 && track.currentTime >= track.duration) {
+        if (!isPlaying) return;
+
+        const shouldAutoAdvance = autoChangeTracks && (
+            track.currentTime >= autoChangeSeconds ||
+            track.currentTime >= Math.max(1, track.duration)
+        );
+
+        if (shouldAutoAdvance) {
+            advanceTrack();
+            return;
+        }
+
+        if (!autoChangeTracks && track.duration > 0 && track.currentTime >= track.duration) {
             setIsPlaying(false);
         }
-    }, [track.currentTime, track.duration, isPlaying, autoChangeTracks]);
+    }, [track.currentTime, track.duration, isPlaying, autoChangeTracks, autoChangeSeconds]);
 
     useEffect(() => {
         const extra = parsePluginExtra(track.extraJson);
@@ -1044,22 +1081,51 @@ function PlaybackDataWindow() {
                     filename: null,
                 },
                 extra: extra ?? {},
+                queue: serializePlaybackQueue(queue),
             },
         }));
-    }, [simulationActive, track, isPlaying]);
+    }, [simulationActive, track, isPlaying, queue]);
 
     useEffect(() => {
-        const handleNext = () => {
-            setTrack((current) => ({ ...getNextPlaybackPreset(current.presetId), currentTime: 0 }));
-        };
+        if (!simulationActive) return;
+
+        const items = queue
+            .filter(({ track }) => track.songId.trim() && track.sourceType.trim())
+            .map(({ track }) => ({
+                songId: track.songId,
+                sourceType: track.sourceType,
+                extra: parsePluginExtra(track.extraJson) ?? undefined,
+            }));
+
+        window.dispatchEvent(new CustomEvent('omniplayr:developer-playback-queue', {
+            detail: {
+                name: 'Developer simulation',
+                items,
+            },
+        }));
+    }, [queue, simulationActive]);
+
+    useEffect(() => {
+        const handleNext = () => advanceTrack();
+
         const handlePrevious = () => {
-            setTrack((current) => ({ ...getPreviousPlaybackPreset(current.presetId), currentTime: 0 }));
+            setSelectedQueueId(null);
+            setTrack((current) => ({
+                ...getPreviousPlaybackPreset(current.presetId),
+                currentTime: 0,
+            }));
         };
+
         const handleToggle = () => setIsPlaying((current) => !current);
+
         const handleSeek = (event: Event) => {
             const currentTime = (event as CustomEvent<{ currentTime: number }>).detail?.currentTime;
             if (!Number.isFinite(currentTime)) return;
-            setTrack((current) => ({ ...current, currentTime: Math.max(0, Math.min(current.duration, currentTime)) }));
+
+            setTrack((current) => ({
+                ...current,
+                currentTime: Math.max(0, Math.min(current.duration, currentTime)),
+            }));
         };
 
         window.addEventListener('omniplayr:developer-simulation-next', handleNext);
@@ -1090,18 +1156,92 @@ function PlaybackDataWindow() {
     function loadPreset(presetId: string) {
         const preset = PLAYBACK_PRESETS.find((item) => item.presetId === presetId);
         if (!preset) return;
+
+        setSelectedQueueId(null);
         setTrack({ ...preset, currentTime: 0 });
     }
 
-    function updateTextField(
-        field: 'title' | 'artist' | 'album' | 'songId' | 'sourceType' | 'albumArt' | 'genre' | 'year',
-        value: string,
-    ) {
-        setTrack((current) => ({ ...current, [field]: value, presetId: 'custom' }));
+    function addCurrentTrackToQueue() {
+        const item: PlaybackQueueItem = {
+            id: nextQueueIdRef.current++,
+            track: { ...track, currentTime: 0 },
+        };
+
+        commitQueue([...queueRef.current, item]);
+    }
+
+    function addPresetToQueue(presetId: string) {
+        const preset = PLAYBACK_PRESETS.find((item) => item.presetId === presetId);
+        if (!preset) return;
+
+        const item: PlaybackQueueItem = {
+            id: nextQueueIdRef.current++,
+            track: { ...preset, currentTime: 0 },
+        };
+
+        commitQueue([...queueRef.current, item]);
+    }
+
+    function loadQueueItem(item: PlaybackQueueItem) {
+        setTrack({ ...item.track, currentTime: 0 });
+        setSelectedQueueId(item.id);
+    }
+
+    function saveSelectedQueueItem() {
+        if (selectedQueueId === null) return;
+
+        const nextQueue = queueRef.current.map((item) =>
+            item.id === selectedQueueId
+                ? { ...item, track: { ...track, currentTime: 0 } }
+                : item,
+        );
+
+        commitQueue(nextQueue);
+    }
+
+    function removeQueueItem(id: number) {
+        commitQueue(queueRef.current.filter((item) => item.id !== id));
+
+        if (selectedQueueId === id) {
+            setSelectedQueueId(null);
+        }
+    }
+
+    function moveQueueItem(id: number, direction: -1 | 1) {
+        const nextQueue = [...queueRef.current];
+        const index = nextQueue.findIndex((item) => item.id === id);
+        const targetIndex = index + direction;
+
+        if (index < 0 || targetIndex < 0 || targetIndex >= nextQueue.length) return;
+
+        [nextQueue[index], nextQueue[targetIndex]] = [
+            nextQueue[targetIndex],
+            nextQueue[index],
+        ];
+
+        commitQueue(nextQueue);
+    }
+
+    function clearQueue() {
+        commitQueue([]);
+        setSelectedQueueId(null);
     }
 
     function advanceTrack() {
-        setTrack((current) => ({ ...getNextPlaybackPreset(current.presetId), currentTime: 0 }));
+        const nextItem = queueRef.current[0];
+
+        if (nextItem) {
+            commitQueue(queueRef.current.slice(1));
+            setSelectedQueueId(null);
+            setTrack({ ...nextItem.track, currentTime: 0 });
+            return;
+        }
+
+        setSelectedQueueId(null);
+        setTrack((current) => ({
+            ...getNextPlaybackPreset(current.presetId),
+            currentTime: 0,
+        }));
     }
 
     function startSimulation() {
@@ -1117,6 +1257,15 @@ function PlaybackDataWindow() {
         setAutoChangeTracks(false);
         setAutoChangeSeconds(15);
         setShowPayload(false);
+        commitQueue([]);
+        setSelectedQueueId(null);
+    }
+
+    function updateTextField(
+        field: 'title' | 'artist' | 'album' | 'songId' | 'sourceType' | 'albumArt' | 'genre' | 'year',
+        value: string,
+    ) {
+        setTrack((current) => ({ ...current, [field]: value, presetId: 'custom' }));
     }
 
     function handleArtworkUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -1137,6 +1286,7 @@ function PlaybackDataWindow() {
         source_type: track.sourceType,
         playback_status: isPlaying ? 'playing' : 'paused',
         extra: pluginExtra,
+        queue: serializePlaybackQueue(queue),
         playback_metadata: {
             current_time: Math.floor(track.currentTime),
             duration: track.duration,
@@ -1265,6 +1415,125 @@ function PlaybackDataWindow() {
 
             <div className="audio-info-separator"></div>
 
+            <div className="playback-sim-section">
+                <div className="playback-sim-queue-header">
+                    <div className="audio-info-label">Playback queue ({queue.length})</div>
+                    <button
+                        type="button"
+                        className="playback-sim-queue-small-button"
+                        onClick={clearQueue}
+                        disabled={queue.length === 0}
+                    >
+                        Clear queue
+                    </button>
+                </div>
+
+                <div className="playback-sim-queue-sync" data-active={simulationActive}>
+                    {simulationActive
+                        ? 'Queue synced with AudioPlayer'
+                        : 'Apply the simulation to sync with AudioPlayer'}
+                </div>
+
+                <div className="playback-sim-queue-add">
+                    <select
+                        className="playback-sim-input"
+                        value={queuePresetId}
+                        onChange={(event) => setQueuePresetId(event.currentTarget.value)}
+                    >
+                        {PLAYBACK_PRESETS.map((preset) => (
+                            <option value={preset.presetId} key={preset.presetId}>
+                                {preset.title} - {preset.artist}
+                            </option>
+                        ))}
+                    </select>
+
+                    <button
+                        type="button"
+                        className="playback-sim-queue-small-button"
+                        onClick={() => addPresetToQueue(queuePresetId)}
+                    >
+                        Add preset
+                    </button>
+                </div>
+
+                <button
+                    type="button"
+                    className="playback-sim-queue-add-current"
+                    onClick={addCurrentTrackToQueue}
+                >
+                    + Add current track to queue
+                </button>
+
+                <div className="playback-sim-queue-list">
+                    {queue.length === 0 ? (
+                        <div className="playback-sim-queue-empty">
+                            The queue is empty. Add a preset or your current track.
+                        </div>
+                    ) : (
+                        queue.map((item, index) => (
+                            <div
+                                className="playback-sim-queue-item"
+                                data-selected={selectedQueueId === item.id ? 'true' : 'false'}
+                                key={item.id}
+                            >
+                                <div className="playback-sim-queue-number">
+                                    {index + 1}
+                                </div>
+
+                                <div className="playback-sim-queue-item-info">
+                                    <strong>{item.track.title || 'Untitled track'}</strong>
+                                    <span>{item.track.artist || 'Unknown artist'}</span>
+                                    <small>
+                                        {item.track.sourceType || 'Unknown source'} · {formatPlaybackTime(item.track.duration)}
+                                    </small>
+                                </div>
+
+                                <div className="playback-sim-queue-item-actions">
+                                    <button
+                                        type="button"
+                                        title="Move up"
+                                        disabled={index === 0}
+                                        onClick={() => moveQueueItem(item.id, -1)}
+                                    >
+                                        ↑
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Move down"
+                                        disabled={index === queue.length - 1}
+                                        onClick={() => moveQueueItem(item.id, 1)}
+                                    >
+                                        ↓
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Load and edit this track"
+                                        onClick={() => loadQueueItem(item)}
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Remove from queue"
+                                        onClick={() => removeQueueItem(item.id)}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {selectedQueueId !== null && (
+                    <div className="playback-sim-queue-edit-hint">
+                        This queue item is loaded into Track metadata below. Save your changes after editing.
+                    </div>
+                )}
+            </div>
+
+            <div className="audio-info-separator"></div>
+
             <div className="audio-info-label">Track metadata</div>
             <div className="playback-sim-field-grid">
                 <label className="playback-sim-field">
@@ -1324,6 +1593,16 @@ function PlaybackDataWindow() {
                 <span>Upload album artwork</span>
                 <input type="file" accept="image/*" onChange={handleArtworkUpload} />
             </label>
+
+            {selectedQueueId !== null && (
+                <button
+                    type="button"
+                    className="audio-info-reset audio-info-reset-all"
+                    onClick={saveSelectedQueueItem}
+                >
+                    Save changes to selected queue item
+                </button>
+            )}
 
             <div className="audio-info-separator"></div>
 
