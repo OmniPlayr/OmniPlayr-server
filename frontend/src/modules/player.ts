@@ -459,8 +459,13 @@ class AudioPlayer {
         if (this.playbackTickInterval) return;
 
         this.playbackTickInterval = window.setInterval(() => {
-            if (!this.currentSongId || !this.isPlaying) return;
-            this.notify();
+            if (!this.currentSongId) return;
+
+            this.syncMediaSessionState();
+
+            if (this.isPlaying) {
+                this.notify();
+            }
         }, 500);
     }
 
@@ -1290,7 +1295,13 @@ class AudioPlayer {
 
     private initMediaControls() {
         window.addEventListener('keydown', (e) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            const target = e.target;
+
+            if (
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                (target instanceof HTMLElement && target.isContentEditable)
+            ) return;
 
             switch (e.key) {
                 case 'MediaTrackNext':
@@ -1310,59 +1321,103 @@ class AudioPlayer {
 
         if (!('mediaSession' in navigator)) return;
 
-        navigator.mediaSession.setActionHandler('play', () => {
-            if (this.isTransitioning) return;
-            if (this.activePlugin) {
-                this.safelyActivatePlugin(this.activePlugin);
-            }
-            this.resumePlayback();
-        });
+        const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+            ['play', () => {
+                if (this.isTransitioning) return;
+                if (this.activePlugin) {
+                    this.safelyActivatePlugin(this.activePlugin);
+                }
+                this.resumePlayback();
+            }],
+            ['pause', () => {
+                if (this.isTransitioning) return;
+                this.pauseWithOptionalFade();
+            }],
+            ['nexttrack', () => this.skip()],
+            ['previoustrack', () => this.prev()],
+            ['seekto', (details) => {
+                if (details.seekTime !== undefined) {
+                    this.seekToSeconds(details.seekTime);
+                }
+            }],
+        ];
 
-        navigator.mediaSession.setActionHandler('pause', () => {
-            if (this.isTransitioning) return;
-            this.pauseWithOptionalFade();
-        });
+        for (const [action, handler] of handlers) {
+            try {
+                navigator.mediaSession.setActionHandler(action, handler);
+            } catch {}
+        }
 
-        navigator.mediaSession.setActionHandler('nexttrack', () => this.skip());
-        navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
-
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-            if (details.seekTime !== undefined) {
-                this.seekToSeconds(details.seekTime);
-            }
-        });
+        this.syncMediaSessionState();
     }
 
     private updateMediaSessionMetadata() {
-        if (!('mediaSession' in navigator) || !this.currentMetadata) return;
+        if (!('mediaSession' in navigator)) return;
+
+        const metadata = this.currentMetadata;
+
+        if (!metadata) {
+            navigator.mediaSession.metadata = null;
+            return;
+        }
 
         if (this.currentSongId && this.currentSourceType) {
-            this.storeQueueMetadata(`${this.currentSourceType}:${this.currentSongId}`, this.currentMetadata);
+            this.storeQueueMetadata(
+                `${this.currentSourceType}:${this.currentSongId}`,
+                metadata
+            );
+        }
+
+        let artwork: MediaImage[] = [];
+
+        if (metadata.album_art) {
+            try {
+                const artworkUrl = new URL(
+                    metadata.album_art,
+                    getConfig<string>('api.apiUrl') || window.location.origin
+                ).href;
+
+                artwork = [
+                    { src: artworkUrl, sizes: '96x96' },
+                    { src: artworkUrl, sizes: '128x128' },
+                    { src: artworkUrl, sizes: '256x256' },
+                    { src: artworkUrl, sizes: '512x512' },
+                ];
+            } catch {
+                artwork = [];
+            }
         }
 
         navigator.mediaSession.metadata = new MediaMetadata({
-            title: this.currentMetadata.title ?? undefined,
-            artist: this.currentMetadata.artist ?? undefined,
-            album: this.currentMetadata.album ?? undefined,
-            artwork: this.currentMetadata.album_art
-                ? [{ src: this.currentMetadata.album_art }]
-                : undefined,
+            title: metadata.title || this.currentSongId || 'Unknown Track',
+            artist: metadata.artist || 'Unknown Artist',
+            album: metadata.album || 'OmniPlayr',
+            artwork,
         });
+
+        this.syncMediaSessionState();
     }
 
     private syncMediaSessionState() {
         if (!('mediaSession' in navigator)) return;
 
-        navigator.mediaSession.playbackState = this.isPlaying ? 'playing' : 'paused';
+        navigator.mediaSession.playbackState = this.isPlaying
+            ? 'playing'
+            : this.hasTrack
+                ? 'paused'
+                : 'none';
 
-        if (this.audio.duration && !isNaN(this.audio.duration)) {
+        const duration = this.duration;
+        const position = this.currentTime;
+
+        if (duration > 0 && Number.isFinite(duration)) {
             try {
                 navigator.mediaSession.setPositionState({
-                    duration: this.audio.duration,
-                    playbackRate: this.audio.playbackRate,
-                    position: Math.min(this.audio.currentTime, this.audio.duration),
+                    duration,
+                    playbackRate: 1,
+                    position: Math.max(0, Math.min(position, duration)),
                 });
-            } catch { }
+            } catch {}
         }
     }
 
@@ -2494,13 +2549,16 @@ class AudioPlayer {
                     onMetadata: (meta) => {
                         this.currentMetadata = meta;
                         this.updateMediaSessionMetadata();
+                        this.syncMediaSessionState();
                         this.notify();
                         this.requestPlaybackStatusEmit();
                     },
+
                     onReady: () => {
                         this.cancelPendingPlaybackFailure();
                         this.isLoading = false;
                         this.startEndWatcher();
+                        this.syncMediaSessionState();
                         this.notify();
                         this.requestPlaybackStatusEmit();
                     },
@@ -2508,7 +2566,9 @@ class AudioPlayer {
                     onEnded: () => {
                         this.advanceAfterEnd();
                     },
+
                     onStateChange: () => {
+                        this.syncMediaSessionState();
                         this.notify();
                     },
                 });
