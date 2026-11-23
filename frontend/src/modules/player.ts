@@ -358,7 +358,8 @@ class AudioPlayer {
     // @devonly.end
 
     private endCheckInterval: ReturnType<typeof setInterval> | null = null;
-    private fadeFrame: number | null = null;
+    private fadeInterval: ReturnType<typeof setInterval> | null = null;
+    private fadeTimeout: ReturnType<typeof setTimeout> | null = null;
     private fadeNonce = 0;
     private isPauseFadePending = false;
     private isPauseRequested = false;
@@ -435,8 +436,14 @@ class AudioPlayer {
             }
         });
 
-        for (const event of ['play', 'pause', 'loadedmetadata']) {
-            this.audio.addEventListener(event, () => this.syncMediaSessionState());
+        for (const event of ['play', 'playing', 'pause', 'loadedmetadata']) {
+            this.audio.addEventListener(event, () => {
+                if (event === 'playing') {
+                    this.updateMediaSessionMetadata();
+                }
+
+                this.syncMediaSessionState();
+            });
         }
 
         this.initAudioGraph();
@@ -726,7 +733,7 @@ class AudioPlayer {
                 this.queueMetadataFailed.add(key);
                 return false;
             } catch (error) {
-                console.warn(`[player] Queue metadata fetch for ${key} failed:`, error);
+                console.warn(`[player] Queue metadata for ${key} failed:`, error);
                 this.queueMetadataFailed.add(key);
                 return false;
             } finally {
@@ -1294,31 +1301,6 @@ class AudioPlayer {
     }
 
     private initMediaControls() {
-        window.addEventListener('keydown', (e) => {
-            const target = e.target;
-
-            if (
-                target instanceof HTMLInputElement ||
-                target instanceof HTMLTextAreaElement ||
-                (target instanceof HTMLElement && target.isContentEditable)
-            ) return;
-
-            switch (e.key) {
-                case 'MediaTrackNext':
-                    e.preventDefault();
-                    this.skip();
-                    break;
-                case 'MediaTrackPrevious':
-                    e.preventDefault();
-                    this.prev();
-                    break;
-                case 'MediaPlayPause':
-                    e.preventDefault();
-                    this.togglePlay();
-                    break;
-            }
-        });
-
         if (!('mediaSession' in navigator)) return;
 
         const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
@@ -1329,10 +1311,7 @@ class AudioPlayer {
                 }
                 this.resumePlayback();
             }],
-            ['pause', () => {
-                if (this.isTransitioning || !this.isPlaying) return;
-                this.togglePlay();
-            }],
+            ['pause', () => this.pauseFromMediaSession()],
             ['nexttrack', () => this.skip()],
             ['previoustrack', () => this.prev()],
             ['seekto', (details) => {
@@ -1351,8 +1330,52 @@ class AudioPlayer {
         this.syncMediaSessionState();
     }
 
+    private pauseFromMediaSession() {
+        if (this.isTransitioning) return;
+
+        // @devonly.start
+        if (this.developerSimulation) {
+            if (!this.developerSimulation.isPlaying) return;
+
+            this.developerSimulation.isPlaying = false;
+            this.isPauseRequested = true;
+            this.syncMediaSessionState();
+            this.notify();
+            window.dispatchEvent(new Event('omniplayr:developer-simulation-toggle'));
+            return;
+        }
+        // @devonly.end
+
+        if (this.isObservingRemotePlayback()) {
+            void this.sendRemotePlaybackCommand('pause')
+                .then(sent => {
+                    if (!sent || !this.accountRemotePlayback) return;
+
+                    this.accountRemotePlayback.row.playback_status = 'paused';
+                    this.accountRemotePlayback.receivedAt = Date.now();
+                    this.syncMediaSessionState();
+                    this.notify();
+                })
+                .catch(error => this.reportPluginError('remote pause', error));
+
+            return;
+        }
+
+        if (this.isPauseRequested || this.isPauseFadePending || !this.isPlaying) return;
+
+        this.pauseWithOptionalFade();
+    }
+
+    private safelySetPluginFadeVolume(plugin: SourcePlugin, fraction: number) {
+        if (plugin.setTransientVolume) {
+            this.safelySetPluginTransientVolume(plugin, fraction);
+        } else {
+            this.safelySetPluginVolume(plugin, fraction);
+        }
+    }
+
     private updateMediaSessionMetadata() {
-        if (!('mediaSession' in navigator)) return;
+        if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
 
         const metadata = this.currentMetadata;
 
@@ -1361,12 +1384,9 @@ class AudioPlayer {
             return;
         }
 
-        if (this.currentSongId && this.currentSourceType) {
-            this.storeQueueMetadata(
-                `${this.currentSourceType}:${this.currentSongId}`,
-                metadata
-            );
-        }
+        const title = metadata.title?.trim() || this.currentSongId || 'Unknown Track';
+        const artist = metadata.artist?.trim() || 'Unknown Artist';
+        const album = metadata.album?.trim() || 'Unknown Album';
 
         let artwork: MediaImage[] = [];
 
@@ -1389,9 +1409,9 @@ class AudioPlayer {
         }
 
         navigator.mediaSession.metadata = new MediaMetadata({
-            title: metadata.title || this.currentSongId || 'Unknown Track',
-            artist: metadata.artist || 'Unknown Artist',
-            album: metadata.album || 'OmniPlayr',
+            title,
+            artist,
+            album,
             artwork,
         });
 
@@ -1694,13 +1714,16 @@ class AudioPlayer {
         }
     }
 
-    private safelyPauseOutputPlugin(plugin: AudioOutputPlugin) {
+    private safelyPauseOutputPlugin(plugin: AudioOutputPlugin): Promise<void> {
         try {
-            Promise.resolve(plugin.pause?.()).catch(error => {
-                this.reportPluginError('pause output', error);
-            });
+            return Promise.resolve(plugin.pause?.())
+                .then(() => undefined)
+                .catch(error => {
+                    this.reportPluginError('pause output', error);
+                });
         } catch (error) {
             this.reportPluginError('pause output', error);
+            return Promise.resolve();
         }
     }
 
@@ -1752,13 +1775,16 @@ class AudioPlayer {
         if (options.emit ?? true) this.requestPlaybackStatusEmit();
     }
 
-    private safelyPausePlugin(plugin: SourcePlugin) {
+    private safelyPausePlugin(plugin: SourcePlugin): Promise<void> {
         try {
-            Promise.resolve(plugin.pause()).catch(error => {
-                this.reportPluginError('pause', error);
-            });
+            return Promise.resolve(plugin.pause())
+                .then(() => undefined)
+                .catch(error => {
+                    this.reportPluginError('pause', error);
+                });
         } catch (error) {
             this.reportPluginError('pause', error);
+            return Promise.resolve();
         }
     }
 
@@ -1948,10 +1974,15 @@ class AudioPlayer {
                     this.cancelPendingPlaybackFailure();
                     this.isLoading = false;
                     this.startEndWatcher();
+                    this.updateMediaSessionMetadata();
+                    this.syncMediaSessionState();
                     this.notify();
                 },
                 onEnded: () => this.advanceAfterEnd(),
-                onStateChange: () => this.notify(),
+                onStateChange: () => {
+                    this.syncMediaSessionState();
+                    this.notify();
+                },
                 onError: (error) => {
                     this.reportPluginError('output playback', error);
                     this.advanceAfterPlaybackFailure();
@@ -1982,28 +2013,46 @@ class AudioPlayer {
         this.isPauseFadePending = false;
         this.isPauseRequested = false;
 
-        if (this.fadeFrame !== null) {
-            cancelAnimationFrame(this.fadeFrame);
-            this.fadeFrame = null;
+        if (this.fadeInterval !== null) {
+            window.clearInterval(this.fadeInterval);
+            this.fadeInterval = null;
+        }
+
+        if (this.fadeTimeout !== null) {
+            window.clearTimeout(this.fadeTimeout);
+            this.fadeTimeout = null;
         }
 
         this.applyOutputVolume();
-        this.safelySetPluginTransientVolume(this.activePlugin, this._volumeFraction);
+
+        if (this.activePlugin) {
+            this.safelySetPluginFadeVolume(this.activePlugin, this._volumeFraction);
+        }
+
+        if (this.activeOutputPlugin) {
+            this.safelySetOutputPluginVolume(this.activeOutputPlugin, this._volumeFraction);
+        }
+
         this.syncMediaSessionState();
     }
 
     private shouldFadeOnPause() {
-        return Boolean(getConfig<boolean>('volume.fade_on_pause')) && (getConfig<number>('volume.pause_fade_ms') ?? 350) > 0;
+        const enabled = getConfig<boolean>('volume.fade_on_pause') ?? true;
+        const duration = getConfig<number>('volume.pause_fade_ms') ?? 350;
+
+        return enabled && Number.isFinite(duration) && duration > 0;
     }
 
     private pauseImmediately() {
         this.isPauseRequested = true;
+        this.isPauseFadePending = false;
         this.syncMediaSessionState();
         this.notify();
 
         if (this.activePlugin) this.safelyPausePlugin(this.activePlugin);
-        else if (this.activeOutputPlugin) this.safelyPauseOutputPlugin(this.activeOutputPlugin);
+        else if (this.activeOutputPlugin) void this.safelyPauseOutputPlugin(this.activeOutputPlugin);
         else this.audio.pause();
+
         this.requestPlaybackStatusEmit();
     }
 
@@ -2012,7 +2061,14 @@ class AudioPlayer {
 
         if (this.activePlugin) this.safelyResumePlugin(this.activePlugin);
         else if (this.activeOutputPlugin) this.safelyResumeOutputPlugin(this.activeOutputPlugin);
-        else this.audio.play();
+        else {
+            if (this.ctx?.state === 'suspended') {
+                void this.ctx.resume();
+            }
+            void this.audio.play().catch(error => {
+                this.reportPluginError('resume native audio', error);
+            });
+        }
 
         this.syncMediaSessionState();
         this.notify();
@@ -2020,85 +2076,155 @@ class AudioPlayer {
     }
 
     private pauseWithOptionalFade() {
+        if (this.isPauseRequested || this.isPauseFadePending) return;
+
         if (!this.shouldFadeOnPause()) {
             this.cancelPauseFade();
             this.pauseImmediately();
             return;
         }
 
-        const durationMs = Math.max(0, getConfig<number>('volume.pause_fade_ms') ?? 350);
+        const durationMs = Math.max(1, getConfig<number>('volume.pause_fade_ms') ?? 350);
         const nonce = ++this.fadeNonce;
         const pauseAt = this.currentTime;
+
         this.isPauseFadePending = true;
         this.isPauseRequested = true;
+
         this.syncMediaSessionState();
         this.notify();
         this.requestPlaybackStatusEmit();
 
-        if (this.fadeFrame !== null) {
-            cancelAnimationFrame(this.fadeFrame);
-            this.fadeFrame = null;
+        if (this.fadeInterval !== null) {
+            window.clearInterval(this.fadeInterval);
+            this.fadeInterval = null;
+        }
+
+        if (this.fadeTimeout !== null) {
+            window.clearTimeout(this.fadeTimeout);
+            this.fadeTimeout = null;
         }
 
         if (this.activePlugin) {
-            if (!this.activePlugin.setTransientVolume) {
-                this.isPauseFadePending = false;
+            const plugin = this.activePlugin;
+
+            if (!plugin.setTransientVolume && !plugin.setVolume) {
                 this.pauseImmediately();
                 return;
             }
 
             const startedAt = performance.now();
-            const from = this._volumeFraction;
 
-            const step = (now: number) => {
-                if (nonce !== this.fadeNonce) return;
+            const interval = window.setInterval(() => {
+                if (nonce !== this.fadeNonce || this.activePlugin !== plugin) {
+                    window.clearInterval(interval);
 
-                const progress = Math.min(1, (now - startedAt) / durationMs);
-                this.safelySetPluginTransientVolume(this.activePlugin, from * (1 - progress));
+                    if (this.fadeInterval === interval) {
+                        this.fadeInterval = null;
+                    }
 
-                if (progress < 1) {
-                    this.fadeFrame = requestAnimationFrame(step);
                     return;
                 }
 
-                this.fadeFrame = null;
-                const plugin = this.activePlugin;
-                if (plugin) {
-                    this.safelyPausePlugin(plugin);
-                    this.safelySeekPlugin(plugin, pauseAt);
-                }
-                this.isPauseFadePending = false;
-                this.notify();
-                this.requestPlaybackStatusEmit();
-            };
+                const progress = Math.min(1, (performance.now() - startedAt) / durationMs);
+                const nextVolume = this._volumeFraction * (1 - progress);
 
-            this.fadeFrame = requestAnimationFrame(step);
+                this.safelySetPluginFadeVolume(plugin, nextVolume);
+
+                if (progress < 1) return;
+
+                window.clearInterval(interval);
+                this.fadeInterval = null;
+
+                void this.safelyPausePlugin(plugin).then(() => {
+                    if (nonce !== this.fadeNonce || this.activePlugin !== plugin) return;
+
+                    this.safelySeekPlugin(plugin, pauseAt);
+                    this.safelySetPluginFadeVolume(plugin, this._volumeFraction);
+
+                    this.isPauseFadePending = false;
+                    this.syncMediaSessionState();
+                    this.notify();
+                    this.requestPlaybackStatusEmit();
+                });
+            }, 16);
+
+            this.fadeInterval = interval;
             return;
         }
 
         if (this.activeOutputPlugin) {
-            this.pauseImmediately();
+            const outputPlugin = this.activeOutputPlugin;
+
+            if (!outputPlugin.setVolume) {
+                this.pauseImmediately();
+                return;
+            }
+
+            const startedAt = performance.now();
+
+            const interval = window.setInterval(() => {
+                if (nonce !== this.fadeNonce || this.activeOutputPlugin !== outputPlugin) {
+                    window.clearInterval(interval);
+
+                    if (this.fadeInterval === interval) {
+                        this.fadeInterval = null;
+                    }
+
+                    return;
+                }
+
+                const progress = Math.min(1, (performance.now() - startedAt) / durationMs);
+                const nextVolume = this._volumeFraction * (1 - progress);
+
+                this.safelySetOutputPluginVolume(outputPlugin, nextVolume);
+
+                if (progress < 1) return;
+
+                window.clearInterval(interval);
+                this.fadeInterval = null;
+
+                void this.safelyPauseOutputPlugin(outputPlugin).then(() => {
+                    if (nonce !== this.fadeNonce || this.activeOutputPlugin !== outputPlugin) return;
+
+                    this.safelySeekOutputPlugin(outputPlugin, pauseAt);
+                    this.safelySetOutputPluginVolume(outputPlugin, this._volumeFraction);
+
+                    this.isPauseFadePending = false;
+                    this.syncMediaSessionState();
+                    this.notify();
+                    this.requestPlaybackStatusEmit();
+                });
+            }, 16);
+
+            this.fadeInterval = interval;
             return;
         }
 
         if (!this.gainNode || !this.ctx) {
-            this.audio.pause();
-            this.isPauseFadePending = false;
+            this.pauseImmediately();
             return;
         }
 
         const now = this.ctx.currentTime;
 
         this.gainNode.gain.cancelScheduledValues(now);
-        this.gainNode.gain.setValueAtTime(Math.max(this.gainNode.gain.value, MIN_GAIN), now);
+        this.gainNode.gain.setValueAtTime(
+            Math.max(this.gainNode.gain.value, MIN_GAIN),
+            now
+        );
         this.gainNode.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
 
-        window.setTimeout(() => {
+        this.fadeTimeout = window.setTimeout(() => {
             if (nonce !== this.fadeNonce) return;
+
+            this.fadeTimeout = null;
 
             this.audio.pause();
             this.audio.currentTime = pauseAt;
+
             this.isPauseFadePending = false;
+            this.syncMediaSessionState();
             this.notify();
             this.requestPlaybackStatusEmit();
         }, durationMs);
@@ -2558,6 +2684,7 @@ class AudioPlayer {
                         this.cancelPendingPlaybackFailure();
                         this.isLoading = false;
                         this.startEndWatcher();
+                        this.updateMediaSessionMetadata();
                         this.syncMediaSessionState();
                         this.notify();
                         this.requestPlaybackStatusEmit();
@@ -2752,6 +2879,7 @@ class AudioPlayer {
                     if (!sent || !this.accountRemotePlayback) return;
                     this.accountRemotePlayback.row.playback_status = nextType === 'pause' ? 'paused' : 'playing';
                     this.accountRemotePlayback.receivedAt = Date.now();
+                    this.syncMediaSessionState();
                     this.notify();
                 })
                 .catch(error => this.reportPluginError(`remote ${nextType}`, error));
@@ -2759,15 +2887,16 @@ class AudioPlayer {
         }
 
         if (this.activePlugin) {
-            this.safelyActivatePlugin(this.activePlugin);
             if (this.isPlaying) {
                 this.pauseWithOptionalFade();
             } else {
+                this.safelyActivatePlugin(this.activePlugin);
                 this.resumePlayback();
             }
             this.notify();
             return;
         }
+
         if (this.activeOutputPlugin) {
             if (this.isPlaying) {
                 this.pauseWithOptionalFade();
@@ -2777,7 +2906,9 @@ class AudioPlayer {
             this.notify();
             return;
         }
+
         if (!this.audio.src) return;
+
         if (!this.isPlaying) {
             this.resumePlayback();
         } else {
