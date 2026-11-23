@@ -1330,8 +1330,8 @@ class AudioPlayer {
                 this.resumePlayback();
             }],
             ['pause', () => {
-                if (this.isTransitioning) return;
-                this.pauseWithOptionalFade();
+                if (this.isTransitioning || !this.isPlaying) return;
+                this.togglePlay();
             }],
             ['nexttrack', () => this.skip()],
             ['previoustrack', () => this.prev()],
