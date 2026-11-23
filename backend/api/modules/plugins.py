@@ -35,7 +35,7 @@ def install_plugin_route(
         raise HTTPException(status_code=500, detail="Internal error during plugin installation")
 
 
-@router.delete("/remove")
+@router.api_route("/remove", methods=["POST", "DELETE"])
 def remove_plugin_route(
     package_id: str,
     target: Optional[str] = None,
@@ -63,7 +63,7 @@ def remove_plugin_route(
         raise HTTPException(status_code=500, detail="Internal error during plugin removal")
 
 
-@router.delete("/clear-data")
+@router.api_route("/clear-data", methods=["POST", "DELETE"])
 def clear_plugin_data_route(
     package_id: str,
     admin=Depends(verify_admin),
