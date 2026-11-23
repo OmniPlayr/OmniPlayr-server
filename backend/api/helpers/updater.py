@@ -196,21 +196,21 @@ def _hard_restart():
 
             update_cmd = (
                 f"cd '{host_compose_dir}' && "
-                f"docker compose down --remove-orphans --timeout 30 && "
-                f"docker rm -f omniplayr_db omniplayr_frontend omniplayr_backend omniplayr_pgadmin 2>/dev/null || true && "
                 f"docker compose build --no-cache backend frontend && "
+                f"docker compose down --remove-orphans --timeout 30 && "
+                f"(docker rm -f omniplayr_db omniplayr_frontend omniplayr_backend omniplayr_pgadmin 2>/dev/null || true) && "
                 f"docker compose up -d"
             )
 
             subprocess.Popen([
-                "docker", "run", "--rm",
+                "docker", "run", "-d", "--rm",
                 "--name", "omniplayr_updater",
                 "-v", "/var/run/docker.sock:/var/run/docker.sock",
                 "-v", f"{host_compose_dir}:{host_compose_dir}",
                 "--workdir", host_compose_dir,
                 "docker:latest",
                 "sh", "-c", update_cmd,
-            ])
+            ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             log("Detached update container spawned", "debug", "updater")
 
         else:

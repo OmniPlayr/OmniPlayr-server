@@ -918,7 +918,7 @@ function isDOMHookTargetElement(element: Element, selector: string): boolean {
     return element.matches(targetSelector);
 }
 
-const DOM_HOOK_OBSERVER_VERSION = 5;
+const DOM_HOOK_OBSERVER_VERSION = 6;
 
 export function startDOMHookObserver() {
     if (sharedState.observer && sharedState.observerVersion === DOM_HOOK_OBSERVER_VERSION) return;
@@ -992,7 +992,10 @@ export function startDOMHookObserver() {
         observedTargets = nextTargets;
 
         observedTargets.forEach(element => {
-            observer.observe(element, { childList: true });
+            observer.observe(element, {
+                childList: true,
+                subtree: element.hasAttribute('data-component')
+            });
         });
     };
 
@@ -1001,7 +1004,10 @@ export function startDOMHookObserver() {
     observedTargets = collectDOMHookObserverTargets();
 
     observedTargets.forEach(element => {
-        observer.observe(element, { childList: true });
+        observer.observe(element, {
+            childList: true,
+            subtree: element.hasAttribute('data-component')
+        });
     });
 }
 export function stopDOMHookObserver() {

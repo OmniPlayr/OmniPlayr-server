@@ -1,6 +1,7 @@
 @layer base {
     .info-bar-container {
         min-width: 350px;
+        max-width: 350px;
         margin-left: 10px;
         position: relative;
     }

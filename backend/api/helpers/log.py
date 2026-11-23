@@ -1,3 +1,4 @@
+
 import os
 import sys
 import inspect
@@ -8,11 +9,15 @@ from pathlib import Path
 import asyncio
 
 _lock = threading.Lock()
+_init_lock = threading.RLock()
+
 _log_dir: Path | None = None
 _retention_days: int = 7
 _max_file_size_mb: int = 10
+_logging_enabled: bool = False
 _initialized: bool = False
 _initializing: bool = False
+_DEV_MODE: bool = os.environ.get("DEV_MODE", "").strip().lower() == "true"
 
 LEVEL_COLORS = {
     "debug": "\033[38;5;244m",
@@ -27,6 +32,7 @@ LEVEL_COLORS = {
     "error_diagnostic": "\033[38;5;208m",
     "critical_diagnostic": "\033[38;5;199m",
 }
+
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
@@ -46,31 +52,104 @@ LEVEL_LABELS = {
 }
 
 _SKIP_MODULE_ROOTS = frozenset({
-    "uvicorn", "starlette", "fastapi", "anyio", "h11",
-    "asyncio", "threading", "concurrent", "importlib",
-    "encodings", "codecs", "abc", "typing",
+    "uvicorn",
+    "starlette",
+    "fastapi",
+    "anyio",
+    "h11",
+    "asyncio",
+    "threading",
+    "concurrent",
+    "importlib",
+    "encodings",
+    "codecs",
+    "abc",
+    "typing",
 })
-_SKIP_FILEPATH_PARTS = ("site-packages", "<frozen", "<string>")
+
+_SKIP_FILEPATH_PARTS = (
+    "site-packages",
+    "<frozen",
+    "<string>",
+)
+
+
+def _parse_bool(value, default=False) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)):
+        return value != 0
+
+    if isinstance(value, str):
+        value = value.strip().lower()
+
+        if value in {"true", "1", "yes", "on", "enabled"}:
+            return True
+
+        if value in {"false", "0", "no", "off", "disabled", ""}:
+            return False
+
+    return default
 
 
 def _init_from_config():
-    global _log_dir, _retention_days, _max_file_size_mb, _initialized, _initializing
-    if _initialized or _initializing:
+    global _log_dir
+    global _retention_days
+    global _max_file_size_mb
+    global _logging_enabled
+    global _initialized
+    global _initializing
+
+    if _initialized:
         return
-    _initializing = True
-    try:
-        from api.helpers.config import get_config
-        log_dir_str = get_config("logging.log_dir", Path("logs"))
-        _retention_days = get_config("logging.retention_days", 7)
-        _max_file_size_mb = get_config("logging.max_file_size_mb", 10)
-    except Exception:
-        log_dir_str = Path("logs")
+
+    with _init_lock:
+        if _initialized or _initializing:
+            return
+
+        _initializing = True
+        _logging_enabled = False
+        _log_dir = Path("logs")
         _retention_days = 7
         _max_file_size_mb = 10
-    finally:
-        _initializing = False
-    _log_dir = log_dir_str
-    _initialized = True
+
+        try:
+            try:
+                from api.helpers.config import get_config
+            except Exception:
+                get_config = None
+
+            if get_config is not None:
+                try:
+                    enabled = get_config("logging.enabled", False)
+                    _logging_enabled = _parse_bool(enabled, default=False)
+                except Exception:
+                    _logging_enabled = False
+
+                try:
+                    log_dir = get_config("logging.log_dir", Path("logs"))
+                    _log_dir = Path(log_dir) if log_dir else Path("logs")
+                except Exception:
+                    _log_dir = Path("logs")
+
+                try:
+                    _retention_days = int(
+                        get_config("logging.retention_days", 7)
+                    )
+                except Exception:
+                    _retention_days = 7
+
+                try:
+                    _max_file_size_mb = int(
+                        get_config("logging.max_file_size_mb", 10)
+                    )
+                except Exception:
+                    _max_file_size_mb = 10
+
+        finally:
+            _initializing = False
+            _initialized = True
 
 
 def _current_log_file() -> Path:
@@ -88,13 +167,17 @@ def _rotate_if_needed(path: Path):
 def _purge_old_logs():
     if _log_dir is None:
         return
+
     cutoff = datetime.now() - timedelta(days=_retention_days)
-    for f in _log_dir.glob("*.log"):
+
+    for file in _log_dir.glob("*.log"):
         try:
-            date_str = f.stem[:10]
+            date_str = file.stem[:10]
             file_date = datetime.strptime(date_str, "%Y-%m-%d")
+
             if file_date < cutoff:
-                f.unlink()
+                file.unlink()
+
         except Exception:
             pass
 
@@ -102,40 +185,58 @@ def _purge_old_logs():
 def _build_call_chain() -> list[str]:
     this_module = __name__
     chain = []
+
     for entry in inspect.stack()[2:22]:
         module = entry[0].f_globals.get("__name__", "")
         filepath = entry[1]
+
         if module == this_module:
             continue
+
         if module.split(".")[0] in _SKIP_MODULE_ROOTS:
             continue
+
         if any(part in filepath for part in _SKIP_FILEPATH_PARTS):
             continue
+
         filename = Path(filepath).name
         lineno = entry[2]
+
         chain.append(f"{filename}:{lineno}")
+
     chain.reverse()
+
     return chain[:8] if chain else ["unknown"]
 
 
 def _parse_log_line(line: str) -> dict | None:
     try:
         parts = line.split(" ", 3)
+
         if len(parts) < 4:
             return None
+
         dt_str = f"{parts[0]} {parts[1]}"
         datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+
         level_raw = parts[2].strip("[]")
         rest = parts[3]
+
         src_end = rest.find("] ")
+
         if rest.startswith("[") and src_end != -1:
             chain_str = rest[1:src_end]
             raw_msg = rest[src_end + 2:]
         else:
             chain_str = "unknown"
             raw_msg = rest
+
         msg = raw_msg.replace("\\n", "\n").replace("\\\\", "\\")
-        call_chain = [f for f in chain_str.split(">") if f] or ["unknown"]
+
+        call_chain = [
+            item for item in chain_str.split(">") if item
+        ] or ["unknown"]
+
         return {
             "timestamp": dt_str,
             "level": level_raw,
@@ -143,21 +244,28 @@ def _parse_log_line(line: str) -> dict | None:
             "call_chain": call_chain,
             "message": msg,
         }
+
     except Exception:
         return None
 
 
-_DEV_MODE: bool = os.environ.get("DEV_MODE", "").lower() == "true"
-
-
-def log(message: str, level: str = "info", source: str | None = None) -> None:
+def log(
+    message: str,
+    level: str = "info",
+    source: str | None = None,
+) -> None:
     """Write a structured OmniPlayr log message to console and log files."""
+
+    level = level.lower()
+
     if level == "debug" and not _DEV_MODE:
         return
 
     _init_from_config()
 
-    level = level.lower()
+    if not _logging_enabled:
+        return
+
     label = LEVEL_LABELS.get(level, level.upper()[:3])
     color = LEVEL_COLORS.get(level, "")
 
@@ -177,7 +285,11 @@ def log(message: str, level: str = "info", source: str | None = None) -> None:
     )
 
     encoded_msg = message.replace("\\", "\\\\").replace("\n", "\\n")
-    file_line = f"{date_str} {time_str} [{label}] [{chain_str}] {encoded_msg}\n"
+
+    file_line = (
+        f"{date_str} {time_str} "
+        f"[{label}] [{chain_str}] {encoded_msg}\n"
+    )
 
     print(console_line, flush=True)
 
@@ -185,80 +297,133 @@ def log(message: str, level: str = "info", source: str | None = None) -> None:
         return
 
     with _lock:
-        log_file = _current_log_file()
-        _rotate_if_needed(log_file)
         try:
             _log_dir.mkdir(parents=True, exist_ok=True)
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(file_line)
-        except Exception as exc:
-            print(f"[LOG WRITE ERROR] {exc}", file=sys.stderr, flush=True)
-        _purge_old_logs()
+
+            log_file = _current_log_file()
+
+            _rotate_if_needed(log_file)
+
+            with open(log_file, "a", encoding="utf-8") as file:
+                file.write(file_line)
+
+            _purge_old_logs()
+
+        except Exception:
+            pass
 
 
-def log_exception(exc: Exception, message: str = "", source: str | None = None) -> None:
+def log_exception(
+    exc: Exception,
+    message: str = "",
+    source: str | None = None,
+) -> None:
     """Log an exception with optional context and traceback information."""
+
     tb = traceback.format_exc()
     parts: list[str] = []
+
     if message:
         parts.append(message)
+
     parts.append(f"{type(exc).__name__}: {exc}")
+
     if tb and tb.strip() not in ("NoneType: None", "None"):
         parts.append(tb.strip())
+
     log("\n".join(parts), level="error", source=source)
 
 
 def setup_exception_hook() -> None:
     """Install a process-wide hook for uncaught exceptions."""
+
     _original = sys.excepthook
 
     def _hook(exc_type, exc_value, exc_tb):
-        tb_text = "".join(traceback.format_tb(exc_tb)).strip()
+        tb_text = "".join(
+            traceback.format_tb(exc_tb)
+        ).strip()
+
         msg = f"Unhandled {exc_type.__name__}: {exc_value}"
+
         if tb_text:
             msg = f"{msg}\n{tb_text}"
+
         log(msg, level="critical", source="excepthook")
+
         try:
             from api.helpers.fatal_error import record_fatal_state
+
             record_fatal_state(
                 "OP-BACKEND-RUNTIME-UNHANDLED-001",
                 "Backend stopped because of an unhandled exception",
                 exc_value,
                 "runtime",
             )
+
         except Exception:
             pass
+
         _original(exc_type, exc_value, exc_tb)
 
     sys.excepthook = _hook
-    
+
+
 def setup_thread_exception_hook() -> None:
     """Install a hook for uncaught exceptions in Python threads."""
+
     _original = threading.excepthook
 
     def _hook(args):
-        tb_text = "".join(traceback.format_tb(args.exc_traceback)).strip()
-        msg = f"Unhandled {args.exc_type.__name__} in thread '{args.thread.name}': {args.exc_value}"
+        tb_text = "".join(
+            traceback.format_tb(args.exc_traceback)
+        ).strip()
+
+        msg = (
+            f"Unhandled {args.exc_type.__name__} "
+            f"in thread '{args.thread.name}': {args.exc_value}"
+        )
+
         if tb_text:
             msg = f"{msg}\n{tb_text}"
+
         log(msg, level="critical", source="threading")
+
         if _original:
             _original(args)
 
     threading.excepthook = _hook
 
 
-def setup_asyncio_exception_handler(loop: asyncio.AbstractEventLoop) -> None:
+def setup_asyncio_exception_handler(
+    loop: asyncio.AbstractEventLoop,
+) -> None:
     """Install an asyncio exception handler on an event loop."""
+
     def _handler(loop, context):
+        _init_from_config()
+
+        if not _logging_enabled:
+            return
+
         exc = context.get("exception")
         msg = context.get("message", "Unhandled asyncio error")
+
         if exc:
-            tb_text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)).strip()
+            tb_text = "".join(
+                traceback.format_exception(
+                    type(exc),
+                    exc,
+                    exc.__traceback__,
+                )
+            ).strip()
+
             msg = f"{msg}\n{tb_text}"
+
         log(msg, level="critical", source="asyncio")
 
     loop.set_exception_handler(_handler)
+
 
 def get_logs(
     since_hours: int = 24,
@@ -267,65 +432,110 @@ def get_logs(
     since: str | None = None,
 ) -> dict:
     """Return recent parsed log entries with basic pagination support."""
+
     _init_from_config()
-    if _log_dir is None:
-        return {"entries": [], "has_more": False}
+
+    if not _logging_enabled or _log_dir is None:
+        return {
+            "entries": [],
+            "has_more": False,
+        }
 
     cutoff = datetime.now() - timedelta(hours=since_hours)
+
     before_dt = None
     since_dt = None
 
     if before:
         try:
-            before_dt = datetime.strptime(before, "%Y-%m-%d %H:%M:%S")
+            before_dt = datetime.strptime(
+                before,
+                "%Y-%m-%d %H:%M:%S",
+            )
         except Exception:
             pass
+
     if since:
         try:
-            since_dt = datetime.strptime(since, "%Y-%m-%d %H:%M:%S")
+            since_dt = datetime.strptime(
+                since,
+                "%Y-%m-%d %H:%M:%S",
+            )
         except Exception:
             pass
 
     all_entries: list[dict] = []
+
     log_files = sorted(_log_dir.glob("*.log"))
 
     for log_file in log_files:
         try:
             date_str = log_file.stem[:10]
-            file_date = datetime.strptime(date_str, "%Y-%m-%d")
-            if file_date < cutoff.replace(hour=0, minute=0, second=0, microsecond=0):
+
+            file_date = datetime.strptime(
+                date_str,
+                "%Y-%m-%d",
+            )
+
+            if file_date < cutoff.replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            ):
                 continue
+
         except Exception:
             continue
 
         try:
-            with open(log_file, "r", encoding="utf-8") as f:
-                for line in f:
+            with open(log_file, "r", encoding="utf-8") as file:
+                for line in file:
                     line = line.rstrip("\n")
+
                     if not line:
                         continue
+
                     entry = _parse_log_line(line)
+
                     if entry is None:
                         continue
+
                     try:
-                        dt = datetime.strptime(entry["timestamp"], "%Y-%m-%d %H:%M:%S")
+                        dt = datetime.strptime(
+                            entry["timestamp"],
+                            "%Y-%m-%d %H:%M:%S",
+                        )
                     except Exception:
                         continue
+
                     if dt < cutoff:
                         continue
+
                     if before_dt is not None and dt >= before_dt:
                         continue
+
                     if since_dt is not None and dt <= since_dt:
                         continue
+
                     all_entries.append(entry)
+
         except Exception:
             continue
 
-    all_entries.sort(key=lambda e: e["timestamp"])
+    all_entries.sort(key=lambda entry: entry["timestamp"])
 
     if since_dt is not None:
-        return {"entries": all_entries, "has_more": False}
+        return {
+            "entries": all_entries,
+            "has_more": False,
+        }
 
     has_more = len(all_entries) > limit
+
     entries = all_entries[-limit:] if has_more else all_entries
-    return {"entries": entries, "has_more": has_more}
+
+    return {
+        "entries": entries,
+        "has_more": has_more,
+    }
