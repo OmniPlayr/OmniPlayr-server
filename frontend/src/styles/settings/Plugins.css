@@ -171,6 +171,11 @@
     color: var(--clr-text-a0);
 }
 
+.plugin-menu-item.danger,
+.plugin-menu-item.danger .plugin-menu-item-icon {
+    color: var(--clr-danger-a10);
+}
+
 .plugin-menu-item-name {
     font-size: 16px;
     font-weight: 500;
@@ -462,4 +467,90 @@
     position: absolute;
     top: -10px;
     right: -5px;
+}
+
+.delete-plugin,
+.remove-plugin-data {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.delete-plugin__message,
+.remove-plugin-data__message {
+    color: var(--clr-text-a30);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.delete-plugin__message p,
+.remove-plugin-data__message p {
+    margin: 0;
+}
+
+.delete-plugin__components {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.delete-plugin__components-title {
+    margin: 0;
+    color: var(--clr-text-a10);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.delete-plugin__component-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.delete-plugin__component {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 5px;
+    border-radius: 6px;
+    color: var(--clr-text-a30);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.delete-plugin__component:hover {
+    background-color: var(--clr-popup-a20);
+    color: var(--clr-text-a10);
+}
+
+.delete-plugin__checkbox {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin: 0;
+    accent-color: var(--clr-primary-a0);
+    cursor: pointer;
+}
+
+.delete-plugin__component-label {
+    flex: 1;
+    cursor: pointer;
+}
+
+.remove-plugin-data {
+    gap: 12px;
+}
+
+@media screen and (max-width: 470px) {
+    .delete-plugin,
+    .remove-plugin-data {
+        gap: 12px;
+    }
 }

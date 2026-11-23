@@ -367,6 +367,18 @@ input.switch:checked::after {
     color: var(--clr-text-light-a0);
 }
 
+.op-popup-button.danger-secondary {
+    border: 1px solid var(--clr-danger-a10);
+    color: var(--clr-text-a0);
+    background-color: transparent;
+}
+
+.op-popup-button.danger-secondary:hover {
+    background-color: var(--clr-danger-a0);
+    border: 1px solid var(--clr-danger-a10);
+    color: var(--clr-text-light-a0);
+}
+
 @media screen and (max-width: 768px) {
     .op-popup-container {
         bottom: 60px;

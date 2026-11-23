@@ -6,7 +6,7 @@ import { useIsMobile } from "../main";
 
 interface PopupButton {
     label: string;
-    type: 'primary' | 'secondary' | 'danger';
+    type: 'primary' | 'secondary' | 'danger' | 'danger-secondary';
     onClick: () => void;
 }
 

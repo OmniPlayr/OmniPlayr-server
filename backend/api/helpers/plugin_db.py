@@ -17,21 +17,21 @@ PROTECTED_TABLES: dict[str, ProtectionLevel] = {
     "update_cache": "read",
     "backup_codes": "read",
     "current_playback": "write",
+    "plugin_table_ownership": "read",
 }
 
 _ownership: dict[str, str] = {}
 _grants: dict[str, dict[str, str]] = {}
+_OWNERSHIP_TABLE = "plugin_table_ownership"
 
 
 def set_table_protection(table: str, level: ProtectionLevel) -> None:
-    """Set the plugin access protection level for a database table."""
     old = PROTECTED_TABLES.get(table, "none")
     log(f"set_table_protection: {table!r} {old!r} -> {level!r}", "debug", "plugins")
     PROTECTED_TABLES[table] = level
 
 
 def remove_table_protection(table: str) -> None:
-    """Remove plugin access protection from a database table."""
     if table not in PROTECTED_TABLES:
         log(f"remove_table_protection: {table!r} has no protection, skipping", "debug", "plugins")
         return
@@ -39,8 +39,40 @@ def remove_table_protection(table: str) -> None:
     log(f"remove_table_protection: removed {table!r} (was {old!r})", "debug", "plugins")
 
 
+def _ensure_ownership_table(cur) -> None:
+    cur.execute(
+        f'''CREATE TABLE IF NOT EXISTS "{_OWNERSHIP_TABLE}" (
+            table_name TEXT PRIMARY KEY,
+            plugin_key TEXT NOT NULL
+        )'''
+    )
+
+
+def _quote_table(table: str) -> str:
+    if not is_safe_sql_identifier(table):
+        raise ValueError(f"Invalid table name: {table!r}")
+    return f'"{table}"'
+
+
+def _get_persisted_owner(table: str) -> str | None:
+    if not is_safe_sql_identifier(table):
+        raise ValueError(f"Invalid table name: {table!r}")
+
+    with get_conn() as conn:
+        cur = conn.cursor()
+        _ensure_ownership_table(cur)
+        cur.execute(
+            f'SELECT plugin_key FROM "{_OWNERSHIP_TABLE}" WHERE table_name = %s',
+            (table,),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row["plugin_key"] if row else None
+
+
 class PluginDB:
     """Plugin-scoped database helper enforcing table grants and protections."""
+
     def __init__(self, plugin_key: str, grants: dict[str, str]):
         self._plugin_key = plugin_key
         self._grants = grants
@@ -86,7 +118,6 @@ class PluginDB:
         order_by: str | None = None,
         limit: int | None = None,
     ) -> list[dict]:
-        """Fetch rows from an accessible table with optional filtering and ordering."""
         log(f"[{self._plugin_key}] fetch: table={table!r} columns={columns!r} where={where!r} order_by={order_by!r} limit={limit!r}", "debug", "plugins")
 
         self._assert_access(table, "read")
@@ -129,7 +160,6 @@ class PluginDB:
             return rows
 
     def fetch_one(self, table: str, where: dict[str, Any], columns: list[str] | None = None) -> dict | None:
-        """Fetch the first row matching a table filter."""
         log(f"[{self._plugin_key}] fetch_one: table={table!r} where={where!r}", "debug", "plugins")
         results = self.fetch(table, where=where, columns=columns, limit=1)
         result = results[0] if results else None
@@ -137,7 +167,6 @@ class PluginDB:
         return result
 
     def insert(self, table: str, data: dict[str, Any]) -> dict:
-        """Insert a row into a writable table and return the inserted row."""
         log(f"[{self._plugin_key}] insert: table={table!r} cols={list(data.keys())}", "debug", "plugins")
 
         self._assert_access(table, "write")
@@ -162,7 +191,6 @@ class PluginDB:
             return result
 
     def update(self, table: str, data: dict[str, Any], where: dict[str, Any]) -> int:
-        """Update rows in a writable table and return the affected row count."""
         log(f"[{self._plugin_key}] update: table={table!r} set={list(data.keys())} where={list(where.keys())}", "debug", "plugins")
 
         self._assert_access(table, "write")
@@ -194,7 +222,6 @@ class PluginDB:
             return count
 
     def delete(self, table: str, where: dict[str, Any]) -> int:
-        """Delete rows from a writable table and return the affected row count."""
         log(f"[{self._plugin_key}] delete: table={table!r} where={list(where.keys())}", "debug", "plugins")
 
         self._assert_access(table, "write")
@@ -220,7 +247,6 @@ class PluginDB:
             return count
 
     def count(self, table: str, where: dict[str, Any] | None = None) -> int:
-        """Count rows in an accessible table with an optional filter."""
         log(f"[{self._plugin_key}] count: table={table!r} where={where!r}", "debug", "plugins")
 
         self._assert_access(table, "read")
@@ -246,15 +272,16 @@ class PluginDB:
 
     @property
     def accessible_tables(self) -> dict[str, str]:
-        """Return the table grants available to this plugin."""
         return dict(self._grants)
 
 
 def _migrate_plugin_tables(plugin_key: str, own_tables: dict[str, dict[str, str]]) -> None:
     log(f"[{plugin_key}] migrate: starting for tables {list(own_tables.keys())}", "debug", "plugins")
+    migrated_tables: list[str] = []
 
     with get_conn() as conn:
         cur = conn.cursor()
+        _ensure_ownership_table(cur)
 
         for table, columns in own_tables.items():
             if not is_safe_sql_identifier(table):
@@ -269,13 +296,26 @@ def _migrate_plugin_tables(plugin_key: str, own_tables: dict[str, dict[str, str]
                 log(f"[{plugin_key}] migrate: ownership conflict on {table!r}, owned by {existing_owner!r}", "debug", "plugins")
                 raise PermissionError(f"Table {table!r} is already owned by plugin {existing_owner!r}")
 
-            cur.execute(f"CREATE TABLE IF NOT EXISTS {table} (id SERIAL PRIMARY KEY)")
+            cur.execute(
+                f'SELECT plugin_key FROM "{_OWNERSHIP_TABLE}" WHERE table_name = %s',
+                (table,),
+            )
+            owner_row = cur.fetchone()
+            persisted_owner = owner_row["plugin_key"] if owner_row else None
+            if persisted_owner and persisted_owner != plugin_key:
+                log(f"[{plugin_key}] migrate: persistent ownership conflict on {table!r}, owned by {persisted_owner!r}", "debug", "plugins")
+                raise PermissionError(f"Table {table!r} is already owned by plugin {persisted_owner!r}")
 
-            cur.execute("""
+            cur.execute(f"CREATE TABLE IF NOT EXISTS {_quote_table(table)} (id SERIAL PRIMARY KEY)")
+
+            cur.execute(
+                """
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_name = %s
-            """, (table,))
+                """,
+                (table,),
+            )
             existing_cols = {row["column_name"] for row in cur.fetchall()}
             log(f"[{plugin_key}] migrate: {table!r} existing cols={existing_cols}", "debug", "plugins")
 
@@ -285,12 +325,105 @@ def _migrate_plugin_tables(plugin_key: str, own_tables: dict[str, dict[str, str]
                 if ";" in definition:
                     raise ValueError(f"Invalid column definition for {table}.{col}")
                 if col not in existing_cols:
-                    cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
+                    cur.execute(f"ALTER TABLE {_quote_table(table)} ADD COLUMN {col} {definition}")
                     log(f"Plugin {plugin_key!r}: added column {table}.{col}", "info", "plugins")
+
+            cur.execute(
+                f'''INSERT INTO "{_OWNERSHIP_TABLE}" (table_name, plugin_key)
+                    VALUES (%s, %s)
+                    ON CONFLICT (table_name) DO NOTHING''',
+                (table, plugin_key),
+            )
+            cur.execute(
+                f'SELECT plugin_key FROM "{_OWNERSHIP_TABLE}" WHERE table_name = %s',
+                (table,),
+            )
+            confirmed_owner = cur.fetchone()
+            if not confirmed_owner or confirmed_owner["plugin_key"] != plugin_key:
+                raise PermissionError(f"Table {table!r} is already owned by plugin {confirmed_owner['plugin_key'] if confirmed_owner else 'another plugin'!r}")
+            migrated_tables.append(table)
 
         conn.commit()
         cur.close()
-        log(f"[{plugin_key}] migrate: completed", "debug", "plugins")
+
+    for table in migrated_tables:
+        _ownership[table] = plugin_key
+
+    log(f"[{plugin_key}] migrate: completed", "debug", "plugins")
+
+
+def get_plugin_owned_tables(plugin_key: str) -> list[str]:
+    if not isinstance(plugin_key, str) or not plugin_key.strip():
+        raise ValueError("A valid plugin key is required")
+
+    with get_conn() as conn:
+        cur = conn.cursor()
+        _ensure_ownership_table(cur)
+        cur.execute(
+            f'SELECT table_name FROM "{_OWNERSHIP_TABLE}" WHERE plugin_key = %s ORDER BY table_name',
+            (plugin_key,),
+        )
+        tables = [row["table_name"] for row in cur.fetchall()]
+        conn.commit()
+
+    memory_tables = [table for table, owner in _ownership.items() if owner == plugin_key]
+    return sorted(set(tables) | set(memory_tables))
+
+
+def clear_plugin_data(plugin_key: str) -> list[str]:
+    tables = get_plugin_owned_tables(plugin_key)
+    if not tables:
+        log(f"[{plugin_key}] clear data: no owned tables found", "info", "plugins")
+        return []
+
+    table_clause = ", ".join(_quote_table(table) for table in tables)
+    log(f"[{plugin_key}] clear data: truncating tables {tables}", "info", "plugins")
+
+    with get_conn() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute(f"TRUNCATE TABLE {table_clause} RESTART IDENTITY")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cur.close()
+
+    log(f"[{plugin_key}] clear data: cleared {len(tables)} table(s)", "info", "plugins")
+    return tables
+
+
+def delete_plugin_data(plugin_key: str) -> list[str]:
+    tables = get_plugin_owned_tables(plugin_key)
+
+    with get_conn() as conn:
+        cur = conn.cursor()
+        try:
+            if tables:
+                table_clause = ", ".join(_quote_table(table) for table in tables)
+                log(f"[{plugin_key}] delete data: dropping tables {tables}", "info", "plugins")
+                cur.execute(f"DROP TABLE IF EXISTS {table_clause}")
+
+            _ensure_ownership_table(cur)
+            cur.execute(
+                f'DELETE FROM "{_OWNERSHIP_TABLE}" WHERE plugin_key = %s',
+                (plugin_key,),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cur.close()
+
+    for table in tables:
+        if _ownership.get(table) == plugin_key:
+            _ownership.pop(table, None)
+
+    _grants.pop(plugin_key, None)
+    log(f"[{plugin_key}] delete data: removed {len(tables)} owned table(s)", "info", "plugins")
+    return tables
 
 
 def request_db_access(
@@ -300,27 +433,15 @@ def request_db_access(
     read: list[str] | None = None,
     readwrite: list[str] | None = None,
 ) -> PluginDB:
-    """Request database table grants for a backend plugin."""
     log(f"[{plugin_key}] request_db_access: own={list(own.keys()) if own else None} read={read!r} readwrite={readwrite!r}", "debug", "plugins")
 
     grants: dict[str, str] = {}
 
     if own:
+        _migrate_plugin_tables(plugin_key, own)
         for table in own:
-            if table in PROTECTED_TABLES:
-                log(f"[{plugin_key}] request_db_access: cannot own protected table {table!r}", "error", "plugins")
-                raise PermissionError(f"Cannot own protected table {table!r}")
-
-            existing_owner = _ownership.get(table)
-            if existing_owner and existing_owner != plugin_key:
-                log(f"[{plugin_key}] request_db_access: ownership conflict on {table!r}", "error", "plugins")
-                raise PermissionError(f"Table {table!r} is already owned by plugin {existing_owner!r}")
-
-            _ownership[table] = plugin_key
             grants[table] = "readwrite"
             log(f"[{plugin_key}] request_db_access: owns {table!r}", "debug", "plugins")
-
-        _migrate_plugin_tables(plugin_key, own)
 
     if read:
         for table in read:
@@ -349,7 +470,7 @@ def request_db_access(
                 grants[table] = "read"
                 continue
 
-            owner = _ownership.get(table)
+            owner = _ownership.get(table) or _get_persisted_owner(table)
             if owner and owner != plugin_key:
                 log(f"[{plugin_key}] request_db_access: {table!r} owned by {owner!r}, downgrading to read", "warning", "plugins")
                 grants[table] = "read"
